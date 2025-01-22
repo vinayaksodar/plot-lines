@@ -1,0 +1,106 @@
+/* Reset some default styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #000000;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    min-height: 100vh;
+  }
+  
+  .container {
+    width: 100%;
+    /* max-width: 1000px; */ 
+    margin: 0 auto;
+    background-color: black;
+    padding: 5px;
+    /* border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); */
+  }
+  
+  /* Header styles */
+  .header {
+    display: flex;
+    align-items: flex-start; /* Align logo and document name to the top */
+    gap: 20px;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+  }
+  
+  .header-container {
+    display: flex;
+    gap: 15px;
+    align-items: flex-start;
+  }
+  
+  .logo-container {
+    display: flex;
+    justify-content: center;  /* Horizontally center */
+    align-items: center;      /* Vertically center */
+              /* Optional: gives the container some height */
+  }
+  .logo {
+    max-width: 40px;   /* Optional: ensures the image is responsive */
+    height: auto;      /* Optional: maintains the aspect ratio */
+  }
+  
+  .doc-menu-container {
+    display: flex;
+    flex-direction: column; /* Stack document title and menu vertically */
+  }
+  
+  .doc-title {
+    /* font-size: 1.6rem; */
+    color: white;
+    margin-bottom: 5px; /* Space between document name and menu items */
+  }
+  
+  .menu {
+    display: flex;
+    gap: 15px;
+  }
+  
+  .menu-item {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: #007bff;
+    cursor: pointer;
+    
+    transition: color 0.2s ease;
+  }
+  
+  .menu-item:hover {
+    color: #0056b3;
+  }
+  
+  /* Editor Styles */
+  .editor-container {
+    margin-top: 20px;
+  }
+  
+  textarea {
+    width: 100%;
+    height: 400px;
+    padding: 15px;
+    font-size: 16px;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: black;
+    color: white;
+    border: 1px solid black;
+    border-radius: 5px;
+    resize: none;
+    outline: none;
+  }
+  
+  textarea:focus {
+    border-color: #007bff;
+  }
+  
