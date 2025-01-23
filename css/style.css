@@ -55,12 +55,25 @@
     display: flex;
     flex-direction: column; /* Stack document title and menu vertically */
   }
-  
+
   .doc-title {
-    /* font-size: 1.6rem; */
+    font-size: 1.6rem; /* Added font size */
     color: white;
     margin-bottom: 5px; /* Space between document name and menu items */
-  }
+    cursor: pointer; /* Make it obvious that it’s editable */
+}
+
+    /* Apply styles to the input inside .doc-title */
+    .doc-title input {
+        font-size: 1.6rem; /* Match the font size */
+        color: white; /* Make the input text color the same as the title */
+        background-color: transparent; /* Make the input background transparent */
+       
+        box-sizing: border-box;
+        width: 100%; /* Make it take the full width of the container */
+        padding: 0; /* Remove padding to align text with the document title */
+    }
+
   
   .menu {
     display: flex;
@@ -112,7 +125,7 @@
   align-items: center;
   gap: 20px;
   padding: 10px 20px;
-  background-color: white;
+  background-color: rgb(0, 0, 0);
   border-radius: 50px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
@@ -137,7 +150,7 @@
 }
 
 .icon-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .icon-btn img {
@@ -151,7 +164,7 @@
 }
 
 .icon-btn[title="Scaling"] {
-  background-color: #eaeaea;
+  background-color: #212121;
   padding: 4px 12px;
   border-radius: 20px;
 }
