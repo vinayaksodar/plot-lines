@@ -1,0 +1,22 @@
+/* Wrapper for screenplay */
+.screenplay-wrapper {
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto; /* Allow vertical scrolling */
+  gap: 20px;
+  background-color: #2d2a2a;
+}
+
+/* Screenplay page styling */
+.screenplay-page {
+  width: 8.5in;
+  height: 11in;
+  background: rgb(0, 0, 0);
+  padding: 1in 1in 1in 1.5in; /* Margins: Left 1.5in, Right 1in, Top/Bottom 1in */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  position: relative;
+}
