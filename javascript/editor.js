@@ -12,59 +12,123 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const wrapper = document.querySelector(".screenplay-wrapper");
 
-      // Function to create a new screenplay page
       const createNewPage = () => {
         const newPage = document.createElement("div");
         newPage.classList.add("screenplay-page");
         newPage.setAttribute("contenteditable", "true");
-        newPage.innerHTML = "<p><br></p>"; // Empty paragraph to allow typing
+        newPage.innerHTML = "<p><br></p>";
         wrapper.appendChild(newPage);
         return newPage;
       };
 
-      // Function to handle overflowing text
+      function isEmpty(page) {
+        // Check if the page contains only empty text nodes
+        const childNodes = Array.from(page.childNodes);
+        return childNodes.every(
+          (node) =>
+            node.nodeType === Node.TEXT_NODE && node.nodeValue.trim() === ""
+        );
+      }
+
       const handleOverflow = (page) => {
-        while (page.scrollHeight > page.clientHeight) {
-          // Create or get the next page
-          let nextPage = page.nextElementSibling;
-          if (!nextPage) {
-            nextPage = createNewPage();
+        if (page.scrollHeight <= page.clientHeight) {
+          return; // No overflow
+        }
+
+        const children = Array.from(page.childNodes);
+        let overflowPoint = children.length;
+
+        const tempContainer = document.createElement("div");
+        tempContainer.style.position = "absolute";
+        tempContainer.style.visibility = "hidden";
+        document.body.appendChild(tempContainer);
+
+        for (let i = 0; i < children.length; i++) {
+          tempContainer.appendChild(children[i].cloneNode(true));
+          if (tempContainer.scrollHeight > page.clientHeight) {
+            overflowPoint = i;
+            break;
           }
+        }
 
-          // Find the overflowing content
-          const children = Array.from(page.childNodes);
-          let overflowIndex = children.length;
+        document.body.removeChild(tempContainer);
 
-          // Determine which child causes the overflow
-          for (let i = 0; i < children.length; i++) {
-            const child = children[i];
-            page.appendChild(child); // Temporarily add to measure
-            if (page.scrollHeight > page.clientHeight) {
-              overflowIndex = i;
-              page.removeChild(child);
-              break;
-            }
+        const nextPage = page.nextElementSibling || createNewPage();
+        const overflowContent = children.slice(overflowPoint);
+        overflowContent.forEach((child) => nextPage.appendChild(child));
+
+        page.normalize();
+        nextPage.normalize();
+
+        // Find the last child node of the current page
+        const lastChild = page.lastChild;
+
+        // Focus on the next page
+        nextPage.focus();
+
+        // Create a range and select the end of the next page's content
+        const range = document.createRange();
+        const selection = window.getSelection();
+        range.selectNodeContents(nextPage);
+        range.collapse(false); // Collapse to the end of the range
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        // Check if the current page is empty
+        if (isEmpty(page)) {
+          const previousPage = page.previousElementSibling;
+          page.remove(); // Remove the empty page
+
+          if (previousPage) {
+            previousPage.focus();
+
+            const range = document.createRange();
+            const selection = window.getSelection();
+            range.selectNodeContents(previousPage);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
           }
-
-          // Move overflowing content to the next page
-          const overflowContent = children.slice(overflowIndex);
-          overflowContent.forEach((child) => nextPage.appendChild(child));
-
-          page.normalize(); // Clean up empty text nodes
-          nextPage.normalize(); // Clean up empty text nodes
-
-          // Recurse for the next page
-          handleOverflow(nextPage);
         }
       };
 
-      // Event listener to monitor content changes
       wrapper.addEventListener("input", () => {
         const pages = document.querySelectorAll(".screenplay-page");
-        pages.forEach((page) => handleOverflow(page));
+        pages.forEach((page) => {
+          requestAnimationFrame(() => {
+            handleOverflow(page);
+          });
+        });
       });
 
-      // Initialize with the first page
+      wrapper.addEventListener("keydown", (event) => {
+        if (event.key === "Backspace") {
+          const activePage = document.activeElement;
+          if (
+            activePage &&
+            activePage.classList.contains("screenplay-page") &&
+            activePage.previousElementSibling
+          ) {
+            // Backspace pressed on a non-first page
+            if (isEmpty(activePage)) {
+              const previousPage = activePage.previousElementSibling;
+              activePage.remove(); // Remove the empty page
+
+              if (previousPage) {
+                previousPage.focus();
+
+                const range = document.createRange();
+                const selection = window.getSelection();
+                range.selectNodeContents(previousPage);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+              }
+            }
+          }
+        }
+      });
+
       if (!document.querySelector(".screenplay-page")) {
         createNewPage();
       }
