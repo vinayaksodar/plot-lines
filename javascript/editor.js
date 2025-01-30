@@ -41,6 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const tempContainer = document.createElement("div");
         tempContainer.style.position = "absolute";
         tempContainer.style.visibility = "hidden";
+        tempContainer.classList.add("screenplay-page");
+        tempContainer.setAttribute("contenteditable", "true");
         document.body.appendChild(tempContainer);
 
         for (let i = 0; i < children.length; i++) {
@@ -51,11 +53,81 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        document.body.removeChild(tempContainer);
-
         const nextPage = page.nextElementSibling || createNewPage();
-        const overflowContent = children.slice(overflowPoint);
-        overflowContent.forEach((child) => nextPage.appendChild(child));
+        first_overflowing_node = tempContainer.removeChild(
+          tempContainer.lastChild
+        );
+        let wordOverflowPoint = 0;
+        // Check if the first overflow node is a text node and its not empty
+        if (first_overflowing_node.textContent.trim() !== "") {
+          // Find the number of words in the first overflow point that can still fit in the current page
+          const words = first_overflowing_node.textContent.split(/\s+/);
+          for (let i = 1; i <= words.length; i++) {
+            //Create a new node with the first (words.length -i words) words
+            const truncatedText = words.slice(0, words.length - i).join(" ");
+
+            // Clone the original node to preserve its attributes and styles
+            const newNode = first_overflowing_node.cloneNode(false);
+            newNode.textContent = truncatedText;
+
+            // Append the cloned node to the temporary container
+            tempContainer.appendChild(newNode);
+
+            // Check if the new node fits in the container
+            if (tempContainer.scrollHeight <= page.clientHeight) {
+              // If it fits, break the loop and keep this node
+              wordOverflowPoint = i;
+              break;
+            } else {
+              // If it doesn't fit, remove the node and try with fewer words
+              tempContainer.removeChild(newNode);
+            }
+          }
+          remaining_overflowing_node = first_overflowing_node.cloneNode(false);
+          remaining_overflowing_node.textContent = words
+            .slice(words.length - wordOverflowPoint, words.length)
+            .join(" ");
+
+          const fittingText = words
+            .slice(0, words.length - wordOverflowPoint)
+            .join(" ");
+          newNode = first_overflowing_node.cloneNode(false);
+          newNode.textContent = fittingText;
+          page.appendChild(newNode);
+
+          nextPage.prepend(remaining_overflowing_node);
+          //Add the cursor at the end of the first overflowing node
+          const range = document.createRange();
+          const selection = window.getSelection();
+
+          console.log("Focus Node:", selection.focusNode);
+          console.log("Focus Node Parent:", selection.focusNode.parentNode);
+          console.log("Page Last Child:", page.lastChild);
+
+          if (page.lastChild.contains(selection.focusNode)) {
+            range.selectNodeContents(nextPage.firstChild);
+            range.collapse(true); // Collapse to the end of the range
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+          // move all the nodes after the first node that overflows to the next page
+          const overflowContent = children.slice(overflowPoint + 1);
+          overflowContent.forEach((child) => nextPage.prepend(child));
+        } else {
+          overflowContent = children.slice(overflowPoint);
+          overflowContent.forEach((child) => nextPage.prepend(child));
+          // Create a range and select the start of the next page's content
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.selectNodeContents(nextPage);
+          range.collapse(true); // Collapse to the end of the range
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+
+        //REmove the overflowed nodes from the page
+        page.removeChild(...children.slice(overflowPoint));
+        document.body.removeChild(tempContainer);
 
         page.normalize();
         nextPage.normalize();
@@ -63,16 +135,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // Find the last child node of the current page
         const lastChild = page.lastChild;
 
-        // Focus on the next page
-        nextPage.focus();
-
-        // Create a range and select the end of the next page's content
-        const range = document.createRange();
-        const selection = window.getSelection();
-        range.selectNodeContents(nextPage);
-        range.collapse(false); // Collapse to the end of the range
-        selection.removeAllRanges();
-        selection.addRange(range);
+        // Focus on the next page only if cursor is on next page
+        if (lastChild === document.activeElement) {
+          nextPage.focus();
+        }
 
         // Check if the current page is empty
         if (isEmpty(page)) {
