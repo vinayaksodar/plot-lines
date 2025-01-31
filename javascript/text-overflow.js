@@ -1,6 +1,11 @@
-import { heightOfElementWithMargin } from "./utils.js";
+import {
+  heightOfElementWithMargin,
+  widthOfElementWithMargin,
+  contentHeightOfElement,
+} from "./utils.js";
 
 const createNewPage = () => {
+  const wrapper = document.querySelector(".screenplay-wrapper");
   const newPage = document.createElement("div");
   newPage.classList.add("screenplay-page");
   newPage.setAttribute("contenteditable", "true");
@@ -25,10 +30,15 @@ export const handleOverflow = (page) => {
   const children = Array.from(page.childNodes);
   let overflowPoint = children.length;
 
+  let pageContentHeight = contentHeightOfElement(page);
   let heightThatFits = 0;
   for (let i = 0; i < children.length; i++) {
     heightThatFits += heightOfElementWithMargin(children[i]); // Add height of children[i];
-    if (heightThatFits > page.clientHeight) {
+    // console.log(
+    //   "height of children[i]",
+    //   heightOfElementWithMargin(children[i])
+    // );
+    if (heightThatFits > pageContentHeight) {
       overflowPoint = i;
       break;
     }
@@ -50,52 +60,91 @@ export const handleOverflow = (page) => {
   //   }
 
   let caretPosition = getCaretPosition();
-  // move all the nodes that overflows to the next page
+  // Remove the overflowed nodes from the page first
   const overflowContent = children.slice(overflowPoint);
-  overflowContent.forEach((child) => nextPage.prepend(child));
-  //Remove the overflowed nodes from the page
-  page.removeChild(...children.slice(overflowPoint));
+  overflowContent.forEach((child) => {
+    if (page.contains(child)) {
+      page.removeChild(child);
+    }
+  });
 
+  // Now move the nodes to the next page
+  overflowContent.forEach((child) => nextPage.appendChild(child));
   setCaretPosition(caretPosition);
   page.normalize();
   nextPage.normalize();
 };
-
 function getCaretPosition() {
   let selection = window.getSelection();
   if (selection.rangeCount === 0) {
+    console.warn("getCaretPosition: No selection found.");
     return null; // No selection, return null if the caret is not inside any element
   }
 
   let range = selection.getRangeAt(0); // Get the first range (caret position)
   let rect = range.getBoundingClientRect(); // Get the position of the caret relative to the viewport
 
+  console.log("getCaretPosition: Captured caret details", {
+    startContainer: range.startContainer,
+    startOffset: range.startOffset,
+    rect,
+    commonAncestor: range.commonAncestorContainer,
+  });
+
   return {
     startContainer: range.startContainer, // The node where the selection starts (could be a text node or element)
     startOffset: range.startOffset, // The character position within the node where the caret is
     rect: rect, // The position of the caret within the viewport (top, left, etc.)
-    element: range.startContainer.closest("[contenteditable]"), // Find the closest editable element
+    element: range.commonAncestorContainer, // The element where the caret is
   };
 }
 
 function setCaretPosition(caretPosition) {
-  if (!caretPosition) return;
+  if (!caretPosition) {
+    console.warn("setCaretPosition: Caret position is null, cannot restore.");
+    return;
+  }
 
   let selection = window.getSelection();
   let range = document.createRange();
 
-  // Set range to the start container and offset
-  range.setStart(caretPosition.startContainer, caretPosition.startOffset);
-  range.setEnd(caretPosition.startContainer, caretPosition.startOffset);
+  console.log("setCaretPosition: Attempting to restore caret", caretPosition);
 
-  // Collapse the range to the start (this is important to avoid text selection)
-  range.collapse(true); // true collapses to the start of the range (caret position)
+  try {
+    // Ensure the startContainer is still in the DOM
+    if (!document.body.contains(caretPosition.startContainer)) {
+      console.error(
+        "setCaretPosition: The original startContainer is no longer in the document."
+      );
+      return;
+    }
 
-  selection.removeAllRanges();
-  selection.addRange(range); // Set the new caret position
+    // Set range to the start container and offset
+    range.setStart(caretPosition.startContainer, caretPosition.startOffset);
+    range.setEnd(caretPosition.startContainer, caretPosition.startOffset);
 
-  // Shift focus to the element where the caret is placed
-  caretPosition.element.focus();
+    // Collapse the range to the start (this is important to avoid text selection)
+    range.collapse(true); // true collapses to the start of the range (caret position)
+
+    selection.removeAllRanges();
+    selection.addRange(range); // Set the new caret position
+    console.log("setCaretPosition: Caret successfully restored.");
+
+    // Shift focus to the first parent of node type 1
+    let parent = caretPosition.element;
+    while (parent && parent.nodeType !== 1) {
+      parent = parent.parentNode;
+    }
+
+    if (parent) {
+      parent.focus();
+      console.log("setCaretPosition: Focus shifted to parent element", parent);
+    } else {
+      console.warn("setCaretPosition: No valid parent element to focus on.");
+    }
+  } catch (error) {
+    console.error("setCaretPosition: Error setting caret position", error);
+  }
 }
 
 // // Check if the current page is empty
