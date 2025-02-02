@@ -1,4 +1,4 @@
-// header.js
+// javascript/load-header.js
 
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Fetching header...");
