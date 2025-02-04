@@ -9,7 +9,7 @@ const createNewPage = () => {
   const newPage = document.createElement("div");
   newPage.classList.add("screenplay-page");
   newPage.setAttribute("contenteditable", "true");
-  newPage.innerHTML = "<p><br></p>";
+  // newPage.innerHTML = "<p><br></p>";
   wrapper.appendChild(newPage);
   return newPage;
 };
@@ -27,7 +27,10 @@ export const handleOverflow = (page) => {
     return; // No overflow
   }
 
-  const children = Array.from(page.childNodes);
+  const children = Array.from(page.childNodes).filter(
+    (child) => child.nodeType !== Node.TEXT_NODE
+  );
+
   let overflowPoint = children.length;
 
   let pageContentHeight = contentHeightOfElement(page);
@@ -69,10 +72,10 @@ export const handleOverflow = (page) => {
   });
 
   // Now move the nodes to the next page
-  overflowContent.forEach((child) => nextPage.appendChild(child));
+  overflowContent.forEach((child) => nextPage.prepend(child));
   setCaretPosition(caretPosition);
-  page.normalize();
-  nextPage.normalize();
+  // page.normalize();
+  // nextPage.normalize();
 };
 function getCaretPosition() {
   let selection = window.getSelection();
@@ -97,6 +100,98 @@ function getCaretPosition() {
     rect: rect, // The position of the caret within the viewport (top, left, etc.)
     element: range.commonAncestorContainer, // The element where the caret is
   };
+}
+
+export const handleUnderflow = (page) => {
+  if (!page.previousElementSibling) return; // No previous page to move content to
+
+  const prevPage = page.previousElementSibling;
+  const prevPageChildren = Array.from(prevPage.childNodes).filter(
+    (child) => child.nodeType !== Node.TEXT_NODE
+  );
+  const children = Array.from(page.childNodes).filter(
+    (child) => child.nodeType !== Node.TEXT_NODE
+  );
+  const prevPageMaxContentHeight = contentHeightOfElement(prevPage);
+  const prevPageTotalHeightOfChildren = prevPageChildren.reduce(
+    (total, child) => {
+      return total + heightOfElementWithMargin(child);
+    },
+    0
+  ); // <-- Explicitly setting initial value as 0
+
+  let availableSpace = prevPageMaxContentHeight - prevPageTotalHeightOfChildren;
+  let moveUpIndex = -1;
+  let movedHeight = 0;
+
+  // Determine how much content can fit in the previous page
+  for (let i = 0; i < children.length; i++) {
+    let childHeight = heightOfElementWithMargin(children[i]);
+    if (movedHeight + childHeight > availableSpace) break;
+    movedHeight += childHeight;
+    moveUpIndex = i;
+  }
+
+  // if (moveUpIndex < 0) return; // No content can be moved
+
+  let caretPosition = getCaretPosition();
+
+  // If caret position is at the start of the page, append the text of the first node of the page to the last node of the previous page and see if it fits
+  if (
+    children[0].contains(caretPosition.startContainer) &&
+    caretPosition.startOffset === 0
+  ) {
+    const firstNode = children[0];
+    const lastNode = prevPageChildren[prevPageChildren.length - 1];
+    const firstNodeText = firstNode.textContent;
+    const lastNodeText = lastNode.textContent;
+    const lastNodeHeight = heightOfElementWithMargin(lastNode);
+    const combinedText = lastNodeText + firstNodeText;
+    lastNode.textContent = combinedText;
+    const combinedNodeHeight = heightOfElementWithMargin(lastNode);
+    if (combinedNodeHeight <= availableSpace - lastNodeHeight) {
+      children.shift(); // Remove the first node from the page
+      moveUpIndex = 0;
+      //Set caret position in the last node of the previous page where the text was moved
+      caretPosition = {
+        startContainer: lastNode,
+        startOffset: lastNodeText.length, // Set the caret position to the end of the last node text not the end of the combined text
+        rect: lastNode.getBoundingClientRect(),
+        element: lastNode,
+      };
+    } else {
+      // Delete the last node from previous page and move its text to the first node of the page
+      lastNode.remove();
+      firstNode.textContent = combinedText;
+    }
+  }
+
+  // Move elements to the previous page
+  const moveContent = children.slice(0, moveUpIndex + 1);
+  moveContent.forEach((child) => {
+    page.removeChild(child);
+    prevPage.appendChild(child);
+  });
+
+  setCaretPosition(caretPosition);
+  // page.normalize();
+  // prevPage.normalize();
+
+  // If the current page is empty after moving content, remove it
+  if (isEmpty(page)) {
+    cleanEmptyParagraphs(page);
+    page.remove();
+  }
+};
+
+// Helper function to remove empty <p> elements
+function cleanEmptyParagraphs(page) {
+  const paragraphs = page.querySelectorAll("p");
+  paragraphs.forEach((p) => {
+    if (p.innerHTML.trim() === "" || p.innerHTML === "<br>") {
+      p.remove();
+    }
+  });
 }
 
 function setCaretPosition(caretPosition) {
