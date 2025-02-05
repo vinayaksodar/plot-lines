@@ -25,12 +25,22 @@ function initializeEditor() {
   // Handle keydown events (Backspace, Delete, Enter)
   wrapper.addEventListener("keydown", (event) => {
     if (event.key === "Backspace" || event.key === "Delete") {
-      requestAnimationFrame(() => handleTextUnderflow());
+      requestAnimationFrame(() => {
+        handleTextUnderflow();
+        // Optionally, also check for overflow if needed
+        // handleTextOverflow();
+      });
     } else if (event.key === "Enter") {
+      // Process the Enter key logic immediately if needed
       handleEnterKey(event);
-      requestAnimationFrame(() => handleTextOverflow());
+      // Then on the next animation frame, handle both underflow and overflow
+      requestAnimationFrame(() => {
+        handleTextUnderflow();
+        handleTextOverflow();
+      });
     } else {
-      handleTextOverflow();
+      // For other keys, if you need to handle overflow after the DOM updates
+      requestAnimationFrame(() => handleTextOverflow());
     }
   });
 

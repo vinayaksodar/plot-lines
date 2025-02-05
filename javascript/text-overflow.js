@@ -149,12 +149,13 @@ export const handleUnderflow = (page) => {
     const combinedText = lastNodeText + firstNodeText;
     lastNode.textContent = combinedText;
     const combinedNodeHeight = heightOfElementWithMargin(lastNode);
-    if (combinedNodeHeight <= availableSpace - lastNodeHeight) {
-      children.shift(); // Remove the first node from the page
+    if (combinedNodeHeight <= availableSpace + lastNodeHeight) {
+      children.shift(); // Remove the first node from the page and from the children array
+      page.removeChild(firstNode);
       moveUpIndex = 0;
       //Set caret position in the last node of the previous page where the text was moved
       caretPosition = {
-        startContainer: lastNode,
+        startContainer: lastNode.firstChild, // Text node in the last node
         startOffset: lastNodeText.length, // Set the caret position to the end of the last node text not the end of the combined text
         rect: lastNode.getBoundingClientRect(),
         element: lastNode,
@@ -163,6 +164,14 @@ export const handleUnderflow = (page) => {
       // Delete the last node from previous page and move its text to the first node of the page
       lastNode.remove();
       firstNode.textContent = combinedText;
+
+      //Set caret position in the first node of the current page where the text was moved
+      caretPosition = {
+        startContainer: firstNode.firstChild, // Text node in the last node
+        startOffset: lastNodeText.length, // Set the caret position to the end of the last node text not the end of the combined text
+        rect: firstNode.getBoundingClientRect(),
+        element: firstNode,
+      };
     }
   }
 
