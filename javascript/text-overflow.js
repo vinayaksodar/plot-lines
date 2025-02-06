@@ -101,69 +101,111 @@ function getCaretPosition() {
     element: range.commonAncestorContainer, // The element where the caret is
   };
 }
-
 export const handleUnderflow = (page) => {
+  console.log("handleUnderflow called with page:", page);
   if (!page.previousElementSibling) return; // No previous page to move content to
 
   const prevPage = page.previousElementSibling;
+  console.log("Previous page found:", prevPage);
   const prevPageChildren = Array.from(prevPage.childNodes).filter(
     (child) => child.nodeType !== Node.TEXT_NODE
   );
+  console.log("prevPageChildren:", prevPageChildren);
   const children = Array.from(page.childNodes).filter(
     (child) => child.nodeType !== Node.TEXT_NODE
   );
+  console.log("Current page children:", children);
   const prevPageMaxContentHeight = contentHeightOfElement(prevPage);
+  console.log("prevPageMaxContentHeight:", prevPageMaxContentHeight);
   const prevPageTotalHeightOfChildren = prevPageChildren.reduce(
     (total, child) => {
       return total + heightOfElementWithMargin(child);
     },
     0
   ); // <-- Explicitly setting initial value as 0
+  console.log("prevPageTotalHeightOfChildren:", prevPageTotalHeightOfChildren);
 
   let availableSpace = prevPageMaxContentHeight - prevPageTotalHeightOfChildren;
+  console.log("availableSpace in previous page:", availableSpace);
   let moveUpIndex = -1;
   let movedHeight = 0;
 
   // Determine how much content can fit in the previous page
   for (let i = 0; i < children.length; i++) {
     let childHeight = heightOfElementWithMargin(children[i]);
-    if (movedHeight + childHeight > availableSpace) break;
+    console.log(
+      `Child ${i} height:`,
+      childHeight,
+      "current movedHeight:",
+      movedHeight
+    );
+    if (movedHeight + childHeight > availableSpace) {
+      console.log("Not enough space for child", i, "stopping loop.");
+      break;
+    }
     movedHeight += childHeight;
     moveUpIndex = i;
+    console.log(
+      "After adding child",
+      i,
+      "movedHeight:",
+      movedHeight,
+      "moveUpIndex:",
+      moveUpIndex
+    );
   }
 
   // if (moveUpIndex < 0) return; // No content can be moved
 
   let caretPosition = getCaretPosition();
+  console.log("Initial caretPosition:", caretPosition);
 
   // If caret position is at the start of the page, append the text of the first node of the page to the last node of the previous page and see if it fits
   if (
     children[0].contains(caretPosition.startContainer) &&
     caretPosition.startOffset === 0
   ) {
+    console.log("Caret is at the start of the first child of the page.");
     const firstNode = children[0];
     const lastNode = prevPageChildren[prevPageChildren.length - 1];
+    console.log("First node:", firstNode, "Last node:", lastNode);
     const firstNodeText = firstNode.textContent;
     const lastNodeText = lastNode.textContent;
+    console.log("firstNodeText:", firstNodeText, "lastNodeText:", lastNodeText);
     const lastNodeHeight = heightOfElementWithMargin(lastNode);
+    console.log("lastNodeHeight:", lastNodeHeight);
     const combinedText = lastNodeText + firstNodeText;
-    lastNode.textContent = combinedText;
-    const combinedNodeHeight = heightOfElementWithMargin(lastNode);
+    console.log("combinedText:", combinedText);
+    if (combinedText.length > 0) {
+      lastNode.textContent = combinedText;
+    }
+
+    const combinedNodeHeight = Math.max(
+      lastNodeHeight,
+      heightOfElementWithMargin(lastNode)
+    );
+    console.log("combinedNodeHeight:", combinedNodeHeight);
     if (combinedNodeHeight <= availableSpace + lastNodeHeight) {
+      console.log("Combined node fits in available space.");
       children.shift(); // Remove the first node from the page and from the children array
       page.removeChild(firstNode);
-      moveUpIndex = 0;
       //Set caret position in the last node of the previous page where the text was moved
       caretPosition = {
-        startContainer: lastNode.firstChild, // Text node in the last node
+        startContainer: lastNode.firstChild ? lastNode.firstChild : lastNode, // Text node in the last node
         startOffset: lastNodeText.length, // Set the caret position to the end of the last node text not the end of the combined text
         rect: lastNode.getBoundingClientRect(),
         element: lastNode,
       };
+      console.log(
+        "Caret position set to last node of previous page:",
+        caretPosition
+      );
     } else {
+      console.log("Combined node does not fit, moving text differently.");
       // Delete the last node from previous page and move its text to the first node of the page
       lastNode.remove();
       firstNode.textContent = combinedText;
+      console.log("Last node removed. Updated first node text:", combinedText);
 
       //Set caret position in the first node of the current page where the text was moved
       caretPosition = {
@@ -172,24 +214,34 @@ export const handleUnderflow = (page) => {
         rect: firstNode.getBoundingClientRect(),
         element: firstNode,
       };
+      console.log(
+        "Caret position set to first node of current page:",
+        caretPosition
+      );
     }
   }
 
   // Move elements to the previous page
   const moveContent = children.slice(0, moveUpIndex + 1);
+  console.log("Content to move to previous page:", moveContent);
   moveContent.forEach((child) => {
     page.removeChild(child);
     prevPage.appendChild(child);
+    console.log("Moved child:", child);
   });
 
   setCaretPosition(caretPosition);
+  console.log("Caret position set:", caretPosition);
   // page.normalize();
   // prevPage.normalize();
 
   // If the current page is empty after moving content, remove it
   if (isEmpty(page)) {
+    console.log("Current page is empty, cleaning and removing it.");
     cleanEmptyParagraphs(page);
     page.remove();
+  } else {
+    console.log("Current page is not empty after underflow handling.");
   }
 };
 
