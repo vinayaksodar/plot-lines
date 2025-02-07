@@ -1,3 +1,82 @@
+/* Screenplay CSS Styles */
+/* Reference: https://www.studiobinder.com/blog/screenplay-margins/ */
+/* Title Page - for the main title of the screenplay */
+p.title {
+  text-align: center;
+  font-size: 24pt;
+  font-weight: bold;
+  margin-top: 100pt;
+  margin-bottom: 50pt;
+}
+
+/* Credit - for credits like "Written by", "Directed by", etc. */
+p.credit {
+  text-align: center;
+  font-size: 14pt;
+  margin-bottom: 25pt;
+}
+
+/* Scene Heading - indicates a new scene */
+p.scene-heading {
+  padding-left: 0;
+  text-transform: uppercase;
+  font-size: 12pt;
+  margin: 0;
+  padding: 0;
+  margin-bottom: 0.5em;
+}
+
+/* Action - describes the action in the scene */
+p.action {
+  padding-left: 0;
+  font-size: 12pt;
+  margin: 0;
+  padding: 0;
+  margin-bottom: 0.5em;
+}
+
+/* Character - names of characters speaking */
 p.character {
-  padding-left: 153.33pt;
+  padding-left: calc(
+    3.5in - 1.5in
+  ); /* Character needs to be 3.5in(some say 3.7in but 3.5 seems right) from left of page but our screenplay page already has a padding of 1.5in on left side*/
+  text-transform: uppercase;
+  font-size: 12pt;
+  margin: 0;
+  margin-bottom: 0.2em;
+}
+
+/* Parenthetical - additional instructions for dialogue (e.g., emotions, pauses) */
+p.parenthetical {
+  padding-left: calc(3in - 1.5in);
+  font-size: 12pt;
+  margin: 0;
+  margin-bottom: 0.2em;
+}
+
+/* Dialogue - the spoken words of the characters */
+p.dialogue {
+  padding-left: calc(2.5in - 1.5in);
+  width: 4in;
+  text-align: left;
+  font-size: 12pt;
+  margin: 0;
+  margin-bottom: 0.5em;
+}
+
+/* Transition - cues for scene transitions (e.g., CUT TO:) */
+p.transition {
+  padding-left: calc(6in - 1.5in);
+  text-align: right;
+  font-size: 12pt;
+  margin: 0;
+  margin-bottom: 0.5em;
+}
+
+/* Shot - a new element for describing a camera shot or similar instructions */
+p.shot {
+  padding-left: 0;
+  text-align: left;
+  font-size: 12pt;
+  margin-bottom: 0.5em;
 }
