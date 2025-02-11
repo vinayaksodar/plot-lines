@@ -17,6 +17,7 @@ body {
 }
 
 .container {
+  position: fixed; /* Fixed position as it should always be visible */
   width: 100%;
   /* max-width: 1000px; */
   margin: 0 auto;
@@ -24,6 +25,7 @@ body {
   padding: 5px;
   /* border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); */
+  z-index: 1000; /* Ensure it's above other content when scrolling  as it has to be always visible*/
 }
 
 /* Header styles */
@@ -96,7 +98,7 @@ body {
 
 /* Editor Styles */
 .editor-container {
-  margin-top: 20px;
+  margin-top: 140px; /* Adjust this value to match the height of the container above so that the container is visible */
 }
 
 textarea {
