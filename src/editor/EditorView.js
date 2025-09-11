@@ -8,12 +8,10 @@ export class EditorView {
     this.widgetLayer = widgetLayer;
     this.lineNumbersContainer = lineNumbersContainer;
 
-    // Create floating search widget inside widget layer
     this.searchWidget = createSearchWidget();
     this.widgetLayer.appendChild(this.searchWidget);
     this.searchMatches = [];
 
-    // Create line numbers widget
     if (this.lineNumbersContainer) {
       this.lineNumbers = new LineNumbersWidget(this.lineNumbersContainer);
     }
@@ -24,8 +22,7 @@ export class EditorView {
 
     this.cursorBlinkInterval = null;
     this.cursorBlinkTimeout = null;
-
-    this.startBlink(); // Start blinking when editor first loads
+    this.startBlink();
 
     this.startLine = 0;
     this.endLine = 0;
@@ -33,7 +30,6 @@ export class EditorView {
     this.container.addEventListener("scroll", () => {
       requestAnimationFrame(() => {
         this.render();
-        // Sync line numbers scroll
         if (this.lineNumbers) {
           this.lineNumbers.syncScroll(this.container.scrollTop);
         }
@@ -44,8 +40,6 @@ export class EditorView {
   highlightMatches(ranges, currentIndex = -1) {
     this.searchMatches = ranges;
     this.currentMatchIndex = currentIndex;
-
-    // Build line → matches[] index for fast lookup
     this.matchesByLine = new Map();
     for (const m of ranges) {
       if (!this.matchesByLine.has(m.line)) {
@@ -53,7 +47,6 @@ export class EditorView {
       }
       this.matchesByLine.get(m.line).push(m);
     }
-
     this.render();
   }
 
@@ -67,123 +60,25 @@ export class EditorView {
   render() {
     const scrollTop = this.container.scrollTop;
     const clientHeight = this.container.clientHeight;
-    
-    // Get computed line height with fallbacks for different screen sizes
-    let lineHeight = parseInt(
-      getComputedStyle(this.container).lineHeight,
-      10
-    );
-    
-    // Fallback if computed style returns 'normal' or invalid value
-    if (!lineHeight || isNaN(lineHeight)) {
-      const fontSize = parseInt(getComputedStyle(this.container).fontSize, 10);
-      lineHeight = Math.round(fontSize * 1.4); // Approximate line-height ratio
-    }
-    
+    let lineHeight = parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
     const buffer = 5;
 
     const totalLines = this.model.lines.length;
     const startLine = Math.max(0, Math.floor(scrollTop / lineHeight) - buffer);
-    const visibleLines = Math.ceil(clientHeight / lineHeight) + 2 * buffer;
-    const endLine = Math.min(totalLines, startLine + visibleLines);
+    const endLine = Math.min(totalLines, startLine + Math.ceil(clientHeight / lineHeight) + 2 * buffer);
+    
     this.startLine = startLine;
     this.endLine = endLine;
 
-    // Clear container (but keep cursor alive separately if needed)
-    this.container.innerHTML = "";
+    this.container.innerHTML = ""; // Clear container
     this.container.appendChild(this.cursorEl);
 
     const beforeSpacer = document.createElement("div");
     beforeSpacer.style.height = startLine * lineHeight + "px";
     this.container.appendChild(beforeSpacer);
 
-    const sel = this.model.hasSelection()
-      ? this.model.normalizeSelection()
-      : null;
-
-    this.cursorEl.style.display = "block";
-
-    for (let idx = startLine; idx < endLine; idx++) {
-      const text = this.model.lines[idx];
-      const lineEl = document.createElement("div");
-      lineEl.className = "line";
-
-      // Collect matches for this line
-      const lineMatches = this.matchesByLine?.get(idx) || [];
-
-      // Collect markers (selection + matches)
-      const markers = [];
-
-      if (sel && idx >= sel.start.line && idx <= sel.end.line) {
-        markers.push({
-          start: sel.start.line === idx ? sel.start.ch : 0,
-          end: sel.end.line === idx ? sel.end.ch : text.length,
-          type: "selection",
-        });
-      }
-
-      for (const m of lineMatches) {
-        markers.push({
-          start: m.start,
-          end: m.end,
-          type:
-            this.currentMatchIndex >= 0 &&
-            this.searchMatches[this.currentMatchIndex] === m
-              ? "search-match-current"
-              : "search-match",
-        });
-      }
-
-      if (!text) {
-        // Empty line → either plain or selection
-        if (markers.length > 0) {
-          const span = document.createElement("span");
-          span.className = markers[0].type;
-          span.appendChild(document.createTextNode("\u200B"));
-          lineEl.appendChild(span);
-        } else {
-          lineEl.appendChild(document.createTextNode("\u200B"));
-        }
-      } else if (markers.length === 0) {
-        // Plain line
-        lineEl.appendChild(document.createTextNode(text));
-      } else {
-        // Line with highlights (selection / matches)
-        const events = [];
-        for (const m of markers) {
-          events.push({ pos: m.start, type: m.type, open: true });
-          events.push({ pos: m.end, type: m.type, open: false });
-        }
-
-        // Sort: close before open at same pos
-        events.sort((a, b) => a.pos - b.pos || (a.open ? -1 : 1));
-
-        let active = [];
-        let lastPos = 0;
-
-        const flush = (from, to) => {
-          if (from >= to) return;
-          const segText = text.slice(from, to);
-
-          let node = document.createTextNode(segText);
-          for (let i = active.length - 1; i >= 0; i--) {
-            const span = document.createElement("span");
-            span.className = active[i];
-            span.appendChild(node);
-            node = span;
-          }
-          lineEl.appendChild(node);
-        };
-
-        for (const ev of events) {
-          flush(lastPos, ev.pos);
-          if (ev.open) active.push(ev.type);
-          else active = active.filter((t) => t !== ev.type);
-          lastPos = ev.pos;
-        }
-        flush(lastPos, text.length);
-      }
-
+    for (let i = startLine; i < endLine; i++) {
+      const lineEl = this._renderLine(i);
       this.container.appendChild(lineEl);
     }
 
@@ -191,7 +86,6 @@ export class EditorView {
     afterSpacer.style.height = (totalLines - endLine) * lineHeight + "px";
     this.container.appendChild(afterSpacer);
 
-    // Update line numbers
     if (this.lineNumbers) {
       this.lineNumbers.render(startLine, endLine, totalLines, lineHeight);
     }
@@ -199,58 +93,124 @@ export class EditorView {
     this.updateCursor();
   }
 
+  _renderLine(lineIndex) {
+    const lineObj = this.model.lines[lineIndex];
+    const lineEl = document.createElement("div");
+    lineEl.className = `line ${lineObj.type}`;
+
+    const lineText = lineObj.segments.map(s => s.text).join('');
+    if (lineText === '') {
+        lineEl.appendChild(document.createTextNode("\u200B"));
+        return lineEl;
+    }
+
+    const selection = this.model.hasSelection() ? this.model.normalizeSelection() : null;
+    const lineMatches = this.matchesByLine?.get(lineIndex) || [];
+    
+    const events = [];
+    
+    let chCount = 0;
+    for(const segment of lineObj.segments) {
+        const segStart = chCount;
+        const segEnd = segStart + segment.text.length;
+        chCount = segEnd;
+
+        if (segment.bold) {
+            events.push({ pos: segStart, type: 'bold', open: true });
+            events.push({ pos: segEnd, type: 'bold', open: false });
+        }
+        if (segment.italic) {
+            events.push({ pos: segStart, type: 'italic', open: true });
+            events.push({ pos: segEnd, type: 'italic', open: false });
+        }
+        if (segment.underline) {
+            events.push({ pos: segStart, type: 'underline', open: true });
+            events.push({ pos: segEnd, type: 'underline', open: false });
+        }
+    }
+
+    if (selection && lineIndex >= selection.start.line && lineIndex <= selection.end.line) {
+        const selStart = (lineIndex === selection.start.line) ? selection.start.ch : 0;
+        const selEnd = (lineIndex === selection.end.line) ? selection.end.ch : lineText.length;
+        events.push({ pos: selStart, type: 'selection', open: true });
+        events.push({ pos: selEnd, type: 'selection', open: false });
+    }
+
+    for (const match of lineMatches) {
+        const type = this.currentMatchIndex >= 0 && this.searchMatches[this.currentMatchIndex] === match ? 'search-match-current' : 'search-match';
+        events.push({ pos: match.start, type, open: true });
+        events.push({ pos: match.end, type, open: false });
+    }
+
+    events.sort((a, b) => a.pos - b.pos || (a.open ? 1 : -1));
+
+    let activeClasses = [];
+    let lastPos = 0;
+
+    const flush = (from, to) => {
+        if (from >= to) return;
+        const text = lineText.slice(from, to);
+        const span = document.createElement('span');
+        if (activeClasses.length) {
+            span.className = activeClasses.join(' ');
+        }
+        span.textContent = text;
+        lineEl.appendChild(span);
+    };
+
+    for (const event of events) {
+        flush(lastPos, event.pos);
+        if (event.open) {
+            activeClasses.push(event.type);
+        } else {
+            activeClasses = activeClasses.filter(c => c !== event.type);
+        }
+        lastPos = event.pos;
+    }
+    flush(lastPos, lineText.length);
+
+    return lineEl;
+  }
+
   updateCursor() {
     const { line, ch } = this.model.cursor;
 
-    // If cursor is outside the rendered slice, hide it
     if (line < this.startLine || line >= this.endLine) {
       this.cursorEl.style.display = "none";
       return;
+    } else {
+        this.cursorEl.style.display = "block";
     }
 
-    // Adjust for DOM structure:
-    // 0: cursorEl
-    // 1: beforeSpacer
-    // 2..: visible lines
     const domIndex = 2 + (line - this.startLine);
     const lineEl = this.container.children[domIndex];
     if (!lineEl) return;
 
-    // Walk text nodes to find character offset
-    const walker = document.createTreeWalker(
-      lineEl,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
-
+    const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT, null, false);
     let remaining = ch;
     let targetNode = null;
     let offset = 0;
 
     while (walker.nextNode()) {
       const len = walker.currentNode.textContent.length;
-
       if (remaining <= len) {
         targetNode = walker.currentNode;
         offset = remaining;
         break;
       }
-
       remaining -= len;
     }
 
     if (!targetNode) {
-      if (walker.currentNode) {
-        targetNode = walker.currentNode;
-        offset = targetNode.textContent.length;
-      } else {
-        // Line is empty → add zero-width space
-        const emptyNode = document.createTextNode("\u200B");
-        lineEl.appendChild(emptyNode);
-        targetNode = emptyNode;
-        offset = 0;
-      }
+        if(lineEl.lastChild && lineEl.lastChild.nodeType === Node.TEXT_NODE) {
+            targetNode = lineEl.lastChild;
+            offset = lineEl.lastChild.textContent.length;
+        } else { // Empty line
+            const emptyNode = document.createTextNode("\u200B");
+            lineEl.appendChild(emptyNode);
+            targetNode = emptyNode;
+            offset = 0;
+        }
     }
 
     const range = document.createRange();
@@ -260,12 +220,8 @@ export class EditorView {
     const rect = range.getBoundingClientRect();
     const containerRect = this.container.getBoundingClientRect();
 
-    this.cursorEl.style.top = `${
-      rect.top - containerRect.top + this.container.scrollTop
-    }px`;
-    this.cursorEl.style.left = `${
-      rect.left - containerRect.left + this.container.scrollLeft
-    }px`;
+    this.cursorEl.style.top = `${rect.top - containerRect.top + this.container.scrollTop}px`;
+    this.cursorEl.style.left = `${rect.left - containerRect.left + this.container.scrollLeft}px`;
     this.cursorEl.style.height = `${rect.height}px`;
 
     this.pauseBlinkAndRestart();
@@ -273,13 +229,10 @@ export class EditorView {
 
   startBlink() {
     if (this.cursorBlinkInterval) clearInterval(this.cursorBlinkInterval);
-
     this.cursorEl.style.visibility = "visible";
-
     this.cursorBlinkInterval = setInterval(() => {
-      const isVisible = this.cursorEl.style.visibility !== "hidden";
-      this.cursorEl.style.visibility = isVisible ? "hidden" : "visible";
-    }, 530); // Standard cursor blink rate (about 1.06 seconds per cycle)
+      this.cursorEl.style.visibility = this.cursorEl.style.visibility === "hidden" ? "visible" : "hidden";
+    }, 530);
   }
 
   pauseBlinkAndRestart() {
@@ -287,16 +240,11 @@ export class EditorView {
       clearInterval(this.cursorBlinkInterval);
       this.cursorBlinkInterval = null;
     }
-
     this.cursorEl.style.visibility = "visible";
-
     if (this.cursorBlinkTimeout) clearTimeout(this.cursorBlinkTimeout);
-    this.cursorBlinkTimeout = setTimeout(() => {
-      this.startBlink();
-    }, 530); // start blinking again after delay
+    this.cursorBlinkTimeout = setTimeout(() => this.startBlink(), 530);
   }
 
-  // Add a method for showing search widget
   showSearchWidget() {
     this.searchWidget.classList.remove("hidden");
     const input = this.searchWidget.querySelector(".search-input");
@@ -308,21 +256,12 @@ export class EditorView {
     this.searchWidget.classList.add("hidden");
   }
 
-  // Scroll to ensure a specific line is visible
   scrollToLine(lineNumber) {
-    const lineHeight = parseInt(
-      getComputedStyle(this.container).lineHeight,
-      10
-    );
+    const lineHeight = parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
     const clientHeight = this.container.clientHeight;
     const visibleLines = Math.ceil(clientHeight / lineHeight);
+    const targetScrollTop = Math.max(0, (lineNumber - Math.floor(visibleLines / 2)) * lineHeight);
     
-    // Calculate target scroll position to center the line
-    const targetScrollTop = Math.max(0, 
-      (lineNumber - Math.floor(visibleLines / 2)) * lineHeight
-    );
-    
-    // Only scroll if the line is not currently visible
     const currentScrollTop = this.container.scrollTop;
     const lineTop = lineNumber * lineHeight;
     const lineBottom = lineTop + lineHeight;

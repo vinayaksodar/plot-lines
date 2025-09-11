@@ -1,0 +1,71 @@
+#editor-container {
+  flex: 1;
+  padding: 1in 1in 1in 1.5in; /* screenplay margins: top, right, bottom, left */
+  white-space: pre-wrap; /* allow wrapping instead of scrolling horizontally */
+  position: relative;
+  overflow-y: auto;
+  width: 8.5in; /* screenplay page width */
+  max-width: 100%; /* shrink gracefully on smaller screens */
+  font-family: "Courier", monospace;
+  font-size: 12pt; /* screenplay standard */
+  line-height: 1; /* ~6 lines per inch in Courier */
+  color: #1e293b;
+  background: #ffffff;
+  border: none;
+  outline: none;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* subtle "paper" effect */
+}
+
+#editor-container::-webkit-scrollbar {
+  width: 12px;
+}
+
+#editor-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+#editor-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+#editor-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.line {
+  display: block;
+  min-height: 1em;
+  position: relative;
+}
+
+/* Mobile responsive editor */
+@media (max-width: 768px) {
+  #editor-container {
+    padding: 0.75rem;
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .line {
+    min-height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  #editor-container {
+    padding: 0.5rem;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .line {
+    min-height: 16px;
+  }
+
+  #editor-container::-webkit-scrollbar {
+    width: 8px;
+  }
+}

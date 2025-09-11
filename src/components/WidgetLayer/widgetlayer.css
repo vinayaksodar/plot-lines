@@ -1,0 +1,49 @@
+.widget-layer {
+  position: relative;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.widget-layer > * {
+  pointer-events: auto;
+}
+
+.cursor {
+  position: absolute;
+  width: 2px;
+  background: #3b82f6;
+  visibility: visible;
+  border-radius: 1px;
+}
+
+.selection {
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 2px;
+}
+
+.search-match {
+  background: rgba(251, 191, 36, 0.4);
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.2);
+}
+
+.search-match-current {
+  background: rgba(249, 115, 22, 0.4);
+  border: 1px solid rgba(249, 115, 22, 0.8);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+}
+
+/* Mobile responsive cursor */
+@media (max-width: 768px) {
+  .cursor {
+    width: 3px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cursor {
+    width: 4px;
+  }
+}

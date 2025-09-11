@@ -40,9 +40,10 @@ export class SearchHandler {
     // find matches across all lines
     this.currentMatches = [];
     this.model.lines.forEach((line, lineIdx) => {
+      const lineText = line.segments.map(s => s.text).join('');
       let start = 0;
       while (true) {
-        const idx = line.indexOf(term, start);
+        const idx = lineText.indexOf(term, start);
         if (idx === -1) break;
         this.currentMatches.push({
           line: lineIdx,

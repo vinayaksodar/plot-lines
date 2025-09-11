@@ -5,6 +5,7 @@ import {
   InsertNewLineCommand,
   DeleteSelectionCommand,
   InsertTextCommand,
+  ToggleInlineStyleCommand,
 } from "./commands.js";
 import { PointerHandler } from "./handlers/PointerHandler.js";
 import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
@@ -94,8 +95,7 @@ export class EditorController {
     } else if (clientY > containerRect.bottom + maxDistance) {
       // Way below - go to document end
       const lastLine = this.model.lines.length - 1;
-      const lastLineText = this.model.lines[lastLine] || "";
-      return { line: lastLine, ch: lastLineText.length };
+      return { line: lastLine, ch: this.model._getLineLength(lastLine) };
     } else if (clientY < containerRect.top) {
       // Above the container - select first visible line
       adjustedClientY = containerRect.top + 5;
@@ -120,20 +120,15 @@ export class EditorController {
 
     const lineEl = lines[closestLineIdx];
     const lineRect = lineEl.getBoundingClientRect();
+    const modelLineIndex = this.view.startLine + closestLineIdx;
 
     // Handle horizontal bounds
-    let adjustedClientX = clientX;
     if (clientX < lineRect.left) {
       // Left of the line - position at start
-      return { line: this.view.startLine + closestLineIdx, ch: 0 };
+      return { line: modelLineIndex, ch: 0 };
     } else if (clientX > lineRect.right) {
       // Right of the line - position at end
-      const lineText =
-        this.model.lines[this.view.startLine + closestLineIdx] || "";
-      return {
-        line: this.view.startLine + closestLineIdx,
-        ch: lineText.length,
-      };
+      return { line: modelLineIndex, ch: this.model._getLineLength(modelLineIndex) };
     }
 
     const walker = document.createTreeWalker(
@@ -158,7 +153,7 @@ export class EditorController {
           const rect = range.getBoundingClientRect();
           const x = rect.left + (rect.width || 0);
 
-          const dist = Math.abs(adjustedClientX - x);
+          const dist = Math.abs(clientX - x);
           if (dist < minDist) {
             minDist = dist;
             closestCh = totalOffset + i;
@@ -171,10 +166,12 @@ export class EditorController {
       totalOffset += len;
     }
 
-    return { line: this.view.startLine + closestLineIdx, ch: closestCh };
+    return { line: modelLineIndex, ch: closestCh };
   }
 
-  
+  handleToggleInlineStyle(style) {
+    this.executeCommand(new ToggleInlineStyleCommand(this.model, style));
+  }
 
   handleUndo() {
     if (this.undoManager.canUndo()) {

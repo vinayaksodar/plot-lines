@@ -1,3 +1,5 @@
+import { SetLineTypeCommand, ToggleInlineStyleCommand } from "../commands.js";
+
 export class ToolbarHandler {
   constructor(controller) {
     this.controller = controller;
@@ -15,10 +17,11 @@ export class ToolbarHandler {
     if (!button) return;
 
     const action = button.dataset.action;
-    this.handleToolbarAction(action);
+    const value = button.dataset.type || button.dataset.style;
+    this.handleToolbarAction(action, value);
   };
 
-  async handleToolbarAction(action) {
+  async handleToolbarAction(action, value) {
     const { controller } = this;
     try {
       switch (action) {
@@ -59,13 +62,19 @@ export class ToolbarHandler {
           break;
         case "search":
           controller.handleSearch();
-          // Search widget will handle its own focus
+          break;
+        case "set-line-type":
+          controller.executeCommand(new SetLineTypeCommand(controller.model, value));
+          this.hiddenInput.focus();
+          break;
+        case "toggle-inline-style":
+          controller.handleToggleInlineStyle(value);
+          this.hiddenInput.focus();
           break;
       }
     } catch (error) {
       console.error("Toolbar action failed:", error);
       alert("Operation failed: " + error.message);
-      // Focus editor even after errors
       this.hiddenInput.focus();
     }
   }

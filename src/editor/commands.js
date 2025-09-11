@@ -54,6 +54,7 @@ export class DeleteCharCommand {
   }
 
   undo() {
+    if (this.deletedChar === null) return; // Nothing to undo
     this.model.cursor = { ...this.afterPos };
     if (this.deletedChar === "\n") {
       this.model.insertNewLine();
@@ -114,5 +115,63 @@ export class InsertTextCommand {
       end: { ...this.afterPos },
     };
     this.model.deleteSelection();
+  }
+}
+
+export class SetLineTypeCommand {
+  constructor(model, newType) {
+    this.model = model;
+    this.newType = newType;
+    this.oldTypes = [];
+    this.selection = model.hasSelection() ? model.normalizeSelection() : null;
+    this.cursorLine = model.cursor.line;
+  }
+
+  execute() {
+    if (this.selection) {
+      const { start, end } = this.selection;
+      for (let i = start.line; i <= end.line; i++) {
+        this.oldTypes.push({ line: i, type: this.model.lines[i].type });
+        this.model.setLineType(i, this.newType);
+      }
+    } else {
+      this.oldTypes.push({ line: this.cursorLine, type: this.model.lines[this.cursorLine].type });
+      this.model.setLineType(this.cursorLine, this.newType);
+    }
+  }
+
+  undo() {
+    for (const old of this.oldTypes) {
+      this.model.setLineType(old.line, old.type);
+    }
+  }
+}
+
+export class ToggleInlineStyleCommand {
+  constructor(model, style) {
+    this.model = model;
+    this.style = style;
+    this.selection = model.hasSelection() ? model.normalizeSelection() : null;
+    this.oldLines = [];
+  }
+
+  execute() {
+    if (!this.selection) return;
+
+    const { start, end } = this.selection;
+    for (let i = start.line; i <= end.line; i++) {
+      // Deep copy the line object to save its state
+      this.oldLines.push({ index: i, line: JSON.parse(JSON.stringify(this.model.lines[i])) });
+    }
+
+    this.model.toggleInlineStyle(this.style);
+  }
+
+  undo() {
+    if (!this.selection) return;
+
+    for (const oldLine of this.oldLines) {
+      this.model.lines[oldLine.index] = oldLine.line;
+    }
   }
 }

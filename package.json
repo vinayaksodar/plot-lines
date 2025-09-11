@@ -1,5 +1,5 @@
 {
-  "name": "plot-lines",
+  "name": "text-editor",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,6 +9,6 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^7.1.2"
+    "vite": "^7.0.4"
   }
 }

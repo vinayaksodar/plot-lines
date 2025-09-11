@@ -3,6 +3,7 @@ import {
   InsertCharCommand,
   InsertNewLineCommand,
   DeleteSelectionCommand,
+  SetLineTypeCommand,
 } from "../commands.js";
 
 export class KeyboardHandler {
@@ -15,10 +16,7 @@ export class KeyboardHandler {
 
   onKeyDown = (e) => {
     const { model, view, undoManager } = this.controller;
-
-    // --- UNDO / REDO ---
-    // Note: Undo/Redo is handled by the global keyboard handler in EditorController
-    // to avoid conflicts with toolbar actions
+    let cmd = null;
 
     const isArrow =
       e.key === "ArrowUp" ||
@@ -26,7 +24,6 @@ export class KeyboardHandler {
       e.key === "ArrowLeft" ||
       e.key === "ArrowRight";
 
-    // --- SHIFT + ARROWS (extend selection) ---
     if (e.shiftKey && isArrow) {
       const dir = e.key.replace("Arrow", "").toLowerCase();
       model.extendSelection(dir);
@@ -35,12 +32,9 @@ export class KeyboardHandler {
       return;
     }
 
-    // --- TYPING / EDITING ---
     if (model.hasSelection()) {
       if (e.key === "Backspace") {
-        const cmd = new DeleteSelectionCommand(model);
-        cmd.execute();
-        undoManager.add(cmd);
+        cmd = new DeleteSelectionCommand(model);
       } else if (e.key === "Delete") {
         model.deleteSelection();
       } else if (e.key === "Escape") {
@@ -52,23 +46,22 @@ export class KeyboardHandler {
       }
     } else {
       if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-        const cmd = new InsertCharCommand(model, model.cursor, e.key);
-        cmd.execute();
-        undoManager.add(cmd);
+        cmd = new InsertCharCommand(model, model.cursor, e.key);
       } else if (e.key === "Enter") {
-        const cmd = new InsertNewLineCommand(model);
-        cmd.execute();
-        undoManager.add(cmd);
+        cmd = new InsertNewLineCommand(model);
       } else if (e.key === "Backspace") {
-        const cmd = new DeleteCharCommand(model, model.cursor);
-        cmd.execute();
-        undoManager.add(cmd);
+        cmd = new DeleteCharCommand(model, model.cursor);
       } else if (isArrow) {
         model.moveCursor(e.key.replace("Arrow", "").toLowerCase());
       }
     }
 
-    // --- CUT / COPY / PASTE ---
+    if (cmd) {
+      cmd.execute();
+      undoManager.add(cmd);
+      this._handleAutoFormatting(e.key);
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
       this.controller.handleCopy();
       e.preventDefault();
@@ -86,9 +79,46 @@ export class KeyboardHandler {
       e.preventDefault();
       return;
     }
-    // --- END CUT / COPY / PASTE ---
 
     e.preventDefault();
     view.render();
   };
+
+  _handleAutoFormatting(key) {
+    const { model, undoManager } = this.controller;
+    const { line } = model.cursor;
+
+    if (key === 'Enter' && line > 0) {
+      const prevLine = model.lines[line - 1];
+      let newType = null;
+
+      if (prevLine.type === 'character') {
+        newType = 'dialogue';
+      } else if (prevLine.type === 'scene-heading') {
+        newType = 'action';
+      }
+
+      if (newType) {
+        const cmd = new SetLineTypeCommand(model, newType);
+        cmd.execute();
+        undoManager.add(cmd);
+      }
+    }
+
+    const currentLine = model.lines[line];
+    if (!currentLine) return;
+
+    const lineText = currentLine.segments.map(s => s.text).join('').toUpperCase();
+    let typeToSet = null;
+
+    if (lineText.startsWith('INT.') || lineText.startsWith('EXT.')) {
+      typeToSet = 'scene-heading';
+    }
+
+    if (typeToSet && currentLine.type !== typeToSet) {
+      const cmd = new SetLineTypeCommand(model, typeToSet);
+      cmd.execute();
+      undoManager.add(cmd);
+    }
+  }
 }
