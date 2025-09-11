@@ -69,3 +69,31 @@
     width: 8px;
   }
 }
+
+/* Page break element styling */
+.page-break {
+  height: 2in; /* 1in top padding + 1in bottom padding */
+  position: relative;
+  background: white;
+}
+
+.page-break::before {
+  content: "";
+  position: absolute;
+  top: 1in; /* draw the dashed line in the middle */
+  left: 0;
+  right: 0;
+  border-top: 2px dashed #94a3b8; /* subtle gray dashed line */
+}
+
+.page-break-label {
+  position: absolute;
+  top: calc(1in - 0.5em); /* vertically center on the line */
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 0 0.5em;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-family: "Courier", monospace;
+}
