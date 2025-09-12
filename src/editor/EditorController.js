@@ -95,7 +95,7 @@ export class EditorController {
     } else if (clientY > containerRect.bottom + maxDistance) {
       // Way below - go to document end
       const lastLine = this.model.lines.length - 1;
-      return { line: lastLine, ch: this.model._getLineLength(lastLine) };
+      return { line: lastLine, ch: this.model.getLineLength(lastLine) };
     } else if (clientY < containerRect.top) {
       // Above the container - select first visible line
       adjustedClientY = containerRect.top + 5;
@@ -128,7 +128,10 @@ export class EditorController {
       return { line: modelLineIndex, ch: 0 };
     } else if (clientX > lineRect.right) {
       // Right of the line - position at end
-      return { line: modelLineIndex, ch: this.model._getLineLength(modelLineIndex) };
+      return {
+        line: modelLineIndex,
+        ch: this.model.getLineLength(modelLineIndex),
+      };
     }
 
     const walker = document.createTreeWalker(
@@ -148,12 +151,19 @@ export class EditorController {
 
       for (let i = 0; i <= len; i++) {
         try {
-          range.setStart(textNode, 0);
+          range.setStart(textNode, i);
           range.setEnd(textNode, i);
-          const rect = range.getBoundingClientRect();
-          const x = rect.left + (rect.width || 0);
 
-          const dist = Math.abs(clientX - x);
+          const rects = range.getClientRects();
+          if (rects.length === 0) continue;
+
+          // choose the rect for this caret position
+          const rect = rects[rects.length - 1];
+
+          const distX = Math.abs(clientX - rect.left);
+          const distY = Math.abs(clientY - (rect.top + rect.bottom) / 2);
+          const dist = Math.hypot(distX, distY);
+
           if (dist < minDist) {
             minDist = dist;
             closestCh = totalOffset + i;

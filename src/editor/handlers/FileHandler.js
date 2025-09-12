@@ -9,7 +9,7 @@ export class FileManager {
     this.lastSaveTime = Date.now();
 
     // Start auto-save
-    this.startAutoSave();
+    // this.startAutoSave();//Disable for now
   }
 
   // Setup global keyboard shortcuts for file operations

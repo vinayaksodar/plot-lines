@@ -27,7 +27,7 @@ export class EditorModel {
   }
 
   // Get the total character length of a line
-  _getLineLength(lineIndex) {
+  getLineLength(lineIndex) {
     return this.lines[lineIndex].segments.reduce(
       (len, seg) => len + seg.text.length,
       0
@@ -57,7 +57,9 @@ export class EditorModel {
         newSegments.push(current);
       }
     }
-    this.lines[lineIndex].segments = newSegments.filter(seg => seg.text.length > 0);
+    this.lines[lineIndex].segments = newSegments.filter(
+      (seg) => seg.text.length > 0
+    );
   }
 
   insertChar(char) {
@@ -69,7 +71,8 @@ export class EditorModel {
     const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
 
     // Insert character into the segment's text
-    segment.text = segment.text.slice(0, offset) + char + segment.text.slice(offset);
+    segment.text =
+      segment.text.slice(0, offset) + char + segment.text.slice(offset);
 
     this.cursor.ch++;
   }
@@ -84,7 +87,7 @@ export class EditorModel {
 
     if (ch === 0 && line > 0) {
       // Merging with the previous line
-      const prevLineLength = this._getLineLength(line - 1);
+      const prevLineLength = this.getLineLength(line - 1);
       const currentLine = this.lines[line];
 
       // Append current line's segments to the previous line
@@ -95,11 +98,12 @@ export class EditorModel {
 
       this.cursor.line--;
       this.cursor.ch = prevLineLength;
-      return '\n'; // Return newline to indicate a line merge
+      return "\n"; // Return newline to indicate a line merge
     } else if (ch > 0) {
       const { segment, offset } = this._findSegmentAt(line, ch);
       const deletedChar = segment.text[offset - 1];
-      segment.text = segment.text.slice(0, offset - 1) + segment.text.slice(offset);
+      segment.text =
+        segment.text.slice(0, offset - 1) + segment.text.slice(offset);
       this.cursor.ch--;
       this._mergeSegments(line);
       return deletedChar;
@@ -124,7 +128,7 @@ export class EditorModel {
       { ...segment, text: textAfter }, // The second half of the split segment
       ...currentLine.segments.slice(segmentIndex + 1),
     ];
-    
+
     // Remove the moved segments from the current line
     currentLine.segments.splice(segmentIndex + 1);
 
@@ -153,10 +157,8 @@ export class EditorModel {
       this.selection &&
       this.selection.start &&
       this.selection.end &&
-      (
-        this.selection.start.line !== this.selection.end.line ||
-        this.selection.start.ch !== this.selection.end.ch
-      )
+      (this.selection.start.line !== this.selection.end.line ||
+        this.selection.start.ch !== this.selection.end.ch)
     );
   }
 
@@ -167,20 +169,20 @@ export class EditorModel {
 
     for (let i = start.line; i <= end.line; i++) {
       const line = this.lines[i];
-      const lineText = line.segments.map(s => s.text).join("");
-      
+      const lineText = line.segments.map((s) => s.text).join("");
+
       if (i === start.line && i === end.line) {
         // Single line selection
         text += lineText.slice(start.ch, end.ch);
       } else if (i === start.line) {
         // First line of multi-line selection
-        text += lineText.slice(start.ch) + '\n';
+        text += lineText.slice(start.ch) + "\n";
       } else if (i === end.line) {
         // Last line of multi-line selection
         text += lineText.slice(0, end.ch);
       } else {
         // Full line in between
-        text += lineText + '\n';
+        text += lineText + "\n";
       }
     }
     return text;
@@ -202,25 +204,28 @@ export class EditorModel {
       this.deleteSelection();
     }
 
-    const linesToInsert = text.split('\n');
+    const linesToInsert = text.split("\n");
     const { line, ch } = this.cursor;
-    
+
     // Create new segments for the inserted text
-    const newSegments = linesToInsert.map(lineText => ({
+    const newSegments = linesToInsert.map((lineText) => ({
       text: lineText,
       bold: false,
       italic: false,
-      underline: false
+      underline: false,
     }));
 
     if (newSegments.length === 1) {
       // Single line insert
       const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
-      segment.text = segment.text.slice(0, offset) + newSegments[0].text + segment.text.slice(offset);
+      segment.text =
+        segment.text.slice(0, offset) +
+        newSegments[0].text +
+        segment.text.slice(offset);
       this.cursor.ch += newSegments[0].text.length;
       this._mergeSegments(line);
     } else {
-       // Multi-line insert
+      // Multi-line insert
       const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
       const lineObj = this.lines[line];
 
@@ -229,31 +234,31 @@ export class EditorModel {
 
       // First line of insert
       lineObj.segments[segmentIndex].text += newSegments[0].text;
-      
+
       // Segments to be moved to the last new line
       const remainingSegments = [
         { ...segment, text: textAfter },
-        ...lineObj.segments.slice(segmentIndex + 1)
+        ...lineObj.segments.slice(segmentIndex + 1),
       ];
       lineObj.segments.splice(segmentIndex + 1);
 
       const newLines = [];
       // Middle lines
-      for(let i = 1; i < newSegments.length - 1; i++) {
+      for (let i = 1; i < newSegments.length - 1; i++) {
         newLines.push({ type: lineObj.type, segments: [newSegments[i]] });
       }
 
       // Last line
       const lastNewLine = {
         type: lineObj.type,
-        segments: [newSegments[newSegments.length - 1], ...remainingSegments]
+        segments: [newSegments[newSegments.length - 1], ...remainingSegments],
       };
       newLines.push(lastNewLine);
-      
+
       this.lines.splice(line + 1, 0, ...newLines);
 
       this.cursor.line += newLines.length;
-      this.cursor.ch = this._getLineLength(this.cursor.line) - textAfter.length;
+      this.cursor.ch = this.getLineLength(this.cursor.line) - textAfter.length;
     }
   }
 
@@ -263,25 +268,33 @@ export class EditorModel {
     const { start, end } = this.normalizeSelection();
 
     // Find segments at start and end
-    const { segment: startSegment, offset: startOffset } = this._findSegmentAt(start.line, start.ch);
-    const { segment: endSegment, offset: endOffset } = this._findSegmentAt(end.line, end.ch);
+    const { segment: startSegment, offset: startOffset } = this._findSegmentAt(
+      start.line,
+      start.ch
+    );
+    const { segment: endSegment, offset: endOffset } = this._findSegmentAt(
+      end.line,
+      end.ch
+    );
 
     // Get segments from the end line that are after the selection
-    const remainingSegments = [{...endSegment, text: endSegment.text.slice(endOffset)}];
-    
+    const remainingSegments = [
+      { ...endSegment, text: endSegment.text.slice(endOffset) },
+    ];
+
     // Trim the start segment
     startSegment.text = startSegment.text.slice(0, startOffset);
 
     // Merge the start line with the remaining parts of the end line
     this.lines[start.line].segments.push(...remainingSegments);
-    
+
     // Remove all lines between start and end
     if (start.line < end.line) {
       this.lines.splice(start.line + 1, end.line - start.line);
     }
 
     this._mergeSegments(start.line);
-    
+
     this.cursor = { ...start };
     this.clearSelection();
   }
@@ -292,20 +305,20 @@ export class EditorModel {
       if (ch > 0) this.cursor.ch--;
       else if (line > 0) {
         this.cursor.line--;
-        this.cursor.ch = this._getLineLength(this.cursor.line);
+        this.cursor.ch = this.getLineLength(this.cursor.line);
       }
     } else if (dir === "right") {
-      if (ch < this._getLineLength(line)) this.cursor.ch++;
+      if (ch < this.getLineLength(line)) this.cursor.ch++;
       else if (line < this.lines.length - 1) {
         this.cursor.line++;
         this.cursor.ch = 0;
       }
     } else if (dir === "up" && line > 0) {
       this.cursor.line--;
-      this.cursor.ch = Math.min(ch, this._getLineLength(this.cursor.line));
+      this.cursor.ch = Math.min(ch, this.getLineLength(this.cursor.line));
     } else if (dir === "down" && line < this.lines.length - 1) {
       this.cursor.line++;
-      this.cursor.ch = Math.min(ch, this._getLineLength(this.cursor.line));
+      this.cursor.ch = Math.min(ch, this.getLineLength(this.cursor.line));
     }
   }
 
@@ -325,24 +338,7 @@ export class EditorModel {
     }
   }
 
-  extendSelection(dir) {
-    if (!this.hasSelection()) {
-      this.setSelection({ ...this.cursor }, { ...this.cursor });
-    }
-
-    const { end } = this.selection;
-    let newEnd = { ...end };
-
-    // This is a simplified version. A full implementation would be more complex.
-    // For now, we just move the end of the selection.
-    const tempCursor = { ...this.cursor };
-    this.cursor = newEnd;
-    this.moveCursor(dir);
-    newEnd = { ...this.cursor };
-    this.cursor = tempCursor;
-
-    this.setSelection(this.selection.start, newEnd);
-  }
+  
 
   updateCursor({ line, ch }) {
     this.cursor.line = line;
@@ -350,16 +346,27 @@ export class EditorModel {
   }
 
   getText() {
-    return this.lines.map(line => line.segments.map(s => s.text).join("")).join('\n');
+    return this.lines
+      .map((line) => line.segments.map((s) => s.text).join(""))
+      .join("\n");
   }
 
   setText(text) {
-    this.lines = text.split('\n').map(lineText => ({
+    this.lines = text.split("\n").map((lineText) => ({
       type: "action", // Default line type
-      segments: [{ text: lineText, bold: false, italic: false, underline: false }],
+      segments: [
+        { text: lineText, bold: false, italic: false, underline: false },
+      ],
     }));
     if (this.lines.length === 0) {
-      this.lines = [{ type: "action", segments: [{ text: "", bold: false, italic: false, underline: false }] }];
+      this.lines = [
+        {
+          type: "action",
+          segments: [
+            { text: "", bold: false, italic: false, underline: false },
+          ],
+        },
+      ];
     }
     this.cursor = { line: 0, ch: 0 };
     this.selection = null;
@@ -392,8 +399,8 @@ export class EditorModel {
 
     for (let i = start.line; i <= end.line; i++) {
       const line = this.lines[i];
-      const startCh = (i === start.line) ? start.ch : 0;
-      const endCh = (i === end.line) ? end.ch : this._getLineLength(i);
+      const startCh = i === start.line ? start.ch : 0;
+      const endCh = i === end.line ? end.ch : this.getLineLength(i);
 
       let chCount = 0;
       const newSegments = [];
@@ -417,14 +424,22 @@ export class EditorModel {
 
         // Partial overlap
         const before = segment.text.slice(0, Math.max(0, startCh - segStart));
-        const middle = segment.text.slice(Math.max(0, startCh - segStart), endCh - segStart);
+        const middle = segment.text.slice(
+          Math.max(0, startCh - segStart),
+          endCh - segStart
+        );
         const after = segment.text.slice(endCh - segStart);
 
         if (before) newSegments.push({ ...segment, text: before });
-        if (middle) newSegments.push({ ...segment, text: middle, [style]: !segment[style] });
+        if (middle)
+          newSegments.push({
+            ...segment,
+            text: middle,
+            [style]: !segment[style],
+          });
         if (after) newSegments.push({ ...segment, text: after });
       }
-      
+
       line.segments = newSegments;
       this._mergeSegments(i);
     }

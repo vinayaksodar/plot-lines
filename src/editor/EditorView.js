@@ -1,23 +1,123 @@
 import { createSearchWidget } from "../components/SearchWidget/SearchWidget,js";
-import {
-  createLineNumbers,
-  LineNumbersWidget,
-} from "../components/LineNumbers/LineNumbers.js";
+
+// The Incremental Scan layout manager is now included here.
+// In a real app, this would be in its own file.
+class IncrementalScanApproach {
+  constructor(getLineHeightFn, numLines) {
+    this.getLineHeight = getLineHeightFn;
+    this.numLines = numLines;
+
+    // Page Break Constants
+    this.DPI = 96;
+    this.PAGE_CONTENT_HEIGHT_PX = 9 * this.DPI;
+    this.PAGE_BREAK_HEIGHT_PX = 2 * this.DPI;
+  }
+
+  // Note: No 'build' step is needed for this approach.
+
+  updateLineHeight(index, newHeight) {
+    // In a real implementation, you'd update an internal heights array.
+    // For this demo, we rely on the getLineHeight function which reads
+    // from the main document model, so this method can be a no-op.
+  }
+
+  // O(n) operation
+  getContentHeightAtLine(index) {
+    if (index < 0) return 0;
+    let contentHeight = 0;
+    for (let i = 0; i <= index; i++) {
+      contentHeight += this.getLineHeight(i);
+    }
+    return contentHeight;
+  }
+
+  // O(n) operation
+  getTotalHeightAtLine(index) {
+    if (index < 0) return 0;
+    const contentHeight = this.getContentHeightAtLine(index);
+    const numBreaks = Math.floor(contentHeight / this.PAGE_CONTENT_HEIGHT_PX);
+    return contentHeight + numBreaks * this.PAGE_BREAK_HEIGHT_PX;
+  }
+
+  // O(n) operation - THE BOTTLENECK FOR LARGE JUMPS
+  findLineAtOffset(offset) {
+    let contentHeight = 0;
+    for (let i = 0; i < this.numLines; i++) {
+      contentHeight += this.getLineHeight(i);
+      const numBreaks = Math.floor(contentHeight / this.PAGE_CONTENT_HEIGHT_PX);
+      const totalHeight = contentHeight + numBreaks * this.PAGE_BREAK_HEIGHT_PX;
+      if (totalHeight >= offset) {
+        return i;
+      }
+    }
+    return this.numLines - 1;
+  }
+}
 
 export class EditorView {
-  constructor(model, container, widgetLayer, lineNumbersContainer) {
+  constructor(model, container, widgetLayer) {
     this.model = model;
     this.container = container;
     this.widgetLayer = widgetLayer;
-    this.lineNumbersContainer = lineNumbersContainer;
+
+    // --- NEW: Line height calculation logic ---
+    this.CHARS_PER_ROW = 60;
+    const BASE_LINE_HEIGHT =
+      parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
+
+    // --- Helper: compute wrapped rows with word wrapping ---
+    this._computeWrappedRows = (text) => {
+      if (!text) return 1;
+
+      const words = text.split(/(\s+)/); // keep spaces
+      let rows = 1;
+      let currentLen = 0;
+
+      for (const word of words) {
+        const wordLen = word.length;
+
+        if (currentLen + wordLen <= this.CHARS_PER_ROW) {
+          currentLen += wordLen;
+        } else {
+          // if word itself longer than row, break across multiple rows
+          if (wordLen > this.CHARS_PER_ROW) {
+            const fullRows = Math.floor(wordLen / this.CHARS_PER_ROW);
+            rows += fullRows;
+            currentLen = wordLen % this.CHARS_PER_ROW;
+          } else {
+            rows++;
+            currentLen = wordLen;
+          }
+        }
+      }
+
+      return rows;
+    };
+
+    this.getLineHeight = (lineIndex) => {
+      const lineText = this.model.lines[lineIndex].segments
+        .map((s) => s.text)
+        .join("");
+      const rows = this._computeWrappedRows(lineText);
+      return rows * BASE_LINE_HEIGHT;
+    };
+
+    this.getLineWrappedRows = (lineIndex) => {
+      const lineText = this.model.lines[lineIndex].segments
+        .map((s) => s.text)
+        .join("");
+      return this._computeWrappedRows(lineText);
+    };
+
+    // --- NEW: Instantiate the layout manager ---
+    this.layoutManager = new IncrementalScanApproach(
+      this.getLineHeight,
+      this.model.lines.length
+    );
 
     this.searchWidget = createSearchWidget();
     this.widgetLayer.appendChild(this.searchWidget);
     this.searchMatches = [];
-
-    if (this.lineNumbersContainer) {
-      this.lineNumbers = new LineNumbersWidget(this.lineNumbersContainer);
-    }
 
     this.cursorEl = document.createElement("div");
     this.cursorEl.className = "cursor";
@@ -33,11 +133,72 @@ export class EditorView {
     this.container.addEventListener("scroll", () => {
       requestAnimationFrame(() => {
         this.render();
-        if (this.lineNumbers) {
-          this.lineNumbers.syncScroll(this.container.scrollTop);
-        }
       });
     });
+
+    // Initial render requires setting the total height for the scrollbar
+    const totalHeight = this.layoutManager.getTotalHeightAtLine(
+      this.model.lines.length - 1
+    );
+    const initialSpacer = document.createElement("div");
+    initialSpacer.style.height = `${totalHeight}px`;
+    this.container.appendChild(initialSpacer);
+  }
+
+  // Returns an array of wrapped row strings for a line
+  getWrappedRows(lineIndex) {
+    const lineText = this.model.lines[lineIndex].segments
+      .map((s) => s.text)
+      .join("");
+
+    const rows = [];
+    let start = 0;
+
+    while (start < lineText.length) {
+      let end = Math.min(start + this.CHARS_PER_ROW, lineText.length);
+
+      // If we didn't land at whitespace and not at end, backtrack to last space
+      if (end < lineText.length && lineText[end] !== " ") {
+        const lastSpace = lineText.lastIndexOf(" ", end);
+        if (lastSpace > start) {
+          end = lastSpace + 1; // keep the space in the row
+        }
+      }
+
+      rows.push(lineText.slice(start, end));
+      start = end;
+    }
+
+    return rows.length > 0 ? rows : [""];
+  }
+
+  // Map (line, ch) → { rowIndex, colInRow }
+  getRowPosition(lineIndex, ch) {
+    const rows = this.getWrappedRows(lineIndex);
+
+    let remaining = ch;
+    for (let i = 0; i < rows.length; i++) {
+      if (remaining <= rows[i].length) {
+        return { rowIndex: i, colInRow: remaining };
+      }
+      remaining -= rows[i].length;
+    }
+    // fallback (end of line)
+    return {
+      rowIndex: rows.length - 1,
+      colInRow: rows[rows.length - 1].length,
+    };
+  }
+
+  // Map (rowIndex, colInRow) → ch
+  getChFromRowPosition(lineIndex, rowIndex, colInRow) {
+    const rows = this.getWrappedRows(lineIndex);
+
+    let ch = 0;
+    for (let i = 0; i < rowIndex; i++) {
+      ch += rows[i].length;
+    }
+    return Math.min(ch + colInRow, this.model.getLineLength(lineIndex));
   }
 
   highlightMatches(ranges, currentIndex = -1) {
@@ -63,41 +224,47 @@ export class EditorView {
   render() {
     const scrollTop = this.container.scrollTop;
     const clientHeight = this.container.clientHeight;
-
-    // Convert inches to pixels for page measurement
-    const dpi = 96; // assume 96 CSS pixels = 1in
-    const pageHeightPx = 11 * dpi; // 11in page
-    const pageBreakHeightPx = 2 * dpi; // 2in spacer
-
-    let lineHeight =
-      parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
     const buffer = 5;
 
-    const totalLines = this.model.lines.length;
-    const startLine = Math.max(0, Math.floor(scrollTop / lineHeight) - buffer);
-    const endLine = Math.min(
-      totalLines,
-      startLine + Math.ceil(clientHeight / lineHeight) + 2 * buffer
-    );
+    // --- REFACTORED: Use layout manager for all calculations ---
+    const startLine = this.layoutManager.findLineAtOffset(scrollTop);
 
-    this.startLine = startLine;
-    this.endLine = endLine;
+    let endLine = startLine;
+    let renderedHeight = 0;
+    while (renderedHeight < clientHeight && endLine < this.model.lines.length) {
+      const lineTotalHeight =
+        this.layoutManager.getTotalHeightAtLine(endLine) -
+        this.layoutManager.getTotalHeightAtLine(endLine - 1);
+      renderedHeight += lineTotalHeight;
+      endLine++;
+    }
+
+    this.startLine = Math.max(0, startLine - buffer);
+    this.endLine = Math.min(this.model.lines.length, endLine + buffer);
 
     this.container.innerHTML = ""; // Clear container
     this.container.appendChild(this.cursorEl);
 
+    const topSpacerHeight = this.layoutManager.getTotalHeightAtLine(
+      this.startLine - 1
+    );
     const beforeSpacer = document.createElement("div");
-    beforeSpacer.style.height = startLine * lineHeight + "px";
+    beforeSpacer.style.height = `${topSpacerHeight}px`;
     this.container.appendChild(beforeSpacer);
 
-    for (let i = startLine; i < endLine; i++) {
-      // Insert a page break every ~11in of scroll
-      const lineTopPx = i * lineHeight;
-      if (
-        i > startLine &&
-        Math.floor(lineTopPx / pageHeightPx) !==
-          Math.floor((lineTopPx - lineHeight) / pageHeightPx)
-      ) {
+    for (let i = this.startLine; i < this.endLine; i++) {
+      const contentHeightBefore = this.layoutManager.getContentHeightAtLine(
+        i - 1
+      );
+      const contentHeightAfter = this.layoutManager.getContentHeightAtLine(i);
+      const pageNumBefore = Math.floor(
+        contentHeightBefore / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
+      );
+      const pageNumAfter = Math.floor(
+        contentHeightAfter / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
+      );
+
+      if (i > 0 && pageNumAfter > pageNumBefore) {
         const pageBreak = this._createPageBreak();
         this.container.appendChild(pageBreak);
       }
@@ -106,13 +273,17 @@ export class EditorView {
       this.container.appendChild(lineEl);
     }
 
+    const totalHeight = this.layoutManager.getTotalHeightAtLine(
+      this.model.lines.length - 1
+    );
+    const bottomSpacerHeight =
+      totalHeight - this.layoutManager.getTotalHeightAtLine(this.endLine - 1);
     const afterSpacer = document.createElement("div");
-    afterSpacer.style.height = (totalLines - endLine) * lineHeight + "px";
+    afterSpacer.style.height = `${bottomSpacerHeight}px`;
     this.container.appendChild(afterSpacer);
 
-    if (this.lineNumbers) {
-      this.lineNumbers.render(startLine, endLine, totalLines, lineHeight);
-    }
+    // Line numbers would also need refactoring to handle variable heights if enabled
+    // if (this.lineNumbers) { ... }
 
     this.updateCursor();
   }
@@ -132,6 +303,7 @@ export class EditorView {
   _renderLine(lineIndex) {
     const lineObj = this.model.lines[lineIndex];
     const lineEl = document.createElement("div");
+
     lineEl.className = `line ${lineObj.type}`;
 
     const lineText = lineObj.segments.map((s) => s.text).join("");
@@ -230,9 +402,34 @@ export class EditorView {
       this.cursorEl.style.display = "block";
     }
 
-    const domIndex = 2 + (line - this.startLine);
-    const lineEl = this.container.children[domIndex];
-    if (!lineEl) return;
+    // --- REFACTORED: Find the correct DOM element, accounting for page breaks ---
+    let elementCount = 1; // Start at 1 to skip the top spacer
+    let targetEl = null;
+    for (let i = this.startLine; i <= line; i++) {
+      // Check for a page break before this line
+      const contentHeightBefore = this.layoutManager.getContentHeightAtLine(
+        i - 1
+      );
+      const contentHeightAfter = this.layoutManager.getContentHeightAtLine(i);
+      const pageNumBefore = Math.floor(
+        contentHeightBefore / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
+      );
+      const pageNumAfter = Math.floor(
+        contentHeightAfter / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
+      );
+
+      if (i > this.startLine && pageNumAfter > pageNumBefore) {
+        elementCount++;
+      }
+
+      if (i === line) {
+        targetEl = this.container.children[elementCount + 1]; // +1 for cursor element
+      }
+      elementCount++;
+    }
+
+    if (!targetEl) return;
+    const lineEl = targetEl;
 
     const walker = document.createTreeWalker(
       lineEl,
@@ -259,10 +456,17 @@ export class EditorView {
         targetNode = lineEl.lastChild;
         offset = lineEl.lastChild.textContent.length;
       } else {
-        const emptyNode = document.createTextNode("\u200B");
-        lineEl.appendChild(emptyNode);
-        targetNode = emptyNode;
-        offset = 0;
+        // Fallback for empty lines
+        const firstChild = lineEl.firstChild;
+        if (firstChild && firstChild.nodeType === Node.TEXT_NODE) {
+          targetNode = firstChild;
+          offset = 0;
+        } else {
+          const emptyNode = document.createTextNode("\u200B");
+          lineEl.appendChild(emptyNode);
+          targetNode = emptyNode;
+          offset = 0;
+        }
       }
     }
 
@@ -270,16 +474,20 @@ export class EditorView {
     range.setStart(targetNode, offset);
     range.setEnd(targetNode, offset);
 
-    const rect = range.getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
+    const rects = range.getClientRects();
+    if (rects.length > 0) {
+      // rects is an array of DOMRects, one for each *wrapped row*
+      const rect = rects[rects.length - 1];
+      // pick correct one (usually last = visual row where caret sits)
 
-    this.cursorEl.style.top = `${
-      rect.top - containerRect.top + this.container.scrollTop
-    }px`;
-    this.cursorEl.style.left = `${
-      rect.left - containerRect.left + this.container.scrollLeft
-    }px`;
-    this.cursorEl.style.height = `${rect.height}px`;
+      const containerRect = this.container.getBoundingClientRect();
+
+      this.cursorEl.style.top =
+        rect.top - containerRect.top + this.container.scrollTop + "px";
+      this.cursorEl.style.left =
+        rect.left - containerRect.left + this.container.scrollLeft + "px";
+      this.cursorEl.style.height = rect.height + "px";
+    }
 
     this.pauseBlinkAndRestart();
   }
@@ -315,23 +523,28 @@ export class EditorView {
   }
 
   scrollToLine(lineNumber) {
-    const lineHeight =
-      parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
-    const clientHeight = this.container.clientHeight;
-    const visibleLines = Math.ceil(clientHeight / lineHeight);
-    const targetScrollTop = Math.max(
-      0,
-      (lineNumber - Math.floor(visibleLines / 2)) * lineHeight
+    // --- REFACTORED: Use the layout manager to find the correct scroll position ---
+    const targetScrollTop = this.layoutManager.getTotalHeightAtLine(
+      lineNumber - 1
     );
+    const clientHeight = this.container.clientHeight;
 
     const currentScrollTop = this.container.scrollTop;
-    const lineTop = lineNumber * lineHeight;
-    const lineBottom = lineTop + lineHeight;
+    const lineBottom = this.layoutManager.getTotalHeightAtLine(lineNumber);
     const viewportTop = currentScrollTop;
     const viewportBottom = currentScrollTop + clientHeight;
 
-    if (lineTop < viewportTop || lineBottom > viewportBottom) {
-      this.container.scrollTop = targetScrollTop;
+    // Check if the line is already fully visible
+    if (targetScrollTop >= viewportTop && lineBottom <= viewportBottom) {
+      return;
     }
+
+    // Center the line in the viewport
+    const lineHeight = lineBottom - targetScrollTop;
+    const centeredScrollTop = Math.max(
+      0,
+      targetScrollTop - clientHeight / 2 + lineHeight / 2
+    );
+    this.container.scrollTop = centeredScrollTop;
   }
 }
