@@ -1,69 +1,51 @@
 import { createSearchWidget } from "../components/SearchWidget/SearchWidget,js";
 
-// NOTE: In a larger application, this class would be in its own file
-// to better separate concerns (e.g., 'src/editor/layout/IncrementalScanLayout.js').
-class IncrementalScanApproach {
-  // Page Break Constants, using standard paper sizes.
-  static DPI = 96; // Standard screen DPI
-  static PAGE_CONTENT_HEIGHT_PX = 9 * IncrementalScanApproach.DPI; // 9 inches of content
-  static PAGE_BREAK_HEIGHT_PX = 2 * IncrementalScanApproach.DPI; // 2 inches for top/bottom margins
+class NaiveLayoutManager {
+  static DPI = 96;
+  static PAGE_CONTENT_HEIGHT_PX = 9 * NaiveLayoutManager.DPI; // 9"
+  static PAGE_BREAK_HEIGHT_PX = 2 * NaiveLayoutManager.DPI; // 2"
 
-  constructor(getLineHeightFn, numLines) {
+  constructor(getLineHeightFn, getNumLinesFn) {
     this.getLineHeight = getLineHeightFn;
-    this.numLines = numLines;
+    this.getNumLines = getNumLinesFn;
   }
 
-  // Note: No 'build' step is needed for this simple approach.
+  getPageLineRanges() {
+    const pageLineRanges = [];
+    let currentLine = 0;
+    const numLines = this.getNumLines();
 
-  updateLineHeight(/* index, newHeight */) {
-    // This method is a no-op because this layout manager is designed to be
-    // stateless. It relies on the `getLineHeight` function, which reads
-    // directly from the model, ensuring it always has the latest data without
-    // needing to maintain its own height cache.
-  }
+    while (currentLine < numLines) {
+      const startLine = currentLine;
+      let accumulatedHeight = 0;
+      let line = currentLine;
 
-  // Calculates the total height of content from the beginning to a specific line.
-  // O(n) operation.
-  getContentHeightAtLine(index) {
-    if (index < 0) return 0;
-    let contentHeight = 0;
-    for (let i = 0; i <= index; i++) {
-      contentHeight += this.getLineHeight(i);
-    }
-    return contentHeight;
-  }
-
-  // Calculates the total height including page breaks up to a specific line.
-  // O(n) operation.
-  getTotalHeightAtLine(index) {
-    if (index < 0) return 0;
-    const contentHeight = this.getContentHeightAtLine(index);
-    const numBreaks = Math.floor(
-      contentHeight / IncrementalScanApproach.PAGE_CONTENT_HEIGHT_PX
-    );
-    return (
-      contentHeight + numBreaks * IncrementalScanApproach.PAGE_BREAK_HEIGHT_PX
-    );
-  }
-
-  // Finds the line index that corresponds to a given vertical pixel offset.
-  // This is the performance bottleneck for large jumps (e.g., scrolling).
-  // O(n) operation.
-  findLineAtOffset(offset) {
-    let contentHeight = 0;
-    for (let i = 0; i < this.numLines; i++) {
-      contentHeight += this.getLineHeight(i);
-      const numBreaks = Math.floor(
-        contentHeight / IncrementalScanApproach.PAGE_CONTENT_HEIGHT_PX
-      );
-      const totalHeight =
-        contentHeight +
-        numBreaks * IncrementalScanApproach.PAGE_BREAK_HEIGHT_PX;
-      if (totalHeight >= offset) {
-        return i;
+      while (line < numLines) {
+        const h = this.getLineHeight(line);
+        if (
+          accumulatedHeight + h > NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX &&
+          accumulatedHeight > 0
+        ) {
+          break;
+        }
+        accumulatedHeight += h;
+        line++;
+        if (
+          h > NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX &&
+          accumulatedHeight > 0
+        ) {
+          break;
+        }
       }
+      const endLine = Math.max(startLine, line - 1);
+      pageLineRanges.push({
+        startLine,
+        endLine,
+        contentHeight: accumulatedHeight,
+      });
+      currentLine = line;
     }
-    return this.numLines - 1;
+    return pageLineRanges;
   }
 }
 
@@ -73,9 +55,10 @@ export class EditorView {
     this.container = container;
     this.widgetLayer = widgetLayer;
 
-    this.CHARS_PER_ROW = 60; // Corresponds to screenplay standards
+    this.CHARS_PER_ROW = 60; // screenplay standard
     const BASE_LINE_HEIGHT =
       parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
+    this.BASE_LINE_HEIGHT = BASE_LINE_HEIGHT;
 
     this._getLineText = (lineIndex) => {
       if (lineIndex < 0 || lineIndex >= this.model.lines.length) return "";
@@ -108,7 +91,7 @@ export class EditorView {
     this.getLineHeight = (lineIndex) => {
       const lineText = this._getLineText(lineIndex);
       const rows = this._computeWrappedRows(lineText);
-      return rows * BASE_LINE_HEIGHT;
+      return rows * this.BASE_LINE_HEIGHT;
     };
 
     this.getLineWrappedRows = (lineIndex) => {
@@ -116,36 +99,29 @@ export class EditorView {
       return this._computeWrappedRows(lineText);
     };
 
-    this.layoutManager = new IncrementalScanApproach(
+    this.layoutManager = new NaiveLayoutManager(
       this.getLineHeight,
-      this.model.lines.length
+      () => this.model.lines.length
     );
 
     this.searchWidget = createSearchWidget();
     this.widgetLayer.appendChild(this.searchWidget);
     this.searchMatches = [];
+    this.currentMatchIndex = -1;
+    this.matchesByLine = new Map();
 
     this.cursorEl = document.createElement("div");
     this.cursorEl.className = "cursor";
-    container.appendChild(this.cursorEl);
+    this.cursorEl.style.position = "absolute";
+    this.cursorEl.style.zIndex = "1";
 
     this.cursorBlinkInterval = null;
     this.cursorBlinkTimeout = null;
     this.startBlink();
 
-    this.startLine = 0;
-    this.endLine = 0;
-
     this.container.addEventListener("scroll", () => {
       requestAnimationFrame(() => this.render());
     });
-
-    const totalHeight = this.layoutManager.getTotalHeightAtLine(
-      this.model.lines.length - 1
-    );
-    const initialSpacer = document.createElement("div");
-    initialSpacer.style.height = `${totalHeight}px`;
-    this.container.appendChild(initialSpacer);
   }
 
   getWrappedRows(lineIndex) {
@@ -184,98 +160,79 @@ export class EditorView {
   getChFromRowPosition(lineIndex, rowIndex, colInRow) {
     const rows = this.getWrappedRows(lineIndex);
     let ch = 0;
-    for (let i = 0; i < rowIndex; i++) {
-      ch += rows[i].length;
-    }
+    for (let i = 0; i < rowIndex; i++) ch += rows[i].length;
     return Math.min(ch + colInRow, this.model.getLineLength(lineIndex));
   }
 
-  highlightMatches(ranges, currentIndex = -1) {
-    this.searchMatches = ranges;
-    this.currentMatchIndex = currentIndex;
-    this.matchesByLine = new Map();
-    for (const m of ranges) {
-      if (!this.matchesByLine.has(m.line)) {
-        this.matchesByLine.set(m.line, []);
-      }
-      this.matchesByLine.get(m.line).push(m);
-    }
-    this.render();
-  }
-
-  clearHighlights() {
-    this.searchMatches = [];
-    this.currentMatchIndex = -1;
-    this.matchesByLine = new Map();
-    this.render();
-  }
-
-  /**
-   * Renders the visible portion of the editor.
-   * This function implements virtual scrolling by rendering only the lines
-   * that are currently in or near the viewport. It uses spacers to ensure
-   * the scrollbar accurately reflects the total document height.
-   */
   render() {
     const scrollTop = this.container.scrollTop;
     const clientHeight = this.container.clientHeight;
-    const buffer = 5; // Number of lines to render above and below the viewport
 
-    const startLine = this.layoutManager.findLineAtOffset(scrollTop);
-
-    let endLine = startLine;
-    let renderedHeight = 0;
-    while (renderedHeight < clientHeight && endLine < this.model.lines.length) {
-      const lineTotalHeight =
-        this.layoutManager.getTotalHeightAtLine(endLine) -
-        this.layoutManager.getTotalHeightAtLine(endLine - 1);
-      renderedHeight += lineTotalHeight;
-      endLine++;
+    const pageLineRanges = this.layoutManager.getPageLineRanges();
+    if (pageLineRanges.length === 0) {
+      this.container.innerHTML = "";
+      this.container.appendChild(this.cursorEl);
+      this.updateCursor();
+      return;
     }
 
-    this.startLine = Math.max(0, startLine - buffer);
-    this.endLine = Math.min(this.model.lines.length, endLine + buffer);
+    const pageContentHeight = NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX;
+    const pageBreakHeight = NaiveLayoutManager.PAGE_BREAK_HEIGHT_PX;
+    const pageSlotHeight = pageContentHeight + pageBreakHeight;
 
-    this.container.innerHTML = ""; // Clear previous content
+    // 1. Calculate page tops and total height
+    const pageMetrics = [];
+    let accumulatedHeight = 0;
+    for (let i = 0; i < pageLineRanges.length; i++) {
+      const page = pageLineRanges[i];
+      const isLastPage = i === pageLineRanges.length - 1;
+      const height = isLastPage ? page.contentHeight : pageSlotHeight;
+      pageMetrics.push({ top: accumulatedHeight, height: height, page: page, index: i });
+      accumulatedHeight += height;
+    }
+    const totalHeight = accumulatedHeight;
+
+    // 2. Find visible pages
+    const visiblePages = pageMetrics.filter(p => 
+        p.top < scrollTop + clientHeight && p.top + p.height > scrollTop
+    );
+
+    // 3. Render
+    this.container.innerHTML = "";
     this.container.appendChild(this.cursorEl);
 
-    // Add a top spacer to simulate the height of all lines before the visible area
-    const topSpacerHeight = this.layoutManager.getTotalHeightAtLine(
-      this.startLine - 1
-    );
-    const beforeSpacer = document.createElement("div");
-    beforeSpacer.style.height = `${topSpacerHeight}px`;
-    this.container.appendChild(beforeSpacer);
+    const topSpacerHeight = visiblePages.length > 0 ? visiblePages[0].top : 0;
+    const topSpacer = document.createElement("div");
+    topSpacer.style.height = `${topSpacerHeight}px`;
+    this.container.appendChild(topSpacer);
 
-    // Render the visible lines and any page breaks between them
-    for (let i = this.startLine; i < this.endLine; i++) {
-      const contentHeightBefore = this.layoutManager.getContentHeightAtLine(
-        i - 1
-      );
-      const contentHeightAfter = this.layoutManager.getContentHeightAtLine(i);
-      const pageNumBefore = Math.floor(
-        contentHeightBefore / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
-      );
-      const pageNumAfter = Math.floor(
-        contentHeightAfter / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
-      );
-
-      if (i > 0 && pageNumAfter > pageNumBefore) {
-        this.container.appendChild(this._createPageBreak());
+    for (const p of visiblePages) {
+      const pageContainer = document.createElement("div");
+      for (let j = p.page.startLine; j <= p.page.endLine; j++) {
+        const lineEl = this._renderLine(j);
+        lineEl.dataset.line = j;
+        pageContainer.appendChild(lineEl);
       }
 
-      this.container.appendChild(this._renderLine(i));
+      const isLastPage = p.index === pageLineRanges.length - 1;
+      if (!isLastPage) {
+        if (p.page.contentHeight < pageContentHeight) {
+          const spacer = document.createElement("div");
+          spacer.style.height = `${pageContentHeight - p.page.contentHeight}px`;
+          pageContainer.appendChild(spacer);
+        }
+        const breakEl = this._createPageBreak();
+        breakEl.style.height = `${pageBreakHeight}px`;
+        pageContainer.appendChild(breakEl);
+      }
+      this.container.appendChild(pageContainer);
     }
 
-    // Add a bottom spacer for the remaining document height
-    const totalHeight = this.layoutManager.getTotalHeightAtLine(
-      this.model.lines.length - 1
-    );
-    const bottomSpacerHeight =
-      totalHeight - this.layoutManager.getTotalHeightAtLine(this.endLine - 1);
-    const afterSpacer = document.createElement("div");
-    afterSpacer.style.height = `${bottomSpacerHeight}px`;
-    this.container.appendChild(afterSpacer);
+    const lastVisiblePage = visiblePages[visiblePages.length - 1];
+    const bottomSpacerHeight = lastVisiblePage ? totalHeight - (lastVisiblePage.top + lastVisiblePage.height) : totalHeight;
+    const bottomSpacer = document.createElement("div");
+    bottomSpacer.style.height = `${Math.max(0, bottomSpacerHeight)}px`;
+    this.container.appendChild(bottomSpacer);
 
     this.updateCursor();
   }
@@ -290,12 +247,6 @@ export class EditorView {
     return breakEl;
   }
 
-  /**
-   * Renders a single line of text, including styling, selections, and search highlights.
-   * It uses an event-based system to correctly nest DOM nodes for overlapping styles.
-   * @param {number} lineIndex The index of the line to render.
-   * @returns {HTMLElement} The rendered line element.
-   */
   _renderLine(lineIndex) {
     const lineObj = this.model.lines[lineIndex];
     const lineEl = document.createElement("div");
@@ -303,7 +254,7 @@ export class EditorView {
 
     const lineText = this._getLineText(lineIndex);
     if (lineText === "") {
-      lineEl.appendChild(document.createTextNode("\u200B")); // Zero-width space for empty lines
+      lineEl.appendChild(document.createTextNode("\u200B"));
       return lineEl;
     }
 
@@ -312,7 +263,6 @@ export class EditorView {
       : null;
     const lineMatches = this.matchesByLine?.get(lineIndex) || [];
 
-    // Create a sorted list of events (style open/close, selection, search match)
     const events = [];
     let chCount = 0;
     for (const segment of lineObj.segments) {
@@ -365,7 +315,6 @@ export class EditorView {
 
     events.sort((a, b) => a.pos - b.pos || (a.open ? 1 : -1));
 
-    // Process events and create styled spans
     let activeClasses = [];
     let lastPos = 0;
     const flush = (from, to) => {
@@ -379,11 +328,8 @@ export class EditorView {
 
     for (const event of events) {
       flush(lastPos, event.pos);
-      if (event.open) {
-        activeClasses.push(event.type);
-      } else {
-        activeClasses = activeClasses.filter((c) => c !== event.type);
-      }
+      if (event.open) activeClasses.push(event.type);
+      else activeClasses = activeClasses.filter((c) => c !== event.type);
       lastPos = event.pos;
     }
     flush(lastPos, lineText.length);
@@ -391,50 +337,18 @@ export class EditorView {
     return lineEl;
   }
 
-  /**
-   * Updates the position and visibility of the cursor element.
-   * This is a complex operation that involves finding the precise pixel
-   * position of the cursor within potentially wrapped lines of text.
-   */
   updateCursor() {
     const { line, ch } = this.model.cursor;
+    const lineEl = this.container.querySelector(`[data-line="${line}"]`);
 
-    if (line < this.startLine || line >= this.endLine) {
+    if (!lineEl) {
       this.cursorEl.style.display = "none";
       return;
     }
     this.cursorEl.style.display = "block";
 
-    // Find the correct DOM element for the cursor's line, accounting for page breaks.
-    // This is brittle; a data-attribute on line elements would be more robust.
-    let elementCount = 1; // Start at 1 to skip the top spacer
-    let targetEl = null;
-    for (let i = this.startLine; i <= line; i++) {
-      const contentHeightBefore = this.layoutManager.getContentHeightAtLine(
-        i - 1
-      );
-      const contentHeightAfter = this.layoutManager.getContentHeightAtLine(i);
-      const pageNumBefore = Math.floor(
-        contentHeightBefore / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
-      );
-      const pageNumAfter = Math.floor(
-        contentHeightAfter / this.layoutManager.PAGE_CONTENT_HEIGHT_PX
-      );
-
-      if (i > this.startLine && pageNumAfter > pageNumBefore) {
-        elementCount++;
-      }
-      if (i === line) {
-        targetEl = this.container.children[elementCount + 1]; // +1 for cursor element
-      }
-      elementCount++;
-    }
-
-    if (!targetEl) return;
-
-    // Walk through the text nodes of the line element to find the cursor's character offset.
     const walker = document.createTreeWalker(
-      targetEl,
+      lineEl,
       NodeFilter.SHOW_TEXT,
       null,
       false
@@ -442,7 +356,6 @@ export class EditorView {
     let remaining = ch;
     let targetNode = null;
     let offset = 0;
-
     while (walker.nextNode()) {
       const len = walker.currentNode.textContent.length;
       if (remaining <= len) {
@@ -452,38 +365,27 @@ export class EditorView {
       }
       remaining -= len;
     }
-
     if (!targetNode) {
-      // Fallback for end of line or empty lines
-      if (
-        targetEl.lastChild &&
-        targetEl.lastChild.nodeType === Node.TEXT_NODE
-      ) {
-        targetNode = targetEl.lastChild;
-        offset = targetEl.lastChild.textContent.length;
+      if (lineEl.lastChild && lineEl.lastChild.nodeType === Node.TEXT_NODE) {
+        targetNode = lineEl.lastChild;
+        offset = lineEl.lastChild.textContent.length;
       } else {
         const emptyNode = document.createTextNode("\u200B");
-        targetEl.appendChild(emptyNode);
+        lineEl.appendChild(emptyNode);
         targetNode = emptyNode;
         offset = 0;
       }
     }
 
-    // Use a Range to get the client rectangle for the cursor position.
     const range = document.createRange();
     range.setStart(targetNode, offset);
     range.setEnd(targetNode, offset);
     const rects = range.getClientRects();
-
     if (rects.length > 0) {
-      const rect = rects[rects.length - 1]; // Use the last rect for multi-line wraps
+      const rect = rects[rects.length - 1];
       const containerRect = this.container.getBoundingClientRect();
-      this.cursorEl.style.top = `${
-        rect.top - containerRect.top + this.container.scrollTop
-      }px`;
-      this.cursorEl.style.left = `${
-        rect.left - containerRect.left + this.container.scrollLeft
-      }px`;
+      this.cursorEl.style.top = `${rect.top - containerRect.top + this.container.scrollTop}px`;
+      this.cursorEl.style.left = `${rect.left - containerRect.left + this.container.scrollLeft}px`;
       this.cursorEl.style.height = `${rect.height}px`;
     }
 
@@ -520,26 +422,49 @@ export class EditorView {
     this.searchWidget.classList.add("hidden");
   }
 
-  scrollToLine(lineNumber) {
-    const targetScrollTop = this.layoutManager.getTotalHeightAtLine(
-      lineNumber - 1
-    );
-    const clientHeight = this.container.clientHeight;
-    const lineBottom = this.layoutManager.getTotalHeightAtLine(lineNumber);
-
-    const viewportTop = this.container.scrollTop;
-    const viewportBottom = viewportTop + clientHeight;
-
-    if (targetScrollTop >= viewportTop && lineBottom <= viewportBottom) {
-      return; // Already visible
+  highlightMatches(matches, currentIndex) {
+    this.searchMatches = matches;
+    this.currentMatchIndex = currentIndex;
+    
+    this.matchesByLine = new Map();
+    for (const match of matches) {
+      if (!this.matchesByLine.has(match.line)) {
+        this.matchesByLine.set(match.line, []);
+      }
+      this.matchesByLine.get(match.line).push(match);
     }
 
-    // Center the line in the viewport
-    const lineHeight = lineBottom - targetScrollTop;
-    const centeredScrollTop = Math.max(
-      0,
-      targetScrollTop - clientHeight / 2 + lineHeight / 2
-    );
-    this.container.scrollTop = centeredScrollTop;
+    this.render();
+  }
+
+  clearHighlights() {
+    this.searchMatches = [];
+    this.currentMatchIndex = -1;
+    this.matchesByLine = new Map();
+    this.render();
+  }
+
+  scrollToLine(lineNumber) {
+    const pageLineRanges = this.layoutManager.getPageLineRanges();
+    let targetPage = -1;
+    for (let i = 0; i < pageLineRanges.length; i++) {
+      if (
+        lineNumber >= pageLineRanges[i].startLine &&
+        lineNumber <= pageLineRanges[i].endLine
+      ) {
+        targetPage = i;
+        break;
+      }
+    }
+
+    if (targetPage !== -1) {
+      let height = 0;
+      for (let i = 0; i < targetPage; i++) {
+        height +=
+          pageLineRanges[i].contentHeight +
+          NaiveLayoutManager.PAGE_BREAK_HEIGHT_PX;
+      }
+      this.container.scrollTop = height;
+    }
   }
 }

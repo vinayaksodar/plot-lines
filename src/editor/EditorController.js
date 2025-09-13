@@ -80,7 +80,7 @@ export class EditorController {
   }
 
   viewToModelPos({ clientX, clientY }) {
-    const lines = Array.from(this.container.querySelectorAll(".line"));
+    const lines = Array.from(this.container.querySelectorAll(".line[data-line]"));
     if (lines.length === 0) return { line: 0, ch: 0 };
 
     const containerRect = this.container.getBoundingClientRect();
@@ -120,7 +120,7 @@ export class EditorController {
 
     const lineEl = lines[closestLineIdx];
     const lineRect = lineEl.getBoundingClientRect();
-    const modelLineIndex = this.view.startLine + closestLineIdx;
+    const modelLineIndex = parseInt(lineEl.dataset.line, 10);
 
     // Handle horizontal bounds
     if (clientX < lineRect.left) {
