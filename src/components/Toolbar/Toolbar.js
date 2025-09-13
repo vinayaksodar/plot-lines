@@ -65,6 +65,7 @@ export function createToolbar() {
 
     <button type="button" class="iconbtn text-btn" data-action="toggle-inline-style" data-style="bold" title="Bold">B</button>
     <button type="button" class="iconbtn text-btn" data-action="toggle-inline-style" data-style="italic" title="Italic">I</button>
+    <button type="button" class="iconbtn text-btn" data-action="toggle-inline-style" data-style="underline" title="Underline">U</button>
 
     <span class="sep" aria-hidden="true"></span>
 
