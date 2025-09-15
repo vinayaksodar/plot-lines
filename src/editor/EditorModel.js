@@ -68,6 +68,17 @@ export class EditorModel {
     }
 
     const { line, ch } = this.cursor;
+
+    // Ensure the line has at least one segment
+    if (this.lines[line].segments.length === 0) {
+      this.lines[line].segments.push({
+        text: "",
+        bold: false,
+        italic: false,
+        underline: false,
+      });
+    }
+
     const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
 
     // Insert character into the segment's text
@@ -337,8 +348,6 @@ export class EditorModel {
       this.clearSelection();
     }
   }
-
-  
 
   updateCursor({ line, ch }) {
     this.cursor.line = line;
