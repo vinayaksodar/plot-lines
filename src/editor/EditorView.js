@@ -144,24 +144,45 @@ export class EditorView {
 
   getRowPosition(lineIndex, ch) {
     const rows = this.getWrappedRows(lineIndex);
+    // clamp ch to valid range [0, totalLength]
+    const total = rows.reduce((s, r) => s + r.length, 0);
+    ch = Math.max(0, Math.min(ch, total));
+
     let remaining = ch;
     for (let i = 0; i < rows.length; i++) {
-      if (remaining <= rows[i].length) {
+      // STRICT comparison: if remaining is strictly inside this row, return it.
+      if (remaining < rows[i].length) {
         return { rowIndex: i, colInRow: remaining };
       }
+      // else remaining is at or beyond this row -> subtract and continue
       remaining -= rows[i].length;
     }
+
+    // If ch === total (cursor at end of line), return end position on last row
+    const last = rows.length - 1;
     return {
-      rowIndex: rows.length - 1,
-      colInRow: rows[rows.length - 1].length,
+      rowIndex: last,
+      colInRow: rows[last].length,
     };
   }
-
   getChFromRowPosition(lineIndex, rowIndex, colInRow) {
     const rows = this.getWrappedRows(lineIndex);
+    rowIndex = Math.max(0, Math.min(rowIndex, rows.length - 1));
+
+    // If target row is NOT the last wrapped row, disallow returning the boundary
+    // index equal to rows[rowIndex].length (which maps to next row start).
+    let maxCol = rows[rowIndex].length;
+    if (rowIndex < rows.length - 1) {
+      // ensure non-negative (in case a wrapped row is empty)
+      maxCol = Math.max(0, rows[rowIndex].length - 1);
+    }
+
+    const col = Math.max(0, Math.min(colInRow, maxCol));
+
+    // sum lengths of rows before rowIndex
     let ch = 0;
     for (let i = 0; i < rowIndex; i++) ch += rows[i].length;
-    return Math.min(ch + colInRow, this.model.getLineLength(lineIndex));
+    return ch + col;
   }
 
   render() {
@@ -187,14 +208,19 @@ export class EditorView {
       const page = pageLineRanges[i];
       const isLastPage = i === pageLineRanges.length - 1;
       const height = isLastPage ? page.contentHeight : pageSlotHeight;
-      pageMetrics.push({ top: accumulatedHeight, height: height, page: page, index: i });
+      pageMetrics.push({
+        top: accumulatedHeight,
+        height: height,
+        page: page,
+        index: i,
+      });
       accumulatedHeight += height;
     }
     const totalHeight = accumulatedHeight;
 
     // 2. Find visible pages
-    const visiblePages = pageMetrics.filter(p => 
-        p.top < scrollTop + clientHeight && p.top + p.height > scrollTop
+    const visiblePages = pageMetrics.filter(
+      (p) => p.top < scrollTop + clientHeight && p.top + p.height > scrollTop
     );
 
     // 3. Render
@@ -229,7 +255,9 @@ export class EditorView {
     }
 
     const lastVisiblePage = visiblePages[visiblePages.length - 1];
-    const bottomSpacerHeight = lastVisiblePage ? totalHeight - (lastVisiblePage.top + lastVisiblePage.height) : totalHeight;
+    const bottomSpacerHeight = lastVisiblePage
+      ? totalHeight - (lastVisiblePage.top + lastVisiblePage.height)
+      : totalHeight;
     const bottomSpacer = document.createElement("div");
     bottomSpacer.style.height = `${Math.max(0, bottomSpacerHeight)}px`;
     this.container.appendChild(bottomSpacer);
@@ -384,8 +412,12 @@ export class EditorView {
     if (rects.length > 0) {
       const rect = rects[rects.length - 1];
       const containerRect = this.container.getBoundingClientRect();
-      this.cursorEl.style.top = `${rect.top - containerRect.top + this.container.scrollTop}px`;
-      this.cursorEl.style.left = `${rect.left - containerRect.left + this.container.scrollLeft}px`;
+      this.cursorEl.style.top = `${
+        rect.top - containerRect.top + this.container.scrollTop
+      }px`;
+      this.cursorEl.style.left = `${
+        rect.left - containerRect.left + this.container.scrollLeft
+      }px`;
       this.cursorEl.style.height = `${rect.height}px`;
     }
 
@@ -425,7 +457,7 @@ export class EditorView {
   highlightMatches(matches, currentIndex) {
     this.searchMatches = matches;
     this.currentMatchIndex = currentIndex;
-    
+
     this.matchesByLine = new Map();
     for (const match of matches) {
       if (!this.matchesByLine.has(match.line)) {

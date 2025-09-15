@@ -135,7 +135,11 @@ export class KeyboardHandler {
           ch = view.getChFromRowPosition(line, rowIndex - 1, colInRow);
         } else if (line > 0) {
           const prevRows = view.getWrappedRows(line - 1);
-          ch = view.getChFromRowPosition(line - 1, prevRows.length - 1, colInRow);
+          ch = view.getChFromRowPosition(
+            line - 1,
+            prevRows.length - 1,
+            colInRow
+          );
           line--;
         }
         break;
@@ -178,7 +182,10 @@ export class KeyboardHandler {
     const currentLine = model.lines[line];
     if (!currentLine) return;
 
-    const lineText = currentLine.segments.map((s) => s.text).join("").toUpperCase();
+    const lineText = currentLine.segments
+      .map((s) => s.text)
+      .join("")
+      .toUpperCase();
     let typeToSet = null;
 
     if (lineText.startsWith("INT.") || lineText.startsWith("EXT.")) {
