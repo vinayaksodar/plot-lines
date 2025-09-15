@@ -1,35 +1,74 @@
 import { createSearchWidget } from "../components/SearchWidget/SearchWidget,js";
-
 class NaiveLayoutManager {
   static DPI = 96;
   static PAGE_CONTENT_HEIGHT_PX = 9 * NaiveLayoutManager.DPI; // 9"
   static PAGE_BREAK_HEIGHT_PX = 2 * NaiveLayoutManager.DPI; // 2"
 
-  constructor(getLineHeightFn, getNumLinesFn) {
+  constructor(getLineHeightFn, getNumLinesFn, getTopSpacingFn) {
     this.getLineHeight = getLineHeightFn;
     this.getNumLines = getNumLinesFn;
+    this.getTopSpacing = getTopSpacingFn;
   }
 
+  /**
+   * Returns an array of page objects:
+   * [
+   *   {
+   *     startLine,
+   *     endLine,
+   *     contentHeight,    // sum of line heights + top spacings for that page
+   *     lines: [ { index, topSpacing, height }, ... ]
+   *   },
+   *   ...
+   * ]
+   */
   getPageLineRanges() {
     const pageLineRanges = [];
-    let currentLine = 0;
     const numLines = this.getNumLines();
+    let currentLine = 0;
 
     while (currentLine < numLines) {
       const startLine = currentLine;
       let accumulatedHeight = 0;
       let line = currentLine;
 
+      // Create the page object up-front so we can push line entries into it.
+      const page = {
+        startLine,
+        endLine: startLine,
+        contentHeight: 0,
+        lines: [],
+      };
+
       while (line < numLines) {
-        const h = this.getLineHeight(line);
+        const isFirstOnPage = line === startLine;
+        const spacing = this.getTopSpacing
+          ? this.getTopSpacing(line, isFirstOnPage)
+          : 0;
+        const baseHeight = this.getLineHeight(line);
+        const h = spacing + baseHeight;
+
+        // If adding this line would overflow the page and we already have content, break.
         if (
           accumulatedHeight + h > NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX &&
           accumulatedHeight > 0
         ) {
           break;
         }
+
+        // Add the line entry to the current page.
+        page.lines.push({
+          index: line,
+          topSpacing: spacing,
+          height: h,
+        });
+
         accumulatedHeight += h;
+        page.endLine = line;
+
         line++;
+
+        // Safety: if a single line is taller than the page, allow it but stop after adding it.
         if (
           h > NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX &&
           accumulatedHeight > 0
@@ -37,14 +76,20 @@ class NaiveLayoutManager {
           break;
         }
       }
-      const endLine = Math.max(startLine, line - 1);
-      pageLineRanges.push({
-        startLine,
-        endLine,
-        contentHeight: accumulatedHeight,
-      });
-      currentLine = line;
+
+      page.contentHeight = accumulatedHeight;
+
+      // --- HOOK: orphan/widow handling can be applied here ---
+      // Example: look at page.lines and decide to move last N entries to next page.
+      // If you implement that, make sure to update page.contentHeight, page.endLine and currentLine
+      // accordingly before pushing the page into pageLineRanges.
+
+      pageLineRanges.push(page);
+
+      // Advance to the next line after the last line we assigned to this page.
+      currentLine = page.endLine + 1;
     }
+
     return pageLineRanges;
   }
 }
@@ -101,7 +146,8 @@ export class EditorView {
 
     this.layoutManager = new NaiveLayoutManager(
       this.getLineHeight,
-      () => this.model.lines.length
+      () => this.model.lines.length,
+      (lineIndex, isFirstOnPage) => this.getTopSpacing(lineIndex, isFirstOnPage)
     );
 
     this.searchWidget = createSearchWidget();
@@ -185,6 +231,19 @@ export class EditorView {
     return ch + col;
   }
 
+  getTopSpacing(lineIndex, isFirstOnPage) {
+    if (isFirstOnPage || lineIndex === 0) return 0;
+
+    const lineObj = this.model.lines[lineIndex];
+    if (lineObj.type === "scene-heading") {
+      return 2 * this.BASE_LINE_HEIGHT;
+    }
+    if (["character", "action", "transition", "shot"].includes(lineObj.type)) {
+      return 1 * this.BASE_LINE_HEIGHT;
+    }
+    return 0;
+  }
+
   render() {
     const scrollTop = this.container.scrollTop;
     const clientHeight = this.container.clientHeight;
@@ -234,9 +293,15 @@ export class EditorView {
 
     for (const p of visiblePages) {
       const pageContainer = document.createElement("div");
-      for (let j = p.page.startLine; j <= p.page.endLine; j++) {
-        const lineEl = this._renderLine(j);
-        lineEl.dataset.line = j;
+      for (const entry of p.page.lines) {
+        if (entry.topSpacing > 0) {
+          const spacer = document.createElement("div");
+          spacer.style.height = `${entry.topSpacing}px`;
+          pageContainer.appendChild(spacer);
+        }
+
+        const lineEl = this._renderLine(entry.index);
+        lineEl.dataset.line = entry.index;
         pageContainer.appendChild(lineEl);
       }
 

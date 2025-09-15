@@ -8,7 +8,7 @@
   max-width: 100%; /* shrink gracefully on smaller screens */
   font-family: "Courier New";
   font-size: 12pt; /* screenplay standard */
-  /* line-height: 1; ~6 lines per inch in Courier */
+  line-height: 1em; /*~6 lines per inch in Courier/*
   color: #1e293b;
   background: #ffffff;
   border: none;
@@ -37,7 +37,6 @@
 
 .line {
   display: block;
-  min-height: 1em;
   width: 60ch;
 }
 

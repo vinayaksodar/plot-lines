@@ -72,8 +72,6 @@ body {
 .line.scene-heading {
   text-transform: uppercase;
   font-weight: bold;
-  margin-top: 1em;
-  margin-bottom: 1em;
 }
 
 .line.action {
