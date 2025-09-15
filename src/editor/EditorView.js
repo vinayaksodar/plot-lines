@@ -251,17 +251,34 @@ export class EditorView {
     const lineText = this._getLineText(lineIndex);
     const rows = [];
     let start = 0;
+
     while (start < lineText.length) {
+      // Tentative end of this row (naïve wrap point)
       let end = Math.min(start + this.CHARS_PER_ROW, lineText.length);
-      if (end < lineText.length && lineText[end] !== " ") {
+
+      if (end < lineText.length) {
+        // --- Step 1: If the boundary falls on spaces, consume them all.
+        // This way rows end with "hello " (as typed) and the next row starts at the first non-space.
+        while (lineText[end] === " ") {
+          end += 1;
+        }
+
+        // --- Step 2: If we’re in the middle of a word, backtrack to the last space.
+        // This prevents splitting "hellow" into "hello" + "w".
         const lastSpace = lineText.lastIndexOf(" ", end);
-        if (lastSpace > start) {
+        if (lastSpace > start && lastSpace < end) {
           end = lastSpace + 1;
         }
       }
+
+      // Slice the row and push it into the result
       rows.push(lineText.slice(start, end));
+
+      // Move start to the next character
       start = end;
     }
+
+    // Always return at least one row (even for an empty string)
     return rows.length > 0 ? rows : [""];
   }
 
