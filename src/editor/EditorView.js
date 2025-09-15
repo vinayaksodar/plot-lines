@@ -4,10 +4,79 @@ class NaiveLayoutManager {
   static PAGE_CONTENT_HEIGHT_PX = 9 * NaiveLayoutManager.DPI; // 9"
   static PAGE_BREAK_HEIGHT_PX = 2 * NaiveLayoutManager.DPI; // 2"
 
-  constructor(getLineHeightFn, getNumLinesFn, getTopSpacingFn) {
+  constructor(getLineHeightFn, getNumLinesFn, getTopSpacingFn, getLineTypeFn) {
     this.getLineHeight = getLineHeightFn;
     this.getNumLines = getNumLinesFn;
     this.getTopSpacing = getTopSpacingFn;
+    this.getLineType = getLineTypeFn;
+  }
+
+  getOrphanGroup(page) {
+    if (page.lines.length === 0) return null;
+
+    const lastLine = page.lines[page.lines.length - 1];
+    const lastIdx = lastLine.index;
+    const lastType = this.getLineType(lastIdx);
+
+    const remainingSpace =
+      NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX - page.contentHeight;
+
+    // --- Rule A: character + parenthetical must stay together
+    if (
+      lastType === "parenthetical" &&
+      page.lines.length >= 2 &&
+      this.getLineType(page.lines[page.lines.length - 2].index) === "character"
+    ) {
+      const required = this.getLineHeight(lastIdx);
+      if (remainingSpace < required) {
+        return [
+          page.lines[page.lines.length - 2], // character
+          lastLine, // parenthetical
+        ];
+      }
+    }
+
+    // --- Rule B: character rules
+    if (lastType === "character") {
+      const required = this.getLineHeight(lastIdx);
+      if (remainingSpace < required) {
+        return [lastLine];
+      }
+
+      // Special case: character + dialogue must stay together
+      const nextIdx = lastIdx + 1;
+      if (
+        nextIdx < this.getNumLines() &&
+        this.getLineType(nextIdx) === "dialogue"
+      ) {
+        const nextHeight = this.getLineHeight(nextIdx);
+        if (remainingSpace < nextHeight) {
+          return [lastLine]; // mark character as orphan → move with dialogue next page
+        }
+      }
+    }
+
+    // --- Rule C: scene-heading rules
+    if (lastType === "scene-heading") {
+      const required = 2 * this.getLineHeight(lastIdx);
+      if (remainingSpace < required) {
+        return [lastLine];
+      }
+
+      // Hard-coded exception: scene-heading + character
+      const nextIdx = lastIdx + 1;
+      if (
+        nextIdx < this.getNumLines() &&
+        this.getLineType(nextIdx) === "character"
+      ) {
+        const nextHeight = this.getLineHeight(nextIdx);
+        if (remainingSpace < nextHeight) {
+          return [lastLine]; // move heading so it stays with next char
+        }
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -26,13 +95,13 @@ class NaiveLayoutManager {
     const pageLineRanges = [];
     const numLines = this.getNumLines();
     let currentLine = 0;
+    const ORPHAN_TYPES = new Set(["scene-heading", "character"]);
 
     while (currentLine < numLines) {
       const startLine = currentLine;
       let accumulatedHeight = 0;
       let line = currentLine;
 
-      // Create the page object up-front so we can push line entries into it.
       const page = {
         startLine,
         endLine: startLine,
@@ -48,7 +117,6 @@ class NaiveLayoutManager {
         const baseHeight = this.getLineHeight(line);
         const h = spacing + baseHeight;
 
-        // If adding this line would overflow the page and we already have content, break.
         if (
           accumulatedHeight + h > NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX &&
           accumulatedHeight > 0
@@ -56,19 +124,12 @@ class NaiveLayoutManager {
           break;
         }
 
-        // Add the line entry to the current page.
-        page.lines.push({
-          index: line,
-          topSpacing: spacing,
-          height: h,
-        });
-
+        page.lines.push({ index: line, topSpacing: spacing, height: h });
         accumulatedHeight += h;
         page.endLine = line;
 
         line++;
 
-        // Safety: if a single line is taller than the page, allow it but stop after adding it.
         if (
           h > NaiveLayoutManager.PAGE_CONTENT_HEIGHT_PX &&
           accumulatedHeight > 0
@@ -79,14 +140,28 @@ class NaiveLayoutManager {
 
       page.contentHeight = accumulatedHeight;
 
-      // --- HOOK: orphan/widow handling can be applied here ---
-      // Example: look at page.lines and decide to move last N entries to next page.
-      // If you implement that, make sure to update page.contentHeight, page.endLine and currentLine
-      // accordingly before pushing the page into pageLineRanges.
+      // --- Orphan fix ---
+      const orphanGroup = this.getOrphanGroup(page);
+      if (orphanGroup) {
+        // Pop each line in group (from last to first)
+        for (let i = orphanGroup.length - 1; i >= 0; i--) {
+          const orphan = page.lines.pop();
+          accumulatedHeight -= orphan.height;
+        }
+
+        // Update page end markers
+        page.endLine =
+          page.lines.length > 0
+            ? page.lines[page.lines.length - 1].index
+            : page.startLine;
+        page.contentHeight = accumulatedHeight;
+
+        // Put group back for next page
+        line = orphanGroup[0].index;
+      }
 
       pageLineRanges.push(page);
 
-      // Advance to the next line after the last line we assigned to this page.
       currentLine = page.endLine + 1;
     }
 
@@ -147,7 +222,9 @@ export class EditorView {
     this.layoutManager = new NaiveLayoutManager(
       this.getLineHeight,
       () => this.model.lines.length,
-      (lineIndex, isFirstOnPage) => this.getTopSpacing(lineIndex, isFirstOnPage)
+      (lineIndex, isFirstOnPage) =>
+        this.getTopSpacing(lineIndex, isFirstOnPage),
+      (lineIndex) => this.model.lines[lineIndex].type
     );
 
     this.searchWidget = createSearchWidget();
