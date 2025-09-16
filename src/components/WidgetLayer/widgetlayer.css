@@ -19,7 +19,7 @@
 .selection {
   background: rgba(59, 130, 246, 0.2);
   border-radius: 2px;
-  letter-spacing: -0.001px;
+  letter-spacing: -0.01px;
 }
 
 .search-match {
@@ -33,7 +33,7 @@
   background: rgba(249, 115, 22, 0.4);
   /* border: 0.001px solid rgba(249, 115, 22, 0.8); */
   border-radius: 2px;
-  letter-spacing: -0.1px;
+  letter-spacing: -0.01px;
 }
 
 /* Mobile responsive cursor */
