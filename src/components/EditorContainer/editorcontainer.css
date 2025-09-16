@@ -113,15 +113,11 @@
   text-transform: uppercase;
   font-weight: bold;
   width: 60ch;
-  white-space: normal;
-  overflow-wrap: break-word;
 }
 
 /* Action - describes the action in the scene */
 .line.action {
   width: 60ch;
-  white-space: normal;
-  overflow-wrap: break-word;
 }
 
 /* Character - names of characters speaking */
@@ -129,16 +125,12 @@
   text-transform: uppercase;
   margin-left: 2in;
   width: 25ch;
-  white-space: normal;
-  overflow-wrap: break-word;
 }
 
 /* Parenthetical - additional instructions for dialogue (e.g., emotions, pauses) */
 .line.parenthetical {
   margin-left: 1.5in;
   width: 20ch;
-  white-space: normal;
-  overflow-wrap: break-word;
 }
 
 /* Dialogue - the spoken words of the characters */
@@ -146,7 +138,6 @@
   margin-left: 1in;
   width: 40ch;
   white-space: normal;
-  overflow-wrap: break-word;
 }
 
 /* Transition - cues for scene transitions (e.g., CUT TO:) */
@@ -155,8 +146,6 @@
   text-align: right;
   margin-left: 4.5in;
   width: 15ch;
-  white-space: normal;
-  overflow-wrap: break-word;
 }
 
 /* Shot - a new element for describing a camera shot or similar instructions */

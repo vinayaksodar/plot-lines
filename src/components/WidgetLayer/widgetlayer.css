@@ -19,26 +19,27 @@
 .selection {
   background: rgba(59, 130, 246, 0.2);
   border-radius: 2px;
+  letter-spacing: -0.001px;
 }
 
 .search-match {
   background: rgba(251, 191, 36, 0.4);
-  border: 1px solid rgba(251, 191, 36, 0.6);
+  /* border: 0.00001px solid rgba(251, 191, 36, 0.6); */
   border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.2);
+  letter-spacing: -0.01px;
 }
 
 .search-match-current {
   background: rgba(249, 115, 22, 0.4);
-  border: 1px solid rgba(249, 115, 22, 0.8);
+  /* border: 0.001px solid rgba(249, 115, 22, 0.8); */
   border-radius: 2px;
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+  letter-spacing: -0.1px;
 }
 
 /* Mobile responsive cursor */
 @media (max-width: 768px) {
   .cursor {
-    width: 3px;
+    width: 2px;
   }
 }
 
