@@ -40,20 +40,7 @@ body {
   cursor: text;
 }
 
-/* Editor container */
-.editor-container {
-  flex: 1;
-  background: #ffffff;
-  transition: box-shadow 200ms ease;
-  -webkit-user-select: none;
-  user-select: none; /* you render selection */
-  touch-action: pan-y; /* allow vertical swipes to scroll */
-}
 
-.editor-container:focus {
-  outline: none;
-  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
 
 /* --- Inline Styles --- */
 .bold {
@@ -66,64 +53,6 @@ body {
 
 .underline {
   text-decoration: underline;
-}
-
-/* --- Block (Screenplay) Styles --- */
-.line.scene-heading {
-  text-transform: uppercase;
-  font-weight: bold;
-}
-
-.line.action {
-  /* Default style, no special formatting needed */
-}
-
-.line.character {
-  text-transform: uppercase;
-  text-align: center;
-  margin-left: 20%;
-  margin-right: 20%;
-}
-
-.line.dialogue {
-  margin-left: 10%;
-  margin-right: 10%;
-}
-
-.line.parenthetical {
-  text-align: center;
-  margin-left: 25%;
-  margin-right: 25%;
-}
-
-.line.transition {
-  text-transform: uppercase;
-  text-align: right;
-  margin-left: 40%;
-  margin-right: 0;
-}
-
-/* Mobile responsive editor */
-@media (max-width: 768px) {
-  .line-numbers {
-    width: 45px;
-    font-size: 13px;
-    line-height: 18px; /* Match editor line height */
-    padding-top: 0.75rem; /* Match editor padding */
-  }
-
-  .line-number {
-    padding: 0 6px 0 2px;
-  }
-}
-
-@media (max-width: 480px) {
-  .line-numbers {
-    width: 40px;
-    font-size: 12px;
-    line-height: 16px; /* Match editor line height */
-    padding-top: 0.5rem; /* Match editor padding */
-  }
 }
 
 /* File Manager Modal */

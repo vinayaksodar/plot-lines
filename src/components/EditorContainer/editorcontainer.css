@@ -14,6 +14,15 @@
   border: none;
   outline: none;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* subtle "paper" effect */
+  transition: box-shadow 200ms ease;
+  -webkit-user-select: none;
+  user-select: none; /* you render selection */
+  touch-action: pan-y; /* allow vertical swipes to scroll */
+}
+
+#editor-container:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 #editor-container::-webkit-scrollbar {
@@ -37,7 +46,6 @@
 
 .line {
   display: block;
-  width: 60ch;
 }
 
 /* Mobile responsive editor */
@@ -95,4 +103,63 @@
   font-size: 0.8rem;
   color: #64748b;
   font-family: "Courier", monospace;
+}
+
+/* Screenplay CSS Styles */
+/* Reference: https://www.studiobinder.com/blog/screenplay-margins/ */
+
+/* Scene Heading - indicates a new scene */
+.line.scene-heading {
+  text-transform: uppercase;
+  font-weight: bold;
+  width: 60ch;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Action - describes the action in the scene */
+.line.action {
+  width: 60ch;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Character - names of characters speaking */
+.line.character {
+  text-transform: uppercase;
+  margin-left: 2in;
+  width: 25ch;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Parenthetical - additional instructions for dialogue (e.g., emotions, pauses) */
+.line.parenthetical {
+  margin-left: 1.5in;
+  width: 20ch;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Dialogue - the spoken words of the characters */
+.line.dialogue {
+  margin-left: 1in;
+  width: 40ch;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Transition - cues for scene transitions (e.g., CUT TO:) */
+.line.transition {
+  text-transform: uppercase;
+  text-align: right;
+  margin-left: 4.5in;
+  width: 15ch;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Shot - a new element for describing a camera shot or similar instructions */
+.line.shot {
+  /* Style for shot elements */
 }
