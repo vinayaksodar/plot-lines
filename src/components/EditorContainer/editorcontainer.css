@@ -150,5 +150,7 @@
 
 /* Shot - a new element for describing a camera shot or similar instructions */
 .line.shot {
-  /* Style for shot elements */
+  text-transform: uppercase;
+  font-weight: bold;
+  width: 60ch;
 }

@@ -60,6 +60,7 @@ export function createToolbar() {
     <button type="button" class="iconbtn text-btn" data-action="set-line-type" data-type="dialogue" title="Dialogue">Dial</button>
     <button type="button" class="iconbtn text-btn" data-action="set-line-type" data-type="parenthetical" title="Parenthetical">Par</button>
     <button type="button" class="iconbtn text-btn" data-action="set-line-type" data-type="transition" title="Transition">Trans</button>
+    <button type="button" class="iconbtn text-btn" data-action="set-line-type" data-type="shot" title="Shot">Shot</button>
 
     <span class="sep" aria-hidden="true"></span>
 
@@ -158,37 +159,37 @@ export function createToolbar() {
 
     // Make all items visible to measure them
     const children = Array.from(mainContent.children);
-    children.forEach(child => {
-        child.style.display = '';
+    children.forEach((child) => {
+      child.style.display = "";
     });
 
-    dropdown.innerHTML = '';
+    dropdown.innerHTML = "";
     let visibleItemsWidth = 0;
     let firstItemToHide = -1;
 
     for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        const childWidth = child.offsetWidth + 4; // 4 is the gap
-        if (visibleItemsWidth + childWidth > availableWidth - moreButtonWidth) {
-            firstItemToHide = i;
-            break;
-        }
-        visibleItemsWidth += childWidth;
+      const child = children[i];
+      const childWidth = child.offsetWidth + 4; // 4 is the gap
+      if (visibleItemsWidth + childWidth > availableWidth - moreButtonWidth) {
+        firstItemToHide = i;
+        break;
+      }
+      visibleItemsWidth += childWidth;
     }
 
     if (firstItemToHide !== -1) {
-        moreButtonContainer.style.visibility = 'visible';
-        for (let i = 0; i < children.length; i++) {
-            const child = children[i];
-            if (i >= firstItemToHide) {
-                child.style.display = 'none';
-                const clone = child.cloneNode(true);
-                clone.style.display = '';
-                dropdown.appendChild(clone);
-            }
+      moreButtonContainer.style.visibility = "visible";
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (i >= firstItemToHide) {
+          child.style.display = "none";
+          const clone = child.cloneNode(true);
+          clone.style.display = "";
+          dropdown.appendChild(clone);
         }
+      }
     } else {
-        moreButtonContainer.style.visibility = 'hidden';
+      moreButtonContainer.style.visibility = "hidden";
     }
   };
 
