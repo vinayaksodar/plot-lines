@@ -167,8 +167,13 @@ export class KeyboardHandler {
     if (key === "Enter" && line > 0) {
       const prevLineType = model.lines[line - 1].type;
       const newType = {
-        character: "dialogue",
         "scene-heading": "action",
+        action: "action",
+        character: "dialogue",
+        parenthetical: "dialogue",
+        dialogue: "action",
+        transition: "scene-heading",
+        shot: "action",
       }[prevLineType];
 
       if (newType) {
@@ -178,14 +183,11 @@ export class KeyboardHandler {
       }
     }
 
-    // Auto-capitalize and set Scene Heading type
+    // Set Scene Heading type
     const currentLine = model.lines[line];
     if (!currentLine) return;
 
-    const lineText = currentLine.segments
-      .map((s) => s.text)
-      .join("")
-      .toUpperCase();
+    const lineText = currentLine.segments.map((s) => s.text).join("");
     let typeToSet = null;
 
     if (lineText.startsWith("INT.") || lineText.startsWith("EXT.")) {
