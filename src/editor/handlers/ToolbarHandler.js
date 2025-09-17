@@ -37,6 +37,12 @@ export class ToolbarHandler {
         case "export":
           this.fileManager.handleExportFile();
           break;
+        case "import-fountain":
+          await this.fileManager.handleImportFountain();
+          break;
+        case "export-fountain":
+          this.fileManager.handleExportFountain();
+          break;
         case "files":
           this.fileManager.handleManageFiles();
           break;

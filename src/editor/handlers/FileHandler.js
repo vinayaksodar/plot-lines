@@ -1,8 +1,11 @@
+import { FountainParser } from "../FountainParser.js";
+
 export class FileManager {
   constructor(model, view, hiddenInput) {
     this.model = model;
     this.view = view;
     this.hiddenInput = hiddenInput;
+    this.fountainParser = new FountainParser();
     this.currentFileName = "untitled.txt";
     this.autoSaveInterval = null;
     this.autoSaveDelay = 2000; // 2 seconds
@@ -183,6 +186,7 @@ export class FileManager {
   }
 
   // Export file (download)
+
   exportFile(fileName = null, content = null) {
     const finalFileName = fileName || this.currentFileName;
     const finalContent = content || this.model.getText();
@@ -197,6 +201,54 @@ export class FileManager {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  importFountainFile() {
+    return new Promise((resolve, reject) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".fountain";
+
+      input.onchange = (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+          reject(new Error("No file selected"));
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          const modelLines = this.fountainParser.parse(content);
+          this.model.lines = modelLines;
+          this.currentFileName = file.name;
+
+          // Reset cursor to beginning
+          this.model.updateCursor({ line: 0, ch: 0 });
+          this.model.clearSelection();
+
+          resolve({
+            fileName: file.name,
+            content: content,
+            size: file.size
+          });
+        };
+
+        reader.onerror = () => {
+          reject(new Error("Failed to read file"));
+        };
+
+        reader.readAsText(file);
+      };
+
+      input.click();
+    });
+  }
+
+  exportFountainFile() {
+    const fountainText = this.fountainParser.export(this.model.lines);
+    const fileName = this.currentFileName.replace(/\.txt$/, ".fountain");
+    this.exportFile(fileName, fountainText);
   }
 
   // Import file (upload)
@@ -313,6 +365,28 @@ export class FileManager {
 
   handleExportFile() {
     this.exportFile();
+    this.focusEditor();
+  }
+
+  async handleImportFountain() {
+    try {
+      const result = await this.importFountainFile();
+      this.focusEditor();
+      if (this.view) {
+        this.view.render();
+      }
+      console.log(`Opened file: ${result.fileName} (${result.size} bytes)`);
+    } catch (error) {
+      if (error.message !== "No file selected") {
+        console.error("Open file failed:", error);
+        alert("Failed to open file: " + error.message);
+      }
+      this.focusEditor();
+    }
+  }
+
+  handleExportFountain() {
+    this.exportFountainFile();
     this.focusEditor();
   }
 

@@ -43,6 +43,22 @@ export function createToolbar() {
       </svg>
     </button>
 
+    <button type="button" class="iconbtn" data-action="import-fountain" aria-label="Import Fountain File" title="Import Fountain File">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <polyline points="17,8 12,3 7,8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+    </button>
+
+    <button type="button" class="iconbtn" data-action="export-fountain" aria-label="Export Fountain File" title="Export Fountain File">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <polyline points="7,10 12,15 17,10" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="1.6"/>
+      </svg>
+    </button>
+
     <button type="button" class="iconbtn" data-action="files" aria-label="Manage Files" title="Manage Saved Files">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="1.6"/>
