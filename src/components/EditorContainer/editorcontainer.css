@@ -14,7 +14,6 @@
   border: none;
   outline: none;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* subtle "paper" effect */
-  transition: box-shadow 200ms ease;
   -webkit-user-select: none;
   user-select: none; /* you render selection */
   touch-action: pan-y; /* allow vertical swipes to scroll */
