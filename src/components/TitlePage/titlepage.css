@@ -1,0 +1,64 @@
+.title-page-container {
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2em;
+  height: 100%;
+  width: 8.5in;
+}
+
+.title-page-container.hidden {
+  display: none;
+}
+
+.title-page-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  width: 100%;
+  max-width: 600px;
+}
+
+.title-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.close-title-page-btn {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+  padding: 0.5em 1em;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.title-main h1 {
+  font-size: 2.5em;
+  margin-bottom: 1em;
+  text-transform: uppercase;
+  text-decoration: underline;
+}
+
+.title-main h2 {
+  font-size: 1.2em;
+  margin-bottom: 1em;
+}
+
+.title-main h3 {
+  font-size: 1.5em;
+  margin-bottom: 3em;
+}
+
+.contact-info {
+  text-align: left;
+  font-size: 0.9em;
+  padding-bottom: 2em;
+}

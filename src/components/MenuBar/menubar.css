@@ -1,0 +1,55 @@
+.menu-bar {
+  display: flex;
+  background: #f0f0f0;
+  padding: 0 0.5em;
+  border-bottom: 1px solid #ccc;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu button {
+  background: none;
+  border: none;
+  padding: 0.5em 1em;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  background: #e0e0e0;
+}
+
+.menu-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  min-width: 200px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  z-index: 40;
+}
+
+.menu-dropdown.visible {
+  display: block;
+}
+
+.menu-dropdown a {
+  display: block;
+  padding: 0.75em 1em;
+  text-decoration: none;
+  color: black;
+}
+
+.menu-dropdown a:hover {
+  background: #f0f0f0;
+}
+
+.menu-dropdown hr {
+  margin: 0.5em 0;
+  border: 0;
+  border-top: 1px solid #eee;
+}

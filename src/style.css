@@ -12,21 +12,38 @@ body {
   color: #1e293b;
 }
 
-.editor-wrapper {
+#app {
   display: flex;
   flex-direction: column;
-  align-items: center;
   height: 100vh;
-  min-height: 600px;
-  background: #ffffff00;
-  border-radius: 0;
+}
+
+.main-area {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.content-area {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.editor-wrapper {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow: hidden;
+  width: 100%;
 }
 
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
-  .editor-wrapper {
-    height: 100vh;
-    border-radius: 0;
+  .main-area {
+    flex-direction: column;
   }
 }
 
@@ -39,8 +56,6 @@ body {
   border-top: 1px solid #e2e8f0;
   cursor: text;
 }
-
-
 
 /* --- Inline Styles --- */
 .bold {

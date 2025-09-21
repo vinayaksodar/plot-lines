@@ -6,11 +6,15 @@ import { FileManager } from "./editor/handlers/FileHandler.js";
 import { createWidgetLayer } from "./components/WidgetLayer/WidgetLayer.js";
 import { createToolbar } from "./components/Toolbar/Toolbar.js";
 import { createEditorContainer } from "./components/EditorContainer/EditorContainer.js";
+import { createMenuBar } from "./components/MenuBar/MenuBar.js";
+import { createSideMenu } from "./components/SideMenu/SideMenu.js";
+import { TitlePage } from "./components/TitlePage/TitlePage.js";
+
 const app = document.querySelector("#app");
 
-// Root wrapper
-const wrapper = document.createElement("div");
-wrapper.className = "editor-wrapper";
+// Root editorWrapper
+const editorWrapper = document.createElement("div");
+editorWrapper.className = "editor-wrapper";
 
 // Toolbar container
 const toolbar = createToolbar();
@@ -30,11 +34,9 @@ editorArea.appendChild(editorContainer);
 editorArea.appendChild(hiddenInput); // hidden input lives alongside container
 
 // Assemble
-wrapper.appendChild(toolbar);
-wrapper.appendChild(widgetLayer);
-wrapper.appendChild(editorArea);
-
-app.appendChild(wrapper);
+editorWrapper.appendChild(toolbar);
+editorWrapper.appendChild(widgetLayer);
+editorWrapper.appendChild(editorArea);
 
 // Welcome text
 let welcomeText =
@@ -43,18 +45,44 @@ let welcomeText =
 // Setup editor with generated text
 const model = new EditorModel(welcomeText);
 
-const view = new EditorView(
-  model,
-  editorContainer,
-  widgetLayer
-);
+const view = new EditorView(model, editorContainer, widgetLayer);
+
 const controller = new EditorController(
   model,
   view,
-  wrapper,
+  editorWrapper,
   toolbar,
   hiddenInput
 );
+
+// --- Create UI Components ---
+
+// Title Page (managed by side menu)
+const titlePage = new TitlePage();
+
+// Menu Bar
+const menuBar = createMenuBar(controller.fileManager, controller);
+
+// Side Menu
+const sideMenu = createSideMenu(titlePage, editorArea, editorWrapper);
+
+// Main area for side menu and content
+const mainArea = document.createElement("div");
+mainArea.className = "main-area";
+
+// Content area
+const contentArea = document.createElement("div");
+contentArea.className = "content-area";
+
+// --- Assemble UI ---
+
+mainArea.appendChild(sideMenu);
+mainArea.appendChild(contentArea);
+contentArea.appendChild(editorWrapper);
+contentArea.appendChild(titlePage.element);
+
+app.appendChild(menuBar);
+app.appendChild(mainArea);
 
 // Try to load from auto-save first
 if (controller.fileManager.loadFromAutoSave()) {
@@ -63,7 +91,6 @@ if (controller.fileManager.loadFromAutoSave()) {
 
 // Add focus management to editor area
 editorArea.addEventListener("click", (e) => {
-  // Focus the editor when clicking anywhere in the editor area
   hiddenInput.focus();
 });
 
