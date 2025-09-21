@@ -1,15 +1,18 @@
-import { FountainParser } from "../FountainParser.js";
+import { FountainParser } from "./FountainParser.js";
 
 export class FileManager {
-  constructor(model, view, hiddenInput) {
+  constructor(model, view, hiddenInput, titlePage) {
     this.model = model;
     this.view = view;
     this.hiddenInput = hiddenInput;
+    this.titlePage = titlePage;
     this.fountainParser = new FountainParser();
     this.currentFileName = "untitled.txt";
     this.autoSaveInterval = null;
     this.autoSaveDelay = 2000; // 2 seconds
     this.lastSaveTime = Date.now();
+
+    this.setupGlobalKeyboardShortcuts();
 
     // Start auto-save
     // this.startAutoSave();//Disable for now
@@ -219,8 +222,10 @@ export class FileManager {
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target.result;
-          const modelLines = this.fountainParser.parse(content);
-          this.model.lines = modelLines;
+          const { titlePage, lines } = this.fountainParser.parse(content);
+          this.model.lines = lines;
+          this.titlePage.model.update(titlePage);
+          this.titlePage.render();
           this.currentFileName = file.name;
 
           // Reset cursor to beginning
@@ -230,7 +235,7 @@ export class FileManager {
           resolve({
             fileName: file.name,
             content: content,
-            size: file.size
+            size: file.size,
           });
         };
 
@@ -246,7 +251,11 @@ export class FileManager {
   }
 
   exportFountainFile() {
-    const fountainText = this.fountainParser.export(this.model.lines);
+    const data = {
+      titlePage: this.titlePage.model.getData(),
+      lines: this.model.lines,
+    };
+    const fountainText = this.fountainParser.export(data);
     const fileName = this.currentFileName.replace(/\.txt$/, ".fountain");
     this.exportFile(fileName, fountainText);
   }

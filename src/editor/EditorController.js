@@ -10,16 +10,17 @@ import {
 import { PointerHandler } from "./handlers/PointerHandler.js";
 import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
 import { SearchHandler } from "./handlers/SearchHandler.js";
-import { FileManager } from "./handlers/FileHandler.js";
+import { FileManager } from "../services/FileHandler.js";
 import { ToolbarHandler } from "./handlers/ToolbarHandler.js";
 
 export class EditorController {
-  constructor(model, view, wrapper, toolbar, hiddenInput) {
+  constructor(model, view, wrapper, toolbar, hiddenInput, fileManager) {
     this.model = model;
     this.view = view;
     this.container = view.container;
     this.hiddenInput = hiddenInput;
     this.toolbar = toolbar;
+    this.fileManager = fileManager;
 
     // Ensure container gets focus when clicked
     this.container.addEventListener("click", () => {
@@ -31,7 +32,6 @@ export class EditorController {
     this.pointerHandler = new PointerHandler(this, this.container);
     this.keyBoardHandler = new KeyboardHandler(this, this.hiddenInput);
     this.searchHandler = new SearchHandler(this, this.view, this.model);
-    this.fileManager = new FileManager(this.model, this.view, this.hiddenInput);
     this.toolbarHandler = new ToolbarHandler(this);
     this.undoManager = new UndoManager();
 

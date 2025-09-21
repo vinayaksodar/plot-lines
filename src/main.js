@@ -2,7 +2,7 @@ import "./style.css";
 import { EditorModel } from "./editor/EditorModel.js";
 import { EditorView } from "./editor/EditorView.js";
 import { EditorController } from "./editor/EditorController.js";
-import { FileManager } from "./editor/handlers/FileHandler.js";
+import { FileManager } from "./services/FileHandler.js";
 import { createWidgetLayer } from "./components/WidgetLayer/WidgetLayer.js";
 import { createToolbar } from "./components/Toolbar/Toolbar.js";
 import { createEditorContainer } from "./components/EditorContainer/EditorContainer.js";
@@ -47,21 +47,24 @@ const model = new EditorModel(welcomeText);
 
 const view = new EditorView(model, editorContainer, widgetLayer);
 
-const controller = new EditorController(
-  model,
-  view,
-  editorWrapper,
-  toolbar,
-  hiddenInput
-);
-
 // --- Create UI Components ---
 
 // Title Page (managed by side menu)
 const titlePage = new TitlePage();
 
+const fileManager = new FileManager(model, view, hiddenInput, titlePage);
+
+const controller = new EditorController(
+  model,
+  view,
+  editorWrapper,
+  toolbar,
+  hiddenInput,
+  fileManager
+);
+
 // Menu Bar
-const menuBar = createMenuBar(controller.fileManager, controller);
+const menuBar = createMenuBar(fileManager, controller);
 
 // Side Menu
 const sideMenu = createSideMenu(titlePage, editorArea, editorWrapper);
@@ -85,7 +88,7 @@ app.appendChild(menuBar);
 app.appendChild(mainArea);
 
 // Try to load from auto-save first
-if (controller.fileManager.loadFromAutoSave()) {
+if (fileManager.loadFromAutoSave()) {
   console.log("Loaded from auto-save");
 }
 

@@ -2,7 +2,48 @@ export class FountainParser {
   parse(text) {
     const lines = text.split(/\r?\n/);
     const modelLines = [];
+    const titlePage = {};
     let i = 0;
+    let lastKey = null;
+
+    // Parse title page
+    while (i < lines.length) {
+      const line = lines[i];
+      const match = line.match(/^([^:]+):\s*(.*)/);
+
+      if (match) {
+        const key = match[1].trim().toLowerCase();
+        const value = match[2].trim();
+        if (value) {
+          titlePage[key] = value;
+        } else {
+          titlePage[key] = "";
+        }
+        lastKey = key;
+        i++;
+      } else if (line.trim() === "") {
+        if (lastKey) {
+          i++;
+          break;
+        }
+        i++;
+      } else if ((line.startsWith("   ") || line.startsWith("\t")) && lastKey) {
+        if (titlePage[lastKey]) {
+          titlePage[lastKey] += "\n" + line.trim();
+        } else {
+          titlePage[lastKey] = line.trim();
+        }
+        i++;
+      } else if (!line.includes(':')) { // It's a quote line
+        if (!titlePage.quote) {
+          titlePage.quote = '';
+        }
+        titlePage.quote += line + '\n';
+        i++;
+      } else {
+        break;
+      }
+    }
 
     while (i < lines.length) {
       const line = lines[i];
@@ -58,7 +99,7 @@ export class FountainParser {
       }
     }
 
-    return modelLines;
+    return { titlePage, lines: modelLines };
   }
 
   parseInlineStyles(text) {
@@ -163,8 +204,28 @@ export class FountainParser {
     return false;
   }
 
-  export(lines) {
+  export({ titlePage, lines }) {
     let fountainText = "";
+
+    if (titlePage) {
+      for (const key in titlePage) {
+        if (key === 'quote') continue;
+        const value = titlePage[key];
+        const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
+        if (value.includes("\n")) {
+          fountainText += `${capitalizedKey}:\n`;
+          const indentedValue = value.split("\n").map(line => `    ${line}`).join("\n");
+          fountainText += indentedValue + "\n";
+        } else {
+          fountainText += `${capitalizedKey}: ${value}\n`;
+        }
+      }
+      if (titlePage.quote) {
+        fountainText += '\n' + titlePage.quote.trim() + '\n';
+      }
+      fountainText += "\n====\n\n";
+    }
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const text = line.segments.map(s => this.exportSegment(s)).join('');

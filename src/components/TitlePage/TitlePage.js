@@ -17,6 +17,9 @@ function createTitlePageView(model) {
         <h2>by</h2>
         <h3 contenteditable="true">${model.author}</h3>
       </div>
+      <div class="quote" contenteditable="true">
+        <p>${model.quote.replace(/\n/g, '<br>')}</p>
+      </div>
       <div class="contact-info" contenteditable="true">
         <p>${model.contact.replace(/\n/g, '<br>')}</p>
       </div>
@@ -28,6 +31,10 @@ function createTitlePageView(model) {
 
     content.querySelector('h3').addEventListener('input', (e) => {
       model.update({ author: e.target.textContent });
+    });
+
+    content.querySelector('.quote').addEventListener('input', (e) => {
+      model.update({ quote: e.target.innerText });
     });
 
     content.querySelector('.contact-info').addEventListener('input', (e) => {
@@ -60,6 +67,10 @@ export class TitlePage {
 
   hide() {
     this.view.hide();
+  }
+
+  render() {
+    this.view.render();
   }
 
   get element() {
