@@ -175,7 +175,15 @@ export class EditorView {
     this.container = container;
     this.widgetLayer = widgetLayer;
 
-    this.CHARS_PER_ROW = 60; // screenplay standard
+    this.ELEMENT_CHARS_PER_ROW = {
+      "scene-heading": 60,
+      action: 60,
+      character: 25,
+      parenthetical: 20,
+      dialogue: 40,
+      transition: 15,
+      shot: 60,
+    };
     const BASE_LINE_HEIGHT =
       parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
     this.BASE_LINE_HEIGHT = BASE_LINE_HEIGHT;
@@ -185,20 +193,26 @@ export class EditorView {
       return this.model.lines[lineIndex].segments.map((s) => s.text).join("");
     };
 
-    this._computeWrappedRows = (text) => {
+    this._getCharsPerRow = (lineIndex) => {
+      const lineType = this.model.lines[lineIndex].type;
+      return this.ELEMENT_CHARS_PER_ROW[lineType] || 60;
+    };
+
+    this._computeWrappedRows = (text, lineIndex) => {
       if (!text) return 1;
+      const charsPerRow = this._getCharsPerRow(lineIndex);
       const words = text.split(/(\s+)/);
       let rows = 1;
       let currentLen = 0;
       for (const word of words) {
         const wordLen = word.length;
-        if (currentLen + wordLen <= this.CHARS_PER_ROW) {
+        if (currentLen + wordLen <= charsPerRow) {
           currentLen += wordLen;
         } else {
-          if (wordLen > this.CHARS_PER_ROW) {
-            const fullRows = Math.floor(wordLen / this.CHARS_PER_ROW);
+          if (wordLen > charsPerRow) {
+            const fullRows = Math.floor(wordLen / charsPerRow);
             rows += fullRows;
-            currentLen = wordLen % this.CHARS_PER_ROW;
+            currentLen = wordLen % charsPerRow;
           } else {
             rows++;
             currentLen = wordLen;
@@ -210,13 +224,13 @@ export class EditorView {
 
     this.getLineHeight = (lineIndex) => {
       const lineText = this._getLineText(lineIndex);
-      const rows = this._computeWrappedRows(lineText);
+      const rows = this._computeWrappedRows(lineText, lineIndex);
       return rows * this.BASE_LINE_HEIGHT;
     };
 
     this.getLineWrappedRows = (lineIndex) => {
       const lineText = this._getLineText(lineIndex);
-      return this._computeWrappedRows(lineText);
+      return this._computeWrappedRows(lineText, lineIndex);
     };
 
     this.layoutManager = new NaiveLayoutManager(
@@ -249,12 +263,13 @@ export class EditorView {
 
   getWrappedRows(lineIndex) {
     const lineText = this._getLineText(lineIndex);
+    const charsPerRow = this._getCharsPerRow(lineIndex);
     const rows = [];
     let start = 0;
 
     while (start < lineText.length) {
       // Tentative end of this row (naïve wrap point)
-      let end = Math.min(start + this.CHARS_PER_ROW, lineText.length);
+      let end = Math.min(start + charsPerRow, lineText.length);
 
       if (end < lineText.length) {
         // --- Step 1: If the boundary falls on spaces, consume them all.
