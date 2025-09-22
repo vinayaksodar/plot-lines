@@ -136,7 +136,6 @@
 .line.dialogue {
   margin-left: 1in;
   width: 40ch;
-  white-space: normal;
 }
 
 /* Transition - cues for scene transitions (e.g., CUT TO:) */
