@@ -185,7 +185,7 @@ export class EditorView {
       shot: 60,
     };
     const BASE_LINE_HEIGHT =
-      parseInt(getComputedStyle(this.container).lineHeight, 10) || 20;
+      parseInt(getComputedStyle(this.container).lineHeight, 10) || 16;
     this.BASE_LINE_HEIGHT = BASE_LINE_HEIGHT;
 
     this._getLineText = (lineIndex) => {
@@ -352,7 +352,6 @@ export class EditorView {
     }
     return 0;
   }
-
   render() {
     const scrollTop = this.container.scrollTop;
     const clientHeight = this.container.clientHeight;
@@ -388,8 +387,10 @@ export class EditorView {
 
     // 2. Find visible pages
     const visiblePages = pageMetrics.filter(
-      (p) => p.top < scrollTop + clientHeight && p.top + p.height > scrollTop
-    );
+      (p) =>
+        p.top < scrollTop + clientHeight + 300 &&
+        p.top + p.height > scrollTop - 300
+    ); //300px buffer
 
     // 3. Render
     this.container.innerHTML = "";
