@@ -104,21 +104,38 @@ export class EditorController {
       adjustedClientY = containerRect.bottom - 5;
     }
 
-    let closestLineIdx = 0;
-    let minLineDist = Infinity;
+    let targetLineEl = null;
 
-    // Find the line vertically closest to the click
-    lines.forEach((lineEl, idx) => {
+    // First, try to find a line that directly contains the Y-coordinate
+    for (const lineEl of lines) {
       const rect = lineEl.getBoundingClientRect();
-      const lineCenterY = (rect.top + rect.bottom) / 2;
-      const dist = Math.abs(adjustedClientY - lineCenterY);
-      if (dist < minLineDist) {
-        minLineDist = dist;
-        closestLineIdx = idx;
+      if (adjustedClientY >= rect.top && adjustedClientY <= rect.bottom) {
+        targetLineEl = lineEl;
+        break;
       }
-    });
+    }
 
-    const lineEl = lines[closestLineIdx];
+    // If no line contains the Y (e.g., click in a margin), fall back to closest center
+    if (!targetLineEl) {
+      let minLineDist = Infinity;
+      let closestLineIdx = -1;
+      lines.forEach((lineEl, idx) => {
+        const rect = lineEl.getBoundingClientRect();
+        const lineCenterY = (rect.top + rect.bottom) / 2;
+        const dist = Math.abs(adjustedClientY - lineCenterY);
+        if (dist < minLineDist) {
+          minLineDist = dist;
+          closestLineIdx = idx;
+        }
+      });
+      if (closestLineIdx !== -1) {
+        targetLineEl = lines[closestLineIdx];
+      } else {
+        return { line: 0, ch: 0 };
+      }
+    }
+
+    const lineEl = targetLineEl;
     const lineRect = lineEl.getBoundingClientRect();
     const modelLineIndex = parseInt(lineEl.dataset.line, 10);
 
