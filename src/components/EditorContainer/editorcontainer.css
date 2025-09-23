@@ -47,40 +47,10 @@
   display: block;
 }
 
-/* Mobile responsive editor */
-@media (max-width: 768px) {
-  #editor-container {
-    padding: 0.75rem;
-    font-size: 13px;
-    line-height: 18px;
-  }
-
-  .line {
-    min-height: 18px;
-  }
-}
-
-@media (max-width: 480px) {
-  #editor-container {
-    padding: 0.5rem;
-    font-size: 12px;
-    line-height: 16px;
-  }
-
-  .line {
-    min-height: 16px;
-  }
-
-  #editor-container::-webkit-scrollbar {
-    width: 8px;
-  }
-}
-
 /* Page break element styling */
 .page-break {
   height: 2in; /* 1in top padding + 1in bottom padding */
   position: relative;
-  background: white;
 }
 
 .page-break::before {
