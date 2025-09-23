@@ -168,7 +168,7 @@ export class FountainParser {
     if (trimmedLine.startsWith(".") && trimmedLine.length > 1) return true;
     const prevLineEmpty = !previousLine || previousLine.trim() === "";
     return (
-      prevLineEmpty && /^(INT|EXT|EST|I\/E|INT\.\/EXT\.)/i.test(trimmedLine)
+      prevLineEmpty && /^(INT|EXT|EST|I\/E|INT\.\/EXT\.).*$/i.test(trimmedLine)
     );
   }
 
