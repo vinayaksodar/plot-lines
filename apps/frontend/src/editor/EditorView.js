@@ -237,7 +237,7 @@ export class EditorView {
       () => this.model.lines.length,
       (lineIndex, isFirstOnPage) =>
         this.getTopSpacing(lineIndex, isFirstOnPage),
-      (lineIndex) => this.model.lines[lineIndex].type
+      (lineIndex) => this.model.lines[lineIndex].type,
     );
 
     this.searchWidget = createSearchWidget();
@@ -388,7 +388,7 @@ export class EditorView {
     const visiblePages = pageMetrics.filter(
       (p) =>
         p.top < scrollTop + clientHeight + 300 &&
-        p.top + p.height > scrollTop - 300
+        p.top + p.height > scrollTop - 300,
     ); //300px buffer
 
     // 3. Render
@@ -474,17 +474,17 @@ export class EditorView {
       if (segment.bold)
         events.push(
           { pos: segStart, type: "bold", open: true },
-          { pos: segEnd, type: "bold", open: false }
+          { pos: segEnd, type: "bold", open: false },
         );
       if (segment.italic)
         events.push(
           { pos: segStart, type: "italic", open: true },
-          { pos: segEnd, type: "italic", open: false }
+          { pos: segEnd, type: "italic", open: false },
         );
       if (segment.underline)
         events.push(
           { pos: segStart, type: "underline", open: true },
-          { pos: segEnd, type: "underline", open: false }
+          { pos: segEnd, type: "underline", open: false },
         );
     }
 
@@ -499,7 +499,7 @@ export class EditorView {
         lineIndex === selection.end.line ? selection.end.ch : lineText.length;
       events.push(
         { pos: selStart, type: "selection", open: true },
-        { pos: selEnd, type: "selection", open: false }
+        { pos: selEnd, type: "selection", open: false },
       );
     }
 
@@ -511,7 +511,7 @@ export class EditorView {
           : "search-match";
       events.push(
         { pos: match.start, type, open: true },
-        { pos: match.end, type, open: false }
+        { pos: match.end, type, open: false },
       );
     }
 
@@ -553,7 +553,7 @@ export class EditorView {
       lineEl,
       NodeFilter.SHOW_TEXT,
       null,
-      false
+      false,
     );
     let remaining = ch;
     let targetNode = null;

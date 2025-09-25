@@ -3,10 +3,11 @@
 First off, thank you for considering contributing to Plot Lines! It's people like you that make open source software such a great community.
 
 We welcome any type of contribution, not just code. You can help with:
-*   **Reporting a bug**
-*   **Discussing the current state of the code**
-*   **Submitting a fix**
-*   **Proposing new features**
+
+- **Reporting a bug**
+- **Discussing the current state of the code**
+- **Submitting a fix**
+- **Proposing new features**
 
 ## How to Contribute
 
@@ -34,11 +35,11 @@ You can find detailed instructions on how to set up the development environment 
 
 ### Development Commands
 
-*   `npm run dev`: Starts the development server for the frontend application.
-*   `npm run build`: Builds all the apps and packages in the monorepo.
-*   `npm run lint`: Lints the code in the monorepo.
+- `npm run dev`: Starts the development server for the frontend application.
+- `npm run build`: Builds all the apps and packages in the monorepo.
+- `npm run lint`: Lints the code in the monorepo.
 
 ## Coding Style
 
-*   Follow the existing code style used throughout the project.
-*   Write clear and concise code with comments where necessary to explain complex logic.
+- Follow the existing code style used throughout the project.
+- Write clear and concise code with comments where necessary to explain complex logic.

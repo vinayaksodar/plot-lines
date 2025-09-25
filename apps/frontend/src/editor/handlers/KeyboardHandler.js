@@ -138,7 +138,7 @@ export class KeyboardHandler {
           ch = view.getChFromRowPosition(
             line - 1,
             prevRows.length - 1,
-            colInRow
+            colInRow,
           );
           line--;
         }

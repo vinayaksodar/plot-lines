@@ -135,7 +135,10 @@ export class SetLineTypeCommand {
         this.model.setLineType(i, this.newType);
       }
     } else {
-      this.oldTypes.push({ line: this.cursorLine, type: this.model.lines[this.cursorLine].type });
+      this.oldTypes.push({
+        line: this.cursorLine,
+        type: this.model.lines[this.cursorLine].type,
+      });
       this.model.setLineType(this.cursorLine, this.newType);
     }
   }
@@ -161,7 +164,10 @@ export class ToggleInlineStyleCommand {
     const { start, end } = this.selection;
     for (let i = start.line; i <= end.line; i++) {
       // Deep copy the line object to save its state
-      this.oldLines.push({ index: i, line: JSON.parse(JSON.stringify(this.model.lines[i])) });
+      this.oldLines.push({
+        index: i,
+        line: JSON.parse(JSON.stringify(this.model.lines[i])),
+      });
     }
 
     this.model.toggleInlineStyle(this.style);

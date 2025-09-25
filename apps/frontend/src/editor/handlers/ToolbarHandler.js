@@ -71,7 +71,7 @@ export class ToolbarHandler {
           break;
         case "set-line-type":
           controller.executeCommand(
-            new SetLineTypeCommand(controller.model, value)
+            new SetLineTypeCommand(controller.model, value),
           );
           this.hiddenInput.focus();
           break;

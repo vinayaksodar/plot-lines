@@ -77,7 +77,7 @@ export class EditorController {
 
   viewToModelPos({ clientX, clientY }) {
     const lines = Array.from(
-      this.container.querySelectorAll(".line[data-line]")
+      this.container.querySelectorAll(".line[data-line]"),
     );
     if (lines.length === 0) return { line: 0, ch: 0 };
 
@@ -152,7 +152,7 @@ export class EditorController {
     const walker = document.createTreeWalker(
       lineEl,
       NodeFilter.SHOW_TEXT,
-      null
+      null,
     );
     const range = document.createRange();
 

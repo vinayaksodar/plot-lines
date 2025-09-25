@@ -34,11 +34,12 @@ export class FountainParser {
           titlePage[lastKey] = line.trim();
         }
         i++;
-      } else if (!line.includes(':')) { // It's a quote line
+      } else if (!line.includes(":")) {
+        // It's a quote line
         if (!titlePage.quote) {
-          titlePage.quote = '';
+          titlePage.quote = "";
         }
-        titlePage.quote += line + '\n';
+        titlePage.quote += line + "\n";
         i++;
       } else {
         break;
@@ -209,66 +210,72 @@ export class FountainParser {
 
     if (titlePage) {
       for (const key in titlePage) {
-        if (key === 'quote') continue;
+        if (key === "quote") continue;
         const value = titlePage[key];
         const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
         if (value.includes("\n")) {
           fountainText += `${capitalizedKey}:\n`;
-          const indentedValue = value.split("\n").map(line => `    ${line}`).join("\n");
+          const indentedValue = value
+            .split("\n")
+            .map((line) => `    ${line}`)
+            .join("\n");
           fountainText += indentedValue + "\n";
         } else {
           fountainText += `${capitalizedKey}: ${value}\n`;
         }
       }
       if (titlePage.quote) {
-        fountainText += '\n' + titlePage.quote.trim() + '\n';
+        fountainText += "\n" + titlePage.quote.trim() + "\n";
       }
       fountainText += "\n====\n\n";
     }
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const text = line.segments.map(s => this.exportSegment(s)).join('');
+      const line = lines[i];
+      const text = line.segments.map((s) => this.exportSegment(s)).join("");
 
-        // Write the line itself
-        switch (line.type) {
-            case 'scene-heading':
-            case 'character':
-            case 'transition':
-                fountainText += text.toUpperCase();
-                break;
-            default:
-                fountainText += text;
-                break;
+      // Write the line itself
+      switch (line.type) {
+        case "scene-heading":
+        case "character":
+        case "transition":
+          fountainText += text.toUpperCase();
+          break;
+        default:
+          fountainText += text;
+          break;
+      }
+
+      // Determine the line ending
+      if (i < lines.length - 1) {
+        const nextLine = lines[i + 1];
+        const currentType = line.type;
+        const nextType = nextLine.type;
+
+        // No blank line between character and its dialogue/parenthetical
+        if (
+          currentType === "character" &&
+          (nextType === "dialogue" || nextType === "parenthetical")
+        ) {
+          fountainText += "\n";
         }
-
-        // Determine the line ending
-        if (i < lines.length - 1) {
-            const nextLine = lines[i + 1];
-            const currentType = line.type;
-            const nextType = nextLine.type;
-
-            // No blank line between character and its dialogue/parenthetical
-            if (currentType === 'character' && (nextType === 'dialogue' || nextType === 'parenthetical')) {
-                fountainText += "\n";
-            }
-            // No blank line between dialogue and its parenthetical
-            else if (currentType === 'dialogue' && nextType === 'parenthetical') {
-                fountainText += "\n";
-            }
-            // No blank line between two dialogue lines
-            else if (currentType === 'dialogue' && nextType === 'dialogue') {
-                fountainText += "\n";
-            }
-            // No blank line between a parenthetical and its dialogue
-            else if (currentType === 'parenthetical' && nextType === 'dialogue') {
-                fountainText += "\n";
-            }
-            // All other cases get a blank line
-            else {
-                fountainText += "\n\n";
-            }
+        // No blank line between dialogue and its parenthetical
+        else if (currentType === "dialogue" && nextType === "parenthetical") {
+          fountainText += "\n";
         }
+        // No blank line between two dialogue lines
+        else if (currentType === "dialogue" && nextType === "dialogue") {
+          fountainText += "\n";
+        }
+        // No blank line between a parenthetical and its dialogue
+        else if (currentType === "parenthetical" && nextType === "dialogue") {
+          fountainText += "\n";
+        }
+        // All other cases get a blank line
+        else {
+          fountainText += "\n\n";
+        }
+      }
     }
     return fountainText;
   }

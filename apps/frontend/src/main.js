@@ -60,7 +60,7 @@ const controller = new EditorController(
   editorWrapper,
   toolbar,
   hiddenInput,
-  fileManager
+  fileManager,
 );
 
 // Menu Bar

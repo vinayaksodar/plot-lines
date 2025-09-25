@@ -30,7 +30,7 @@ export class EditorModel {
   getLineLength(lineIndex) {
     return this.lines[lineIndex].segments.reduce(
       (len, seg) => len + seg.text.length,
-      0
+      0,
     );
   }
 
@@ -58,7 +58,7 @@ export class EditorModel {
       }
     }
     this.lines[lineIndex].segments = newSegments.filter(
-      (seg) => seg.text.length > 0
+      (seg) => seg.text.length > 0,
     );
   }
 
@@ -281,11 +281,11 @@ export class EditorModel {
     // Find segments at start and end
     const { segment: startSegment, offset: startOffset } = this._findSegmentAt(
       start.line,
-      start.ch
+      start.ch,
     );
     const { segment: endSegment, offset: endOffset } = this._findSegmentAt(
       end.line,
-      end.ch
+      end.ch,
     );
 
     // Get segments from the end line that are after the selection
@@ -435,7 +435,7 @@ export class EditorModel {
         const before = segment.text.slice(0, Math.max(0, startCh - segStart));
         const middle = segment.text.slice(
           Math.max(0, startCh - segStart),
-          endCh - segStart
+          endCh - segStart,
         );
         const after = segment.text.slice(endCh - segStart);
 

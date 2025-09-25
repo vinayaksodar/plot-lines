@@ -1,9 +1,9 @@
 export class TitlePageModel {
   constructor(data = {}) {
-    this.title = data.title || 'Untitled';
-    this.author = data.author || 'Author Name';
-    this.contact = data.contact || 'Contact Info';
-    this.quote = data.quote || '';
+    this.title = data.title || "Untitled";
+    this.author = data.author || "Author Name";
+    this.contact = data.contact || "Contact Info";
+    this.quote = data.quote || "";
   }
 
   getData() {

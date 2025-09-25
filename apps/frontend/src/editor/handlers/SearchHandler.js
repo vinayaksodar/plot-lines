@@ -40,7 +40,7 @@ export class SearchHandler {
     // find matches across all lines
     this.currentMatches = [];
     this.model.lines.forEach((line, lineIdx) => {
-      const lineText = line.segments.map(s => s.text).join('');
+      const lineText = line.segments.map((s) => s.text).join("");
       let start = 0;
       while (true) {
         const idx = lineText.indexOf(term, start);
@@ -60,7 +60,7 @@ export class SearchHandler {
     if (this.currentMatchIndex >= 0) {
       const match = this.currentMatches[this.currentMatchIndex];
       this.model.updateCursor({ line: match.line, ch: match.start });
-      
+
       // Scroll to ensure the first match is visible
       this.view.scrollToLine(match.line);
       this.view.render();
@@ -78,7 +78,7 @@ export class SearchHandler {
 
     const match = this.currentMatches[this.currentMatchIndex];
     this.model.updateCursor({ line: match.line, ch: match.start });
-    
+
     // Scroll to ensure the match is visible
     this.view.scrollToLine(match.line);
     this.view.render();
@@ -88,13 +88,13 @@ export class SearchHandler {
     // Clear all search state
     this.currentMatches = [];
     this.currentMatchIndex = -1;
-    
+
     // Clear highlights
     this.view.clearHighlights();
-    
+
     // Clear search input
     this.input.value = "";
-    
+
     // Hide the widget
     this.view.hideSearchWidget();
   }

@@ -100,7 +100,7 @@ export class FileManager {
         if (saveData.selection) {
           this.model.setSelection(
             saveData.selection.start,
-            saveData.selection.end
+            saveData.selection.end,
           );
         }
 
@@ -163,7 +163,7 @@ export class FileManager {
         if (fileData.selection) {
           this.model.setSelection(
             fileData.selection.start,
-            fileData.selection.end
+            fileData.selection.end,
           );
         }
 
@@ -430,7 +430,7 @@ export class FileManager {
         fileItem.innerHTML = `
           <span class="file-name">${fileName}</span>
           <span class="file-date">${new Date(
-            fileData.timestamp
+            fileData.timestamp,
           ).toLocaleString()}</span>
           <button class="btn-small" data-action="load" data-filename="${fileName}">Load</button>
           <button class="btn-small btn-danger" data-action="delete" data-filename="${fileName}">Delete</button>

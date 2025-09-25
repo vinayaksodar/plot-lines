@@ -93,7 +93,7 @@
   left: 0;
   background-color: #ffffff;
   min-width: 160px;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
   z-index: 1001;
   border-radius: 8px;
   padding: 4px;
@@ -122,7 +122,6 @@
 .dropdown-item:hover {
   background-color: #f3f4f6;
 }
-
 
 /* More button and dropdown */
 .iconbar-more-container {

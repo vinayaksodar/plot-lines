@@ -59,7 +59,7 @@ export class PointerHandler {
     this.selectionMode = false;
     this.pointerDownPos = { clientX: e.clientX, clientY: e.clientY };
     this.dragStartModelPos = this.controller.viewToModelPos(
-      this.pointerDownPos
+      this.pointerDownPos,
     );
 
     // Safety timeout to clean up stale interactions
