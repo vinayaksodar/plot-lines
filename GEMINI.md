@@ -1,10 +1,10 @@
 # Gemini Context: Plot Lines - Screenplay Editor
 
-This document provides an overview of the "plot-lines" project and the plan to evolve it from a generic text editor into a specialized screenplay editor.
+This document provides an overview of the "plot-lines" project.
 
 ## Project Overview
 
-The project is a web-based text editor built with vanilla JavaScript, HTML, and CSS. It uses Vite for development and bundling. The editor is designed to be performant and extensible, with a clean and modern user interface.
+The project is a web-based screenplay editor built with vanilla JavaScript, HTML, and CSS. It is a monorepo managed with npm workspaces and Turborepo. The main frontend application is located in `apps/frontend` and uses Vite for development and bundling. The editor is designed to be performant and extensible, with a clean and modern user interface.
 
 The goal is to create a feature-rich screenplay editor that provides a seamless writing experience for screenwriters.
 
@@ -23,6 +23,7 @@ The editor follows a Model-View-Controller (MVC) pattern:
 
 ### Key Features
 
+*   **Monorepo Architecture**: The project is structured as a monorepo using Turborepo, allowing for scalable management of different packages and applications.
 *   **MVC Architecture**: A clean separation of concerns, making the codebase easy to understand and extend.
 *   **Virtual Scrolling**: The editor can handle very large files without performance degradation by only rendering the visible lines.
 *   **Command Pattern with Undo/Redo**: All text modifications are encapsulated in command objects (`InsertCharCommand`, `DeleteCharCommand`, etc.), providing a robust undo/redo system managed by the `UndoManager`.
@@ -30,53 +31,24 @@ The editor follows a Model-View-Controller (MVC) pattern:
 *   **Component-Based UI**: The UI is built from reusable components, including a `Toolbar`, `SearchWidget`, and `LineNumbers`.
 *   **Rich Text Editing**: Supports bold, italic, and underline styles within lines.
 *   **Screenplay Element Formatting**: Supports standard screenplay elements like Scene Heading, Action, Character, Dialogue, Parenthetical, and Transition, with specific styling for each.
+*   **Fountain Support**: The editor can parse and export files in the `.fountain` format.
+*   **Title Page Editor**: A dedicated component for creating and editing a screenplay's title page.
 *   **Responsive Design**: The editor is usable on both desktop and mobile devices.
-
-## Roadmap to a Screenplay Editor
-
-The following is a plan to transform the current text editor into a feature-rich screenplay editor:
-
-1.  **Define Screenplay Elements**: Introduce the standard screenplay elements:
-    *   Scene Heading
-    *   Action
-    *   Character
-    *   Dialogue
-    *   Parenthetical
-    *   Transition
-
-2.  **Implement Element-Specific Styling**: Apply industry-standard formatting (indentation, capitalization, etc.) to each screenplay element. This will likely involve creating a new CSS file and updating the `EditorView` to apply classes to lines based on their element type.
-
-3.  **Automatic Element Detection**: Implement logic to automatically detect and switch between element types as the user types. For example:
-    *   A line starting with "INT." or "EXT." will be formatted as a Scene Heading.
-    *   A line in all caps following an Action line will be a Character.
-    *   The line following a Character will be Dialogue.
-
-4.  **Manual Element Switching**: Add a UI element (e.g., a dropdown in the toolbar) that allows the user to manually change the type of the current line or selection.
-
-5.  **Auto-completion**: To speed up the writing process, add auto-completion for:
-    *   Scene intros (INT./EXT., DAY/NIGHT)
-    *   Character names (based on characters already used in the script)
-
-6.  **Toolbar and UI Updates**:
-    *   Update the toolbar with icons and actions relevant to screenwriting.
-    *   Add a title page editor.
-    *   Display page numbers and manage page breaks according to screenplay standards. The code in the `old` folder can be a reference for this.
-
-7.  **Export to Final Draft (FDX) and PDF**: Implement export functionality to generate industry-standard file formats.
 
 ## File Descriptions
 
-*   `index.html`: The main entry point of the application.
-*   `src/main.js`: Initializes the editor and its components.
-*   `src/style.css`: Global styles for the application.
-*   `src/editor/EditorModel.js`: The data model for the editor.
-*   `src/editor/EditorView.js`: The view layer, responsible for rendering the editor.
-*   `src/editor/EditorController.js`: The controller that handles user input and orchestrates the application.
-*   `src/editor/commands.js`: Defines the command objects for text manipulation.
-*   `src/editor/undoManager.js`: Manages the undo/redo history.
-*   `src/editor/handlers/`: Contains the input handlers for keyboard, pointer, toolbar, search, and file operations.
-*   `src/components/`: Contains the UI components like the toolbar, search widget, and line numbers.
-*   `old/`: Contains the code from a previous version of the editor, which can be used as a reference.
-*   `vite.config.js`: The configuration file for the Vite development server.
-*   `package.json`: Defines the project dependencies and scripts.
+*   `turbo.json`: The configuration file for Turborepo.
+*   `package.json`: Defines the project dependencies and scripts for the monorepo.
+*   `apps/frontend/index.html`: The main entry point of the application.
+*   `apps/frontend/src/main.js`: Initializes the editor and its components.
+*   `apps/frontend/src/style.css`: Global styles for the application.
+*   `apps/frontend/src/editor/EditorModel.js`: The data model for the editor.
+*   `apps/frontend/src/editor/EditorView.js`: The view layer, responsible for rendering the editor.
+*   `apps/frontend/src/editor/EditorController.js`: The controller that handles user input and orchestrates the application.
+*   `apps/frontend/src/editor/commands.js`: Defines the command objects for text manipulation.
+*   `apps/frontend/src/editor/undoManager.js`: Manages the undo/redo history.
+*   `apps/frontend/src/editor/handlers/`: Contains the input handlers for keyboard, pointer, toolbar, search, and file operations.
+*   `apps/frontend/src/components/`: Contains the UI components like the toolbar, search widget, and line numbers.
+*   `apps/frontend/src/services/FountainParser.js`: A parser for the Fountain screenplay format.
+*   `apps/frontend/vite.config.js`: The configuration file for the Vite development server.
 *   `GEMINI.md`: This file, containing an overview of the project for the Gemini agent.

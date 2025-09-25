@@ -28,7 +28,15 @@ If you have an idea for a new feature or an enhancement to an existing one, plea
 
 ## Development Setup
 
-You can find instructions on how to set up the development environment in the [README.md](README.md) file.
+This project is a monorepo managed with npm workspaces and Turborepo. The main frontend application is located in `apps/frontend`.
+
+You can find detailed instructions on how to set up the development environment in the [README.md](README.md) file.
+
+### Development Commands
+
+*   `npm run dev`: Starts the development server for the frontend application.
+*   `npm run build`: Builds all the apps and packages in the monorepo.
+*   `npm run lint`: Lints the code in the monorepo.
 
 ## Coding Style
 
