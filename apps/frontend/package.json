@@ -7,11 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .js --fix"
+    "lint": "eslint ."
   },
   "devDependencies": {
     "vite": "^7.0.4",
-    "eslint": "^8.57.0",
+    "@repo/eslint-config": "*",
     "prettier": "^3.3.2"
   }
 }

@@ -2,12 +2,14 @@
   "name": "plot-lines-monorepo",
   "private": true,
   "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
-    "lint": "turbo lint"
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "turbo": "latest"
+    "prettier": "^3.2.5",
+    "turbo": "^2.5.8"
   },
   "packageManager": "npm@10.8.2",
   "workspaces": [
