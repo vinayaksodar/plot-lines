@@ -95,7 +95,6 @@ class NaiveLayoutManager {
     const pageLineRanges = [];
     const numLines = this.getNumLines();
     let currentLine = 0;
-    const ORPHAN_TYPES = new Set(["scene-heading", "character"]);
 
     while (currentLine < numLines) {
       const startLine = currentLine;

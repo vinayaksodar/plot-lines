@@ -330,6 +330,7 @@ export class FileManager {
 
       const saveData = JSON.parse(saved);
       return saveData.content !== this.model.getText();
+      // eslint-disable-next-line no-unused-vars
     } catch (error) {
       return true;
     }

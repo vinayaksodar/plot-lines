@@ -1,8 +1,5 @@
 import { UndoManager } from "./undoManager.js";
 import {
-  DeleteCharCommand,
-  InsertCharCommand,
-  InsertNewLineCommand,
   DeleteSelectionCommand,
   InsertTextCommand,
   ToggleInlineStyleCommand,
@@ -10,7 +7,6 @@ import {
 import { PointerHandler } from "./handlers/PointerHandler.js";
 import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
 import { SearchHandler } from "./handlers/SearchHandler.js";
-import { FileManager } from "../services/FileHandler.js";
 import { ToolbarHandler } from "./handlers/ToolbarHandler.js";
 
 export class EditorController {
@@ -80,7 +76,9 @@ export class EditorController {
   }
 
   viewToModelPos({ clientX, clientY }) {
-    const lines = Array.from(this.container.querySelectorAll(".line[data-line]"));
+    const lines = Array.from(
+      this.container.querySelectorAll(".line[data-line]")
+    );
     if (lines.length === 0) return { line: 0, ch: 0 };
 
     const containerRect = this.container.getBoundingClientRect();
@@ -185,6 +183,7 @@ export class EditorController {
             minDist = dist;
             closestCh = totalOffset + i;
           }
+          // eslint-disable-next-line no-unused-vars
         } catch (_) {
           // Skip invalid positions
         }

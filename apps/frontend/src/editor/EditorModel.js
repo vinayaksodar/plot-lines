@@ -79,7 +79,7 @@ export class EditorModel {
       });
     }
 
-    const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
+    const { segment, offset } = this._findSegmentAt(line, ch);
 
     // Insert character into the segment's text
     segment.text =
@@ -228,7 +228,7 @@ export class EditorModel {
 
     if (newSegments.length === 1) {
       // Single line insert
-      const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
+      const { segment, offset } = this._findSegmentAt(line, ch);
       segment.text =
         segment.text.slice(0, offset) +
         newSegments[0].text +

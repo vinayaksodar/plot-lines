@@ -84,46 +84,46 @@ export function createToolbar() {
     }
   });
 
-  const handleResize = () => {
-    const availableWidth = toolbar.clientWidth;
-    const moreButtonWidth = moreButtonContainer.offsetWidth;
-    let requiredWidth = 0;
+  // const handleResize = () => {
+  //   const availableWidth = toolbar.clientWidth;
+  //   const moreButtonWidth = moreButtonContainer.offsetWidth;
+  //   let requiredWidth = 0;
 
-    // Make all items visible to measure them
-    const children = Array.from(mainContent.children);
-    children.forEach((child) => {
-      child.style.display = "";
-    });
+  //   // Make all items visible to measure them
+  //   const children = Array.from(mainContent.children);
+  //   children.forEach((child) => {
+  //     child.style.display = "";
+  //   });
 
-    dropdown.innerHTML = "";
-    let visibleItemsWidth = 0;
-    let firstItemToHide = -1;
+  //   dropdown.innerHTML = "";
+  //   let visibleItemsWidth = 0;
+  //   let firstItemToHide = -1;
 
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      const childWidth = child.offsetWidth + 4; // 4 is the gap
-      if (visibleItemsWidth + childWidth > availableWidth - moreButtonWidth) {
-        firstItemToHide = i;
-        break;
-      }
-      visibleItemsWidth += childWidth;
-    }
+  //   for (let i = 0; i < children.length; i++) {
+  //     const child = children[i];
+  //     const childWidth = child.offsetWidth + 4; // 4 is the gap
+  //     if (visibleItemsWidth + childWidth > availableWidth - moreButtonWidth) {
+  //       firstItemToHide = i;
+  //       break;
+  //     }
+  //     visibleItemsWidth += childWidth;
+  //   }
 
-    if (firstItemToHide !== -1) {
-      moreButtonContainer.style.visibility = "visible";
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        if (i >= firstItemToHide) {
-          child.style.display = "none";
-          const clone = child.cloneNode(true);
-          clone.style.display = "";
-          dropdown.appendChild(clone);
-        }
-      }
-    } else {
-      moreButtonContainer.style.visibility = "hidden";
-    }
-  };
+  //   if (firstItemToHide !== -1) {
+  //     moreButtonContainer.style.visibility = "visible";
+  //     for (let i = 0; i < children.length; i++) {
+  //       const child = children[i];
+  //       if (i >= firstItemToHide) {
+  //         child.style.display = "none";
+  //         const clone = child.cloneNode(true);
+  //         clone.style.display = "";
+  //         dropdown.appendChild(clone);
+  //       }
+  //     }
+  //   } else {
+  //     moreButtonContainer.style.visibility = "hidden";
+  //   }
+  // };
 
   // const observer = new ResizeObserver(handleResize);
   // observer.observe(toolbar);

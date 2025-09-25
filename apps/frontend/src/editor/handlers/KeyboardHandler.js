@@ -53,7 +53,7 @@ export class KeyboardHandler {
   }
 
   handleArrowSelection(e) {
-    const { model, view } = this.controller;
+    const { model } = this.controller;
     const direction = e.key.replace("Arrow", "").toLowerCase();
 
     if (!model.hasSelection()) {

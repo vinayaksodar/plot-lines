@@ -191,7 +191,10 @@ export class PointerHandler {
       // Use a try-catch as it can error if the element is removed from the DOM.
       try {
         this.container.releasePointerCapture(this.activePointerId);
-      } catch (err) {}
+        // eslint-disable-next-line no-unused-vars
+      } catch (err) {
+        /* empty */
+      }
     }
 
     this.clearLongPressTimer();

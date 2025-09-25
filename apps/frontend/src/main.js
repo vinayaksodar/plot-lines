@@ -93,6 +93,7 @@ if (fileManager.loadFromAutoSave()) {
 }
 
 // Add focus management to editor area
+// eslint-disable-next-line no-unused-vars
 editorArea.addEventListener("click", (e) => {
   hiddenInput.focus();
 });
