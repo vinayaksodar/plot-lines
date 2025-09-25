@@ -52,3 +52,5 @@ The editor follows a Model-View-Controller (MVC) pattern:
 - `apps/frontend/src/services/FountainParser.js`: A parser for the Fountain screenplay format.
 - `apps/frontend/vite.config.js`: The configuration file for the Vite development server.
 - `GEMINI.md`: This file, containing an overview of the project for the Gemini agent.
+
+It is assumed that `npm run lint` and `npm run format` have been run before any changes.
