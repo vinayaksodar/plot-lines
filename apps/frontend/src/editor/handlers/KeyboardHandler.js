@@ -7,8 +7,8 @@ import {
 } from "../commands.js";
 
 export class KeyboardHandler {
-  constructor(controller, inputElement) {
-    this.controller = controller;
+  constructor(editor, inputElement) {
+    this.editor = editor;
     this.inputElement = inputElement;
     this.inputElement.addEventListener("keydown", this.onKeyDown);
   }
@@ -16,7 +16,7 @@ export class KeyboardHandler {
   onKeyDown = (e) => {
     if (this.handleCopyPaste(e)) return;
 
-    const { model } = this.controller;
+    const model = this.editor.getModel();
     const isArrowKey = e.key.startsWith("Arrow");
 
     if (e.shiftKey && isArrowKey) {
@@ -30,7 +30,7 @@ export class KeyboardHandler {
     }
 
     e.preventDefault();
-    this.controller.view.render();
+    this.editor.getView().render();
   };
 
   handleCopyPaste(e) {
@@ -39,11 +39,11 @@ export class KeyboardHandler {
 
     const key = e.key.toLowerCase();
     if (key === "c") {
-      this.controller.handleCopy();
+      this.editor.controller.handleCopy();
     } else if (key === "x") {
-      this.controller.handleCut();
+      this.editor.controller.handleCut();
     } else if (key === "v") {
-      this.controller.handlePaste();
+      this.editor.controller.handlePaste();
     } else {
       return false; // Not a copy/paste key
     }
@@ -53,7 +53,7 @@ export class KeyboardHandler {
   }
 
   handleArrowSelection(e) {
-    const { model } = this.controller;
+    const model = this.editor.getModel();
     const direction = e.key.replace("Arrow", "").toLowerCase();
 
     if (!model.hasSelection()) {
@@ -65,7 +65,7 @@ export class KeyboardHandler {
   }
 
   handleSelectionKeyDown(e) {
-    const { model } = this.controller;
+    const model = this.editor.getModel();
     let cmd = null;
 
     if (e.key === "Backspace" || e.key === "Delete") {
@@ -79,19 +79,19 @@ export class KeyboardHandler {
     }
 
     if (cmd) {
-      this.controller.executeCommand(cmd);
+      this.editor.executeCommand(cmd);
     }
   }
 
   handleArrowMovement(e) {
-    const { model } = this.controller;
+    const model = this.editor.getModel();
     const direction = e.key.replace("Arrow", "").toLowerCase();
     const newPos = this.calculateNewPosition(model.cursor, direction);
     model.updateCursor(newPos);
   }
 
   handleCharacterInput(e) {
-    const { model } = this.controller;
+    const model = this.editor.getModel();
     let cmd = null;
 
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
@@ -103,13 +103,14 @@ export class KeyboardHandler {
     }
 
     if (cmd) {
-      this.controller.executeCommand(cmd);
+      this.editor.executeCommand(cmd);
       this._handleAutoFormatting(e.key);
     }
   }
 
   calculateNewPosition(startPos, direction) {
-    const { model, view } = this.controller;
+    const model = this.editor.getModel();
+    const view = this.editor.getView();
     let { line, ch } = startPos;
 
     switch (direction) {
@@ -158,7 +159,7 @@ export class KeyboardHandler {
   }
 
   _handleAutoFormatting(key) {
-    const { model } = this.controller;
+    const model = this.editor.getModel();
     const { line } = model.cursor;
 
     // Auto-switch to Dialogue or Action after Enter
@@ -176,7 +177,7 @@ export class KeyboardHandler {
 
       if (newType) {
         const cmd = new SetLineTypeCommand(newType);
-        this.controller.executeCommand(cmd);
+        this.editor.executeCommand(cmd);
       }
     }
 
@@ -193,7 +194,7 @@ export class KeyboardHandler {
 
     if (typeToSet && currentLine.type !== typeToSet) {
       const cmd = new SetLineTypeCommand(typeToSet);
-      this.controller.executeCommand(cmd);
+      this.editor.executeCommand(cmd);
     }
   }
 }

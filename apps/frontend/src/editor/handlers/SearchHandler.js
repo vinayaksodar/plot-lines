@@ -1,8 +1,8 @@
 export class SearchHandler {
-  constructor(controller, view, model) {
-    this.controller = controller;
-    this.view = view;
-    this.model = model;
+  constructor(editor) {
+    this.editor = editor;
+    this.view = editor.getView();
+    this.model = editor.getModel();
 
     this.widget = this.view.searchWidget;
     this.input = this.widget.querySelector(".search-input");

@@ -237,7 +237,7 @@ export class EditorView {
       () => this.model.lines.length,
       (lineIndex, isFirstOnPage) =>
         this.getTopSpacing(lineIndex, isFirstOnPage),
-      (lineIndex) => this.model.lines[lineIndex].type,
+      (lineIndex) => this.model.lines[lineIndex].type
     );
 
     this.searchWidget = createSearchWidget();
@@ -388,7 +388,7 @@ export class EditorView {
     const visiblePages = pageMetrics.filter(
       (p) =>
         p.top < scrollTop + clientHeight + 300 &&
-        p.top + p.height > scrollTop - 300,
+        p.top + p.height > scrollTop - 300
     ); //300px buffer
 
     // 3. Render
@@ -474,17 +474,17 @@ export class EditorView {
       if (segment.bold)
         events.push(
           { pos: segStart, type: "bold", open: true },
-          { pos: segEnd, type: "bold", open: false },
+          { pos: segEnd, type: "bold", open: false }
         );
       if (segment.italic)
         events.push(
           { pos: segStart, type: "italic", open: true },
-          { pos: segEnd, type: "italic", open: false },
+          { pos: segEnd, type: "italic", open: false }
         );
       if (segment.underline)
         events.push(
           { pos: segStart, type: "underline", open: true },
-          { pos: segEnd, type: "underline", open: false },
+          { pos: segEnd, type: "underline", open: false }
         );
     }
 
@@ -499,7 +499,7 @@ export class EditorView {
         lineIndex === selection.end.line ? selection.end.ch : lineText.length;
       events.push(
         { pos: selStart, type: "selection", open: true },
-        { pos: selEnd, type: "selection", open: false },
+        { pos: selEnd, type: "selection", open: false }
       );
     }
 
@@ -511,7 +511,7 @@ export class EditorView {
           : "search-match";
       events.push(
         { pos: match.start, type, open: true },
-        { pos: match.end, type, open: false },
+        { pos: match.end, type, open: false }
       );
     }
 
@@ -553,7 +553,7 @@ export class EditorView {
       lineEl,
       NodeFilter.SHOW_TEXT,
       null,
-      false,
+      false
     );
     let remaining = ch;
     let targetNode = null;
@@ -672,5 +672,125 @@ export class EditorView {
       }
       this.container.scrollTop = height;
     }
+  }
+
+  viewToModelPos({ clientX, clientY }) {
+    const lines = Array.from(
+      this.container.querySelectorAll(".line[data-line]")
+    );
+    if (lines.length === 0) return { line: 0, ch: 0 };
+
+    const containerRect = this.container.getBoundingClientRect();
+
+    // Handle coordinates way outside the viewport
+    const maxDistance = 1000; // pixels
+    let adjustedClientY = clientY;
+
+    if (clientY < containerRect.top - maxDistance) {
+      // Way above - go to document start
+      return { line: 0, ch: 0 };
+    } else if (clientY > containerRect.bottom + maxDistance) {
+      // Way below - go to document end
+      const lastLine = this.model.lines.length - 1;
+      return { line: lastLine, ch: this.model.getLineLength(lastLine) };
+    } else if (clientY < containerRect.top) {
+      // Above the container - select first visible line
+      adjustedClientY = containerRect.top + 5;
+    } else if (clientY > containerRect.bottom) {
+      // Below the container - select last visible line
+      adjustedClientY = containerRect.bottom - 5;
+    }
+
+    let targetLineEl = null;
+
+    // First, try to find a line that directly contains the Y-coordinate
+    for (const lineEl of lines) {
+      const rect = lineEl.getBoundingClientRect();
+      if (adjustedClientY >= rect.top && adjustedClientY <= rect.bottom) {
+        targetLineEl = lineEl;
+        break;
+      }
+    }
+
+    // If no line contains the Y (e.g., click in a margin), fall back to closest center
+    if (!targetLineEl) {
+      let minLineDist = Infinity;
+      let closestLineIdx = -1;
+      lines.forEach((lineEl, idx) => {
+        const rect = lineEl.getBoundingClientRect();
+        const lineCenterY = (rect.top + rect.bottom) / 2;
+        const dist = Math.abs(adjustedClientY - lineCenterY);
+        if (dist < minLineDist) {
+          minLineDist = dist;
+          closestLineIdx = idx;
+        }
+      });
+      if (closestLineIdx !== -1) {
+        targetLineEl = lines[closestLineIdx];
+      } else {
+        return { line: 0, ch: 0 };
+      }
+    }
+
+    const lineEl = targetLineEl;
+    const lineRect = lineEl.getBoundingClientRect();
+    const modelLineIndex = parseInt(lineEl.dataset.line, 10);
+
+    // Handle horizontal bounds
+    if (clientX < lineRect.left) {
+      // Left of the line - position at start
+      return { line: modelLineIndex, ch: 0 };
+    } else if (clientX > lineRect.right) {
+      // Right of the line - position at end
+      return {
+        line: modelLineIndex,
+        ch: this.model.getLineLength(modelLineIndex),
+      };
+    }
+
+    const walker = document.createTreeWalker(
+      lineEl,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    const range = document.createRange();
+
+    let closestCh = 0;
+    let totalOffset = 0;
+    let minDist = Infinity;
+
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode;
+      const len = textNode.length;
+
+      for (let i = 0; i <= len; i++) {
+        try {
+          range.setStart(textNode, i);
+          range.setEnd(textNode, i);
+
+          const rects = range.getClientRects();
+          if (rects.length === 0) continue;
+
+          // choose the rect for this caret position
+          const rect = rects[rects.length - 1];
+
+          const distX = Math.abs(clientX - rect.left);
+          const distY = Math.abs(clientY - (rect.top + rect.bottom) / 2);
+          const dist = Math.hypot(distX, distY);
+
+          if (dist < minDist) {
+            minDist = dist;
+            closestCh = totalOffset + i;
+          }
+          // eslint-disable-next-line no-unused-vars
+        } catch (_) {
+          // Skip invalid positions
+        }
+      }
+
+      totalOffset += len;
+    }
+
+    return { line: modelLineIndex, ch: closestCh };
   }
 }

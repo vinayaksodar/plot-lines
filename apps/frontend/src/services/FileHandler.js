@@ -1,10 +1,10 @@
 import { FountainParser } from "./FountainParser.js";
 
 export class FileManager {
-  constructor(model, view, hiddenInput, titlePage) {
-    this.model = model;
-    this.view = view;
-    this.hiddenInput = hiddenInput;
+  constructor(editor, titlePage) {
+    this.editor = editor;
+    this.model = editor.getModel();
+    this.view = editor.getView();
     this.titlePage = titlePage;
     this.fountainParser = new FountainParser();
     this.currentFileName = "untitled.txt";
@@ -344,13 +344,13 @@ export class FileManager {
       }
     }
     this.newFile();
-    this.focusEditor();
+    this.editor.focusEditor();
   }
 
   async handleOpenFile() {
     try {
       const result = await this.importFile();
-      this.focusEditor();
+      this.editor.focusEditor();
       if (this.view) {
         this.view.render();
       }
@@ -360,7 +360,7 @@ export class FileManager {
         console.error("Open file failed:", error);
         alert("Failed to open file: " + error.message);
       }
-      this.focusEditor();
+      this.editor.focusEditor();
     }
   }
 
@@ -370,18 +370,18 @@ export class FileManager {
       this.saveToLocalStorage(fileName);
       console.log(`Saved as: ${fileName}`);
     }
-    this.focusEditor();
+    this.editor.focusEditor();
   }
 
   handleExportFile() {
     this.exportFile();
-    this.focusEditor();
+    this.editor.focusEditor();
   }
 
   async handleImportFountain() {
     try {
       const result = await this.importFountainFile();
-      this.focusEditor();
+      this.editor.focusEditor();
       if (this.view) {
         this.view.render();
       }
@@ -391,13 +391,13 @@ export class FileManager {
         console.error("Open file failed:", error);
         alert("Failed to open file: " + error.message);
       }
-      this.focusEditor();
+      this.editor.focusEditor();
     }
   }
 
   handleExportFountain() {
     this.exportFountainFile();
-    this.focusEditor();
+    this.editor.focusEditor();
   }
 
   handleManageFiles() {
@@ -446,13 +446,13 @@ export class FileManager {
       if (action === "close") {
         document.body.removeChild(modal);
         // Restore focus to editor when modal closes
-        this.focusEditor();
+        this.editor.focusEditor();
       } else if (action === "load") {
         if (this.loadFromLocalStorage(fileName)) {
           if (this.view) {
             this.view.render();
           }
-          this.focusEditor();
+          this.editor.focusEditor();
           document.body.removeChild(modal);
         }
       } else if (action === "delete") {
@@ -466,16 +466,5 @@ export class FileManager {
     });
 
     document.body.appendChild(modal);
-  }
-
-  // Helper method to focus editor
-  focusEditor() {
-    if (this.hiddenInput) {
-      this.hiddenInput.focus();
-    }
-    // Force a re-render to ensure cursor is visible
-    if (this.view) {
-      this.view.render();
-    }
   }
 }

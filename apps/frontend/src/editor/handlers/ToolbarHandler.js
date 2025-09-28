@@ -1,11 +1,11 @@
 import { SetLineTypeCommand } from "../commands.js";
 
 export class ToolbarHandler {
-  constructor(controller) {
-    this.controller = controller;
-    this.toolbar = controller.toolbar;
-    this.fileManager = controller.fileManager;
-    this.hiddenInput = controller.hiddenInput;
+  constructor(editor, toolbar, fileManager, hiddenInput) {
+    this.editor = editor;
+    this.toolbar = toolbar;
+    this.fileManager = fileManager;
+    this.hiddenInput = hiddenInput;
 
     if (this.toolbar) {
       this.toolbar.addEventListener("click", this.handleToolbarClick);
@@ -22,7 +22,7 @@ export class ToolbarHandler {
   };
 
   async handleToolbarAction(action, value) {
-    const { controller } = this;
+    const { editor } = this;
     try {
       switch (action) {
         case "new":
@@ -47,34 +47,34 @@ export class ToolbarHandler {
           this.fileManager.handleManageFiles();
           break;
         case "undo":
-          controller.handleUndo();
+          editor.undo();
           this.hiddenInput.focus();
           break;
         case "redo":
-          controller.handleRedo();
+          editor.redo();
           this.hiddenInput.focus();
           break;
         case "cut":
-          await controller.handleCut();
+          await editor.controller.handleCut();
           this.hiddenInput.focus();
           break;
         case "copy":
-          await controller.handleCopy();
+          await editor.controller.handleCopy();
           this.hiddenInput.focus();
           break;
         case "paste":
-          await controller.handlePaste();
+          await editor.controller.handlePaste();
           this.hiddenInput.focus();
           break;
         case "search":
-          controller.handleSearch();
+          editor.controller.handleSearch();
           break;
         case "set-line-type":
-          controller.executeCommand(new SetLineTypeCommand(value));
+          editor.executeCommand(new SetLineTypeCommand(value));
           this.hiddenInput.focus();
           break;
         case "toggle-inline-style":
-          controller.handleToggleInlineStyle(value);
+          editor.controller.handleToggleInlineStyle(value);
           this.hiddenInput.focus();
           break;
       }

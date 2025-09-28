@@ -1,6 +1,5 @@
 export class UndoManager {
-  constructor(controller) {
-    this.controller = controller;
+  constructor() {
     this.undoStack = [];
     this.redoStack = [];
 
@@ -42,33 +41,32 @@ export class UndoManager {
     }, this.batchDelay);
   }
 
-  // Undo the last command or batch
-  undo() {
+  getInvertedCommandsForUndo() {
     this._clearBatchTimer(); // finalize pending batch
     if (this.currentBatch) this.endBatch();
 
-    if (!this.undoStack.length) return;
+    if (!this.undoStack.length) return null;
 
     const batch = this.undoStack.pop();
-    // undo in reverse order
-    for (let i = batch.length - 1; i >= 0; i--) {
-      const invertedCommand = batch[i].invert();
-      if (invertedCommand) {
-        this.controller.executeUndoRedoCommand(invertedCommand);
-      }
-    }
     this.redoStack.push(batch);
+
+    return batch.map(cmd => cmd.invert()).reverse();
   }
 
-  // Redo the last undone command or batch
-  redo() {
-    if (!this.redoStack.length) return;
+  getCommandsForRedo() {
+    if (!this.redoStack.length) return null;
 
     const batch = this.redoStack.pop();
-    for (let cmd of batch) {
-      this.controller.executeUndoRedoCommand(cmd);
-    }
     this.undoStack.push(batch);
+
+    return batch;
+  }
+
+  clear() {
+    this.undoStack = [];
+    this.redoStack = [];
+    this.currentBatch = null;
+    this._clearBatchTimer();
   }
 
   // Utility: check if undo/redo is available
