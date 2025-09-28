@@ -281,30 +281,30 @@ export class EditorModel {
 
     const { start, end } = this.normalizeSelection();
 
-    // Find segments at start and end
-    const { segment: startSegment, offset: startOffset } = this._findSegmentAt(
-      start.line,
-      start.ch,
-    );
-    const { segment: endSegment, offset: endOffset } = this._findSegmentAt(
-      end.line,
-      end.ch,
-    );
+    const { segment: startSegment, segmentIndex: startSegmentIndex, offset: startOffset } = this._findSegmentAt(start.line, start.ch);
+    const { segment: endSegment, segmentIndex: endSegmentIndex, offset: endOffset } = this._findSegmentAt(end.line, end.ch);
 
-    // Get segments from the end line that are after the selection
-    const remainingSegments = [
-      { ...endSegment, text: endSegment.text.slice(endOffset) },
-    ];
+    // Part of the start line to keep
+    const startLineSegments = this.lines[start.line].segments.slice(0, startSegmentIndex);
+    const truncatedStart = { ...startSegment, text: startSegment.text.slice(0, startOffset) };
+    if (truncatedStart.text) {
+        startLineSegments.push(truncatedStart);
+    }
 
-    // Trim the start segment
-    startSegment.text = startSegment.text.slice(0, startOffset);
+    // Part of the end line to keep
+    const endLineSegments = [];
+    const truncatedEnd = { ...endSegment, text: endSegment.text.slice(endOffset) };
+    if (truncatedEnd.text) {
+        endLineSegments.push(truncatedEnd);
+    }
+    endLineSegments.push(...this.lines[end.line].segments.slice(endSegmentIndex + 1));
 
-    // Merge the start line with the remaining parts of the end line
-    this.lines[start.line].segments.push(...remainingSegments);
+    // Replace the start line with the merged content
+    this.lines[start.line].segments = [...startLineSegments, ...endLineSegments];
 
-    // Remove all lines between start and end
+    // Remove the lines in between
     if (start.line < end.line) {
-      this.lines.splice(start.line + 1, end.line - start.line);
+        this.lines.splice(start.line + 1, end.line - start.line);
     }
 
     this._mergeSegments(start.line);
