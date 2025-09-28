@@ -53,14 +53,22 @@ export class Editor {
   undo() {
     const commands = this.undoManager.getInvertedCommandsForUndo();
     if (commands) {
-      commands.forEach(cmd => this.executeCommand(cmd));
+      commands.forEach(cmd => {
+        cmd.execute(this.model);
+        this.dispatch('command', cmd);
+      });
+      this.view.render();
     }
   }
 
   redo() {
     const commands = this.undoManager.getCommandsForRedo();
     if (commands) {
-      commands.forEach(cmd => this.executeCommand(cmd));
+      commands.forEach(cmd => {
+        cmd.execute(this.model);
+        this.dispatch('command', cmd);
+      });
+      this.view.render();
     }
   }
 
