@@ -70,9 +70,7 @@ export class ToolbarHandler {
           controller.handleSearch();
           break;
         case "set-line-type":
-          controller.executeCommand(
-            new SetLineTypeCommand(controller.model, value),
-          );
+          controller.executeCommand(new SetLineTypeCommand(value));
           this.hiddenInput.focus();
           break;
         case "toggle-inline-style":

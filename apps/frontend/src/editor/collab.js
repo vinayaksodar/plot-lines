@@ -71,17 +71,7 @@ export function collab(config = {}) {
   };
 }
 
-function stepFromJSON(json) {
-    // A robust implementation should include a command type in the JSON.
-    // Inferring based on properties is brittle but works for this case.
-    if (json.char) {
-        return new InsertCharCommand(json.pos, json.char);
-    } else if (json.pos) {
-        // This is ambiguous between DeleteChar and InsertNewLine, but for now...
-        return new DeleteCharCommand(json.pos);
-    }
-    return null;
-}
+
 
 export function receiveTransaction(state, steps, clientIDs, options = {}) {
   console.log("[collab.js] receiveTransaction, state:", state, "steps:", steps, "clientIDs:", clientIDs);
@@ -160,7 +150,7 @@ export function sendableSteps(state) {
   if (collabState.unconfirmed.length == 0) return null;
   return {
     version: collabState.version,
-    steps: collabState.unconfirmed.map((s) => s.step),
+    steps: collabState.unconfirmed.map((s) => s.step.toJSON()),
     clientID: collabState.config.clientID,
     get origins() {
       return (
@@ -169,6 +159,29 @@ export function sendableSteps(state) {
       );
     },
   };
+}
+
+function stepFromJSON(json) {
+    if (!json || !json.type) return null;
+    switch (json.type) {
+        case 'InsertCharCommand':
+            return new InsertCharCommand(json.pos, json.char);
+        case 'DeleteCharCommand':
+            return new DeleteCharCommand(json.pos);
+        case 'DeleteSelectionCommand':
+            return new DeleteSelectionCommand(json.selection);
+        case 'InsertNewLineCommand':
+            return new InsertNewLineCommand(json.pos);
+        case 'InsertTextCommand':
+            return new InsertTextCommand(json.text, json.pos);
+        case 'SetLineTypeCommand':
+            return new SetLineTypeCommand(json.newType, json.selection, json.cursorLine);
+        case 'ToggleInlineStyleCommand':
+            return new ToggleInlineStyleCommand(json.style, json.selection);
+        default:
+            console.error("Unknown step type:", json.type);
+            return null;
+    }
 }
 
 export function getVersion(state) {

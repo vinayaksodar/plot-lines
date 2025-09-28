@@ -69,7 +69,7 @@ export class KeyboardHandler {
     let cmd = null;
 
     if (e.key === "Backspace" || e.key === "Delete") {
-      cmd = new DeleteSelectionCommand();
+      cmd = new DeleteSelectionCommand(model.selection);
     } else if (e.key === "Escape") {
       model.clearSelection();
     } else if (e.key === "ArrowLeft") {
@@ -83,7 +83,12 @@ export class KeyboardHandler {
     }
   }
 
-
+  handleArrowMovement(e) {
+    const { model } = this.controller;
+    const direction = e.key.replace("Arrow", "").toLowerCase();
+    const newPos = this.calculateNewPosition(model.cursor, direction);
+    model.updateCursor(newPos);
+  }
 
   handleCharacterInput(e) {
     const { model } = this.controller;

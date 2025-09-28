@@ -39,6 +39,14 @@ export class InsertCharCommand {
   clone(newPos) {
       return new InsertCharCommand(newPos, this.char);
   }
+
+  toJSON() {
+    return {
+        type: 'InsertCharCommand',
+        pos: this.pos,
+        char: this.char
+    };
+  }
 }
 
 export class InsertNewLineCommand {
@@ -82,6 +90,13 @@ export class InsertNewLineCommand {
 
   clone(newPos) {
       return new InsertNewLineCommand(newPos);
+  }
+
+  toJSON() {
+    return {
+        type: 'InsertNewLineCommand',
+        pos: this.pos
+    };
   }
 }
 
@@ -146,6 +161,13 @@ export class DeleteCharCommand {
   clone(newPos) {
       return new DeleteCharCommand(newPos);
   }
+
+  toJSON() {
+    return {
+        type: 'DeleteCharCommand',
+        pos: this.pos
+    };
+  }
 }
 
 export class DeleteSelectionCommand {
@@ -156,10 +178,10 @@ export class DeleteSelectionCommand {
 
   execute(model) {
     console.log("[DeleteSelectionCommand] execute", this.selection);
-    model.selection = this.selection || {
-      start: { ...model.selection.start },
-      end: { ...model.selection.end },
-    };
+    if (!this.selection) {
+      this.selection = model.selection;
+    }
+    model.selection = this.selection;
     this.text = model.getSelectedText();
     model.deleteSelection();
   }
@@ -206,6 +228,13 @@ export class DeleteSelectionCommand {
 
   clone(newSelection) {
       return new DeleteSelectionCommand(newSelection);
+  }
+
+  toJSON() {
+    return {
+        type: 'DeleteSelectionCommand',
+        selection: this.selection
+    };
   }
 }
 
@@ -276,6 +305,14 @@ export class InsertTextCommand {
   clone(newPos) {
       return new InsertTextCommand(this.text, newPos);
   }
+
+  toJSON() {
+    return {
+        type: 'InsertTextCommand',
+        text: this.text,
+        pos: this.pos
+    };
+  }
 }
 
 export class SetLineTypeCommand {
@@ -288,20 +325,29 @@ export class SetLineTypeCommand {
 
   execute(model) {
     console.log("[SetLineTypeCommand] execute", this.newType, this.selection, this.cursorLine);
-    const selection = this.selection || (model.hasSelection() ? model.normalizeSelection() : null);
-    const cursorLine = this.cursorLine || model.cursor.line;
-    if (selection) {
-      const { start, end } = selection;
+
+    // If context is not on the command, capture it from the model.
+    if (!this.selection && this.cursorLine === undefined) {
+        if (model.hasSelection()) {
+            this.selection = model.normalizeSelection();
+        } else {
+            this.cursorLine = model.cursor.line;
+        }
+    }
+
+    // Now, use the command's properties to execute the change.
+    if (this.selection) {
+      const { start, end } = this.selection;
       for (let i = start.line; i <= end.line; i++) {
         this.oldTypes.push({ line: i, type: model.lines[i].type });
         model.setLineType(i, this.newType);
       }
     } else {
       this.oldTypes.push({
-        line: cursorLine,
-        type: model.lines[cursorLine].type,
+        line: this.cursorLine,
+        type: model.lines[this.cursorLine].type,
       });
-      model.setLineType(cursorLine, this.newType);
+      model.setLineType(this.cursorLine, this.newType);
     }
   }
 
@@ -335,6 +381,15 @@ export class SetLineTypeCommand {
   clone(newSelection, newCursorLine) {
       return new SetLineTypeCommand(this.newType, newSelection, newCursorLine);
   }
+
+  toJSON() {
+    return {
+        type: 'SetLineTypeCommand',
+        newType: this.newType,
+        selection: this.selection,
+        cursorLine: this.cursorLine
+    };
+  }
 }
 
 export class ToggleInlineStyleCommand {
@@ -345,9 +400,12 @@ export class ToggleInlineStyleCommand {
 
   execute(model) {
     console.log("[ToggleInlineStyleCommand] execute", this.style, this.selection);
-    const selection = this.selection || (model.hasSelection() ? model.normalizeSelection() : null);
-    if (!selection) return;
-    model.toggleInlineStyle(this.style, selection);
+    // If no selection was provided to the command, grab it from the model.
+    if (!this.selection) {
+        this.selection = model.hasSelection() ? model.normalizeSelection() : null;
+    }
+    if (!this.selection) return;
+    model.toggleInlineStyle(this.style, this.selection);
   }
 
   undo(model) {
@@ -377,5 +435,13 @@ export class ToggleInlineStyleCommand {
 
   clone(newSelection) {
       return new ToggleInlineStyleCommand(this.style, newSelection);
+  }
+
+  toJSON() {
+    return {
+        type: 'ToggleInlineStyleCommand',
+        style: this.style,
+        selection: this.selection
+    };
   }
 }

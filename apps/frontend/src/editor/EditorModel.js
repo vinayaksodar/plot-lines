@@ -404,10 +404,11 @@ export class EditorModel {
     }
   }
 
-  toggleInlineStyle(style) {
-    if (!this.hasSelection()) return;
+  toggleInlineStyle(style, selection) {
+    const sel = selection || (this.hasSelection() ? this.normalizeSelection() : null);
+    if (!sel) return;
 
-    const { start, end } = this.normalizeSelection();
+    const { start, end } = sel;
 
     for (let i = start.line; i <= end.line; i++) {
       const line = this.lines[i];
