@@ -5,7 +5,8 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "vitest"
   },
   "devDependencies": {
     "prettier": "^3.2.5",
@@ -15,5 +16,9 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "jsdom": "^27.0.0",
+    "vitest": "^3.2.4"
+  }
 }

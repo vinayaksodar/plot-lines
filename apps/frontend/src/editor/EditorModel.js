@@ -63,6 +63,7 @@ export class EditorModel {
   }
 
   insertChar(char) {
+    console.log("[EditorModel] insertChar", char, "at", this.cursor);
     if (this.hasSelection()) {
       this.deleteSelection();
     }
@@ -89,6 +90,7 @@ export class EditorModel {
   }
 
   deleteChar() {
+    console.log("[EditorModel] deleteChar at", this.cursor);
     if (this.hasSelection()) {
       this.deleteSelection();
       return null; // Indicate that a selection was deleted
@@ -123,6 +125,7 @@ export class EditorModel {
   }
 
   insertNewLine() {
+    console.log("[EditorModel] insertNewLine at", this.cursor);
     if (this.hasSelection()) {
       this.deleteSelection();
     }
@@ -452,5 +455,17 @@ export class EditorModel {
       line.segments = newSegments;
       this._mergeSegments(i);
     }
+  }
+
+  clone() {
+    const newModel = new EditorModel();
+    newModel.lines = JSON.parse(JSON.stringify(this.lines));
+    newModel.cursor = { ...this.cursor };
+    newModel.selection = this.selection ? { ...this.selection } : null;
+    return newModel;
+  }
+
+  applyCommand(command) {
+      command.execute(this);
   }
 }

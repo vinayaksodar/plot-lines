@@ -10,13 +10,14 @@ import { SearchHandler } from "./handlers/SearchHandler.js";
 import { ToolbarHandler } from "./handlers/ToolbarHandler.js";
 
 export class EditorController {
-  constructor(model, view, wrapper, toolbar, hiddenInput, fileManager) {
+  constructor(model, view, wrapper, toolbar, hiddenInput, fileManager, collabManager) {
     this.model = model;
     this.view = view;
     this.container = view.container;
     this.hiddenInput = hiddenInput;
     this.toolbar = toolbar;
     this.fileManager = fileManager;
+    this.collabManager = collabManager;
 
     // Ensure container gets focus when clicked
     this.container.addEventListener("click", () => {
@@ -196,7 +197,7 @@ export class EditorController {
   }
 
   handleToggleInlineStyle(style) {
-    this.executeCommand(new ToggleInlineStyleCommand(this.model, style));
+    this.executeCommand(new ToggleInlineStyleCommand(style));
   }
 
   handleUndo() {
@@ -218,11 +219,11 @@ export class EditorController {
       const text = this.model.getSelectedText();
       try {
         await navigator.clipboard.writeText(text);
-        this.executeCommand(new DeleteSelectionCommand(this.model));
+        this.executeCommand(new DeleteSelectionCommand());
       } catch (error) {
         console.error("Cut failed:", error);
         // Fallback: just delete the selection without copying
-        this.executeCommand(new DeleteSelectionCommand(this.model));
+        this.executeCommand(new DeleteSelectionCommand());
       }
     }
   }
@@ -243,7 +244,7 @@ export class EditorController {
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        this.executeCommand(new InsertTextCommand(this.model, text));
+        this.executeCommand(new InsertTextCommand(text));
       }
     } catch (error) {
       console.error("Paste failed:", error);
@@ -258,9 +259,20 @@ export class EditorController {
 
   // Execute a command and add it to undo history
   executeCommand(command) {
-    command.execute(this.model);
-    this.undoManager.add(command);
-    this.view.render();
+    if (this.collabManager) {
+      const tr = {
+        steps: [command],
+        docChanged: true,
+        getMeta: (key) => key === 'collab' ? null : undefined
+      };
+      this.collabManager.applyTransaction(tr);
+      command.execute(this.model);
+      this.view.render();
+    } else {
+      command.execute(this.model);
+      this.undoManager.add(command);
+      this.view.render();
+    }
   }
 
   // Ensure editor is focused and ready for input

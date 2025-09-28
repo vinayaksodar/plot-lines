@@ -1,183 +1,381 @@
-// Insert a single character
 export class InsertCharCommand {
-  constructor(model, pos, char) {
-    this.model = model;
-    this.pos = { ...pos }; // pre-insert position
+  constructor(pos, char) {
+    this.pos = { ...pos };
     this.char = char;
-    this.afterPos = null; // store after insert
   }
 
-  execute() {
-    this.model.cursor = { ...this.pos };
-    this.model.insertChar(this.char);
-    this.afterPos = { ...this.model.cursor }; // capture after insert
+  execute(model) {
+    console.log("[InsertCharCommand] execute", this.pos, this.char);
+    model.cursor = { ...this.pos };
+    model.insertChar(this.char);
   }
 
-  undo() {
-    this.model.cursor = { ...this.afterPos };
-    this.model.deleteChar(); // now deletes the inserted char
+  undo(model) {
+    console.log("[InsertCharCommand] undo");
+    model.cursor = { line: this.pos.line, ch: this.pos.ch + 1 };
+    model.deleteChar();
+  }
+
+  invert() {
+    console.log("[InsertCharCommand] invert");
+    return new DeleteCharCommand({ line: this.pos.line, ch: this.pos.ch + 1 });
+  }
+
+  mapPosition(pos) {
+    console.log("[InsertCharCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
+    if (pos.line === this.pos.line && pos.ch > this.pos.ch) {
+      return { line: pos.line, ch: pos.ch + 1 };
+    }
+    return pos;
+  }
+
+  map(mapping) {
+    console.log("[InsertCharCommand] map, mapping:", mapping);
+    const newPos = mapping.map(this.pos);
+    console.log("[InsertCharCommand] map, newPos:", newPos);
+    return new InsertCharCommand(newPos, this.char);
+  }
+
+  clone(newPos) {
+      return new InsertCharCommand(newPos, this.char);
   }
 }
 
-// Insert a newline
 export class InsertNewLineCommand {
-  constructor(model) {
-    this.model = model;
-    this.pos = { ...this.model.cursor };
-    this.afterPos = null;
+  constructor(pos) {
+    this.pos = pos;
   }
 
-  execute() {
-    this.model.insertNewLine();
-    this.afterPos = { ...this.model.cursor };
+  execute(model) {
+    console.log("[InsertNewLineCommand] execute", this.pos);
+    model.cursor = this.pos ? { ...this.pos } : { ...model.cursor };
+    model.insertNewLine();
   }
 
-  undo() {
-    this.model.cursor = { ...this.afterPos };
-    this.model.deleteChar(); // removes the newline
+  undo(model) {
+    console.log("[InsertNewLineCommand] undo");
+    model.cursor = { line: this.pos.line + 1, ch: 0 };
+    model.deleteChar();
+  }
+
+  invert() {
+    console.log("[InsertNewLineCommand] invert");
+    return new DeleteCharCommand({ line: this.pos.line + 1, ch: 0 });
+  }
+
+  mapPosition(pos) {
+    console.log("[InsertNewLineCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
+    if (pos.line > this.pos.line) {
+      return { line: pos.line + 1, ch: pos.ch };
+    } else if (pos.line === this.pos.line && pos.ch >= this.pos.ch) {
+        return { line: pos.line + 1, ch: pos.ch - this.pos.ch };
+    }
+    return pos;
+  }
+
+  map(mapping) {
+    console.log("[InsertNewLineCommand] map, mapping:", mapping);
+    const newPos = mapping.map(this.pos);
+    console.log("[InsertNewLineCommand] map, newPos:", newPos);
+    return new InsertNewLineCommand(newPos);
+  }
+
+  clone(newPos) {
+      return new InsertNewLineCommand(newPos);
   }
 }
 
-// Delete a character
 export class DeleteCharCommand {
-  constructor(model, pos) {
-    this.model = model;
-    this.pos = { ...pos }; // cursor before deletion
-    this.afterPos = null;
+  constructor(pos) {
+    this.pos = { ...pos };
     this.deletedChar = null;
+    this.prevLineLength = null;
   }
 
-  execute() {
-    this.model.cursor = { ...this.pos };
-    this.deletedChar = this.model.deleteChar();
-    this.afterPos = { ...this.model.cursor };
+  execute(model) {
+    console.log("[DeleteCharCommand] execute", this.pos);
+    if (this.pos.ch === 0 && this.pos.line > 0) {
+        this.prevLineLength = model.getLineLength(this.pos.line - 1);
+    }
+    model.cursor = { ...this.pos };
+    this.deletedChar = model.deleteChar();
   }
 
-  undo() {
-    if (this.deletedChar === null) return; // Nothing to undo
-    this.model.cursor = { ...this.afterPos };
+  undo(model) {
+    console.log("[DeleteCharCommand] undo");
+    if (this.deletedChar === null) return;
+    model.cursor = { line: this.pos.line, ch: this.pos.ch - 1 };
     if (this.deletedChar === "\n") {
-      this.model.insertNewLine();
-    } else {
-      this.model.insertChar(this.deletedChar);
+      model.insertNewLine();
+    }
+    else {
+      model.insertChar(this.deletedChar);
     }
   }
+
+  invert() {
+    console.log("[DeleteCharCommand] invert");
+    if (this.deletedChar === "\n") {
+        return new InsertNewLineCommand({ line: this.pos.line, ch: this.pos.ch - 1 });
+    } else {
+        return new InsertCharCommand({ line: this.pos.line, ch: this.pos.ch - 1 }, this.deletedChar);
+    }
+  }
+
+  mapPosition(pos) {
+    console.log("[DeleteCharCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
+    if (this.deletedChar === '\n') {
+        if (pos.line > this.pos.line) {
+            return { line: pos.line - 1, ch: pos.ch };
+        } else if (pos.line === this.pos.line) {
+            return { line: this.pos.line - 1, ch: this.prevLineLength + pos.ch };
+        }
+    } else if (pos.line === this.pos.line && pos.ch >= this.pos.ch) {
+      return { line: pos.line, ch: pos.ch - 1 };
+    }
+    return pos;
+  }
+
+  map(mapping) {
+    console.log("[DeleteCharCommand] map, mapping:", mapping);
+    const newPos = mapping.map(this.pos);
+    console.log("[DeleteCharCommand] map, newPos:", newPos);
+    return new DeleteCharCommand(newPos);
+  }
+
+  clone(newPos) {
+      return new DeleteCharCommand(newPos);
+  }
 }
 
-// Delete selection
 export class DeleteSelectionCommand {
-  constructor(model) {
-    this.model = model;
+  constructor(selection) {
     this.text = null;
-    this.afterPos = null;
-    this.selection = {
+    this.selection = selection;
+  }
+
+  execute(model) {
+    console.log("[DeleteSelectionCommand] execute", this.selection);
+    model.selection = this.selection || {
       start: { ...model.selection.start },
       end: { ...model.selection.end },
     };
+    this.text = model.getSelectedText();
+    model.deleteSelection();
   }
 
-  execute() {
-    this.model.selection = {
-      start: { ...this.selection.start },
-      end: { ...this.selection.end },
-    };
-    this.text = this.model.getSelectedText();
-    this.model.deleteSelection();
-    this.afterPos = { ...this.model.cursor };
+  undo(model) {
+    console.log("[DeleteSelectionCommand] undo");
+    model.cursor = { ...this.selection.start };
+    model.insertText(this.text);
+    model.selection = { ...this.selection };
   }
 
-  undo() {
-    this.model.cursor = { ...this.afterPos };
-    this.model.insertText(this.text);
-    this.model.selection = {
-      start: { ...this.selection.start },
-      end: { ...this.selection.end },
-    };
+  invert() {
+    console.log("[DeleteSelectionCommand] invert");
+    return new InsertTextCommand(this.text, this.selection.start);
+  }
+
+  mapPosition(pos) {
+    console.log("[DeleteSelectionCommand] mapPosition, pos:", pos, "this.selection:", this.selection);
+    const { start, end } = this.selection;
+    if (pos.line < start.line) {
+      return pos;
+    }
+    if (pos.line === start.line && pos.ch <= start.ch) {
+      return pos;
+    }
+    if (pos.line > end.line) {
+      return { line: pos.line - (end.line - start.line), ch: pos.ch };
+    } else if (pos.line === end.line) {
+        return { line: start.line, ch: start.ch + pos.ch - end.ch };
+    } else {
+        return { line: start.line, ch: start.ch };
+    }
+  }
+
+  map(mapping) {
+    console.log("[DeleteSelectionCommand] map, mapping:", mapping);
+    const newSelection = {
+        start: mapping.map(this.selection.start),
+        end: mapping.map(this.selection.end),
+    }
+    console.log("[DeleteSelectionCommand] map, newSelection:", newSelection);
+    return new DeleteSelectionCommand(newSelection);
+  }
+
+  clone(newSelection) {
+      return new DeleteSelectionCommand(newSelection);
   }
 }
 
 export class InsertTextCommand {
-  constructor(model, text) {
-    this.model = model;
+  constructor(text, pos) {
     this.text = text;
-    this.pos = { ...this.model.cursor };
-    this.afterPos = null;
+    this.pos = pos;
   }
 
-  execute() {
-    this.model.insertText(this.text);
-    this.afterPos = { ...this.model.cursor };
+  execute(model) {
+    console.log("[InsertTextCommand] execute", this.pos, this.text);
+    model.cursor = this.pos ? { ...this.pos } : { ...model.cursor };
+    model.insertText(this.text);
   }
 
-  undo() {
-    this.model.selection = {
+  undo(model) {
+    console.log("[InsertTextCommand] undo");
+    const endPos = {
+        line: this.pos.line + this.text.split('\n').length - 1,
+        ch: (this.text.split('\n').length > 1 ? 0 : this.pos.ch) + this.text.split('\n').pop().length
+    }
+    model.selection = {
       start: { ...this.pos },
-      end: { ...this.afterPos },
+      end: endPos,
     };
-    this.model.deleteSelection();
+    model.deleteSelection();
+  }
+
+  invert() {
+    console.log("[InsertTextCommand] invert");
+    const endPos = {
+        line: this.pos.line + this.text.split('\n').length - 1,
+        ch: (this.text.split('\n').length > 1 ? 0 : this.pos.ch) + this.text.split('\n').pop().length
+    }
+    const selection = { start: this.pos, end: endPos };
+    return new DeleteSelectionCommand(selection);
+  }
+
+  mapPosition(pos) {
+    console.log("[InsertTextCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
+    const lines = this.text.split('\n');
+    const endPos = {
+        line: this.pos.line + lines.length - 1,
+        ch: (lines.length > 1 ? 0 : this.pos.ch) + lines.pop().length
+    }
+
+    if (pos.line < this.pos.line) {
+        return pos;
+    }
+    if (pos.line === this.pos.line && pos.ch <= this.pos.ch) {
+        return pos;
+    }
+
+    if (pos.line === this.pos.line) {
+        return { line: endPos.line, ch: endPos.ch + (pos.ch - this.pos.ch) };
+    } else {
+        return { line: pos.line + (endPos.line - this.pos.line), ch: pos.ch };
+    }
+  }
+
+  map(mapping) {
+    console.log("[InsertTextCommand] map, mapping:", mapping);
+    const newPos = mapping.map(this.pos);
+    console.log("[InsertTextCommand] map, newPos:", newPos);
+    return new InsertTextCommand(this.text, newPos);
+  }
+
+  clone(newPos) {
+      return new InsertTextCommand(this.text, newPos);
   }
 }
 
 export class SetLineTypeCommand {
-  constructor(model, newType) {
-    this.model = model;
+  constructor(newType, selection, cursorLine) {
     this.newType = newType;
     this.oldTypes = [];
-    this.selection = model.hasSelection() ? model.normalizeSelection() : null;
-    this.cursorLine = model.cursor.line;
+    this.selection = selection;
+    this.cursorLine = cursorLine;
   }
 
-  execute() {
-    if (this.selection) {
-      const { start, end } = this.selection;
+  execute(model) {
+    console.log("[SetLineTypeCommand] execute", this.newType, this.selection, this.cursorLine);
+    const selection = this.selection || (model.hasSelection() ? model.normalizeSelection() : null);
+    const cursorLine = this.cursorLine || model.cursor.line;
+    if (selection) {
+      const { start, end } = selection;
       for (let i = start.line; i <= end.line; i++) {
-        this.oldTypes.push({ line: i, type: this.model.lines[i].type });
-        this.model.setLineType(i, this.newType);
+        this.oldTypes.push({ line: i, type: model.lines[i].type });
+        model.setLineType(i, this.newType);
       }
     } else {
       this.oldTypes.push({
-        line: this.cursorLine,
-        type: this.model.lines[this.cursorLine].type,
+        line: cursorLine,
+        type: model.lines[cursorLine].type,
       });
-      this.model.setLineType(this.cursorLine, this.newType);
+      model.setLineType(cursorLine, this.newType);
     }
   }
 
-  undo() {
+  undo(model) {
+    console.log("[SetLineTypeCommand] undo");
     for (const old of this.oldTypes) {
-      this.model.setLineType(old.line, old.type);
+      model.setLineType(old.line, old.type);
     }
+  }
+
+  invert() {
+    console.log("[SetLineTypeCommand] invert");
+      const invertedCommands = this.oldTypes.map(old => new SetLineTypeCommand(old.type, this.selection, old.line));
+      return invertedCommands.length > 1 ? invertedCommands : invertedCommands[0];
+  }
+
+  mapPosition(pos) {
+    return pos;
+  }
+
+  map(mapping) {
+    console.log("[SetLineTypeCommand] map, mapping:", mapping);
+    const newSelection = this.selection ? {
+        start: mapping.map(this.selection.start),
+        end: mapping.map(this.selection.end),
+    } : null;
+    const newCursorLine = mapping.map({line: this.cursorLine, ch: 0}).line;
+    return new SetLineTypeCommand(this.newType, newSelection, newCursorLine);
+  }
+
+  clone(newSelection, newCursorLine) {
+      return new SetLineTypeCommand(this.newType, newSelection, newCursorLine);
   }
 }
 
 export class ToggleInlineStyleCommand {
-  constructor(model, style) {
-    this.model = model;
+  constructor(style, selection) {
     this.style = style;
-    this.selection = model.hasSelection() ? model.normalizeSelection() : null;
-    this.oldLines = [];
+    this.selection = selection;
   }
 
-  execute() {
-    if (!this.selection) return;
-
-    const { start, end } = this.selection;
-    for (let i = start.line; i <= end.line; i++) {
-      // Deep copy the line object to save its state
-      this.oldLines.push({
-        index: i,
-        line: JSON.parse(JSON.stringify(this.model.lines[i])),
-      });
-    }
-
-    this.model.toggleInlineStyle(this.style);
+  execute(model) {
+    console.log("[ToggleInlineStyleCommand] execute", this.style, this.selection);
+    const selection = this.selection || (model.hasSelection() ? model.normalizeSelection() : null);
+    if (!selection) return;
+    model.toggleInlineStyle(this.style, selection);
   }
 
-  undo() {
-    if (!this.selection) return;
+  undo(model) {
+    console.log("[ToggleInlineStyleCommand] undo");
+    const selection = this.selection || (model.hasSelection() ? model.normalizeSelection() : null);
+    if (!selection) return;
+    model.toggleInlineStyle(this.style, selection);
+  }
 
-    for (const oldLine of this.oldLines) {
-      this.model.lines[oldLine.index] = oldLine.line;
-    }
+  invert() {
+    console.log("[ToggleInlineStyleCommand] invert");
+    return new ToggleInlineStyleCommand(this.style, this.selection);
+  }
+
+  mapPosition(pos) {
+    return pos;
+  }
+
+  map(mapping) {
+    console.log("[ToggleInlineStyleCommand] map, mapping:", mapping);
+    const newSelection = this.selection ? {
+        start: mapping.map(this.selection.start),
+        end: mapping.map(this.selection.end),
+    } : null;
+    return new ToggleInlineStyleCommand(this.style, newSelection);
+  }
+
+  clone(newSelection) {
+      return new ToggleInlineStyleCommand(this.style, newSelection);
   }
 }

@@ -9,6 +9,7 @@ import { createEditorContainer } from "./components/EditorContainer/EditorContai
 import { createMenuBar } from "./components/MenuBar/MenuBar.js";
 import { createSideMenu } from "./components/SideMenu/SideMenu.js";
 import { TitlePage } from "./components/TitlePage/TitlePage.js";
+import { CollabManager } from "./editor/CollabManager.js";
 
 const app = document.querySelector("#app");
 
@@ -44,6 +45,7 @@ let welcomeText =
 
 // Setup editor with generated text
 const model = new EditorModel(welcomeText);
+const collabManager = new CollabManager({ model, version: 0 });
 
 const view = new EditorView(model, editorContainer, widgetLayer);
 
@@ -61,7 +63,10 @@ const controller = new EditorController(
   toolbar,
   hiddenInput,
   fileManager,
+  collabManager
 );
+
+collabManager.editor = { model, view, controller };
 
 // Menu Bar
 const menuBar = createMenuBar(fileManager, controller);
@@ -86,6 +91,38 @@ contentArea.appendChild(titlePage.element);
 
 app.appendChild(menuBar);
 app.appendChild(mainArea);
+
+// --- Collaboration Setup ---
+const socket = new WebSocket('ws://localhost:3000');
+
+socket.onopen = () => {
+    console.log('WebSocket connection established');
+};
+
+socket.onmessage = event => {
+    const message = JSON.parse(event.data);
+    console.log("Received message:", message);
+    const clientIDs = message.steps.map(() => message.clientID);
+    collabManager.receive(message.steps, clientIDs);
+    // Only render if the change came from another client
+    if (message.clientID !== collabManager.state.collab.config.clientID) {
+        view.render();
+    }
+};
+
+function poll() {
+    if (socket.readyState === WebSocket.OPEN) {
+        const sendable = collabManager.sendableSteps();
+        if (sendable && sendable.steps.length > 0) {
+            console.log("Sending local changes:", sendable);
+            socket.send(JSON.stringify(sendable));
+        }
+    }
+    setTimeout(poll, 1000); // Poll every second
+}
+
+poll();
+
 
 // Try to load from auto-save first
 if (fileManager.loadFromAutoSave()) {

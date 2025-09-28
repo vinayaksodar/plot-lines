@@ -65,11 +65,11 @@ export class KeyboardHandler {
   }
 
   handleSelectionKeyDown(e) {
-    const { model, undoManager } = this.controller;
+    const { model } = this.controller;
     let cmd = null;
 
     if (e.key === "Backspace" || e.key === "Delete") {
-      cmd = new DeleteSelectionCommand(model);
+      cmd = new DeleteSelectionCommand();
     } else if (e.key === "Escape") {
       model.clearSelection();
     } else if (e.key === "ArrowLeft") {
@@ -79,33 +79,26 @@ export class KeyboardHandler {
     }
 
     if (cmd) {
-      cmd.execute();
-      undoManager.add(cmd);
+      this.controller.executeCommand(cmd);
     }
   }
 
-  handleArrowMovement(e) {
-    const { model } = this.controller;
-    const direction = e.key.replace("Arrow", "").toLowerCase();
-    const newCursor = this.calculateNewPosition(model.cursor, direction);
-    model.updateCursor(newCursor);
-  }
+
 
   handleCharacterInput(e) {
-    const { model, undoManager } = this.controller;
+    const { model } = this.controller;
     let cmd = null;
 
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      cmd = new InsertCharCommand(model, model.cursor, e.key);
+      cmd = new InsertCharCommand(model.cursor, e.key);
     } else if (e.key === "Enter") {
-      cmd = new InsertNewLineCommand(model);
+      cmd = new InsertNewLineCommand(model.cursor);
     } else if (e.key === "Backspace") {
-      cmd = new DeleteCharCommand(model, model.cursor);
+      cmd = new DeleteCharCommand(model.cursor);
     }
 
     if (cmd) {
-      cmd.execute();
-      undoManager.add(cmd);
+      this.controller.executeCommand(cmd);
       this._handleAutoFormatting(e.key);
     }
   }
@@ -160,7 +153,7 @@ export class KeyboardHandler {
   }
 
   _handleAutoFormatting(key) {
-    const { model, undoManager } = this.controller;
+    const { model } = this.controller;
     const { line } = model.cursor;
 
     // Auto-switch to Dialogue or Action after Enter
@@ -177,9 +170,8 @@ export class KeyboardHandler {
       }[prevLineType];
 
       if (newType) {
-        const cmd = new SetLineTypeCommand(model, newType);
-        cmd.execute();
-        undoManager.add(cmd);
+        const cmd = new SetLineTypeCommand(newType);
+        this.controller.executeCommand(cmd);
       }
     }
 
@@ -195,9 +187,8 @@ export class KeyboardHandler {
     }
 
     if (typeToSet && currentLine.type !== typeToSet) {
-      const cmd = new SetLineTypeCommand(model, typeToSet);
-      cmd.execute();
-      undoManager.add(cmd);
+      const cmd = new SetLineTypeCommand(typeToSet);
+      this.controller.executeCommand(cmd);
     }
   }
 }

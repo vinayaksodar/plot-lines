@@ -25,3 +25,10 @@ dist-ssr
 
 # Turborepo cache
 .turbo
+
+# Temp files remove later
+apps/backend/collab-test-full.js
+apps/backend/collab-test.js
+apps/backend/debug-collab.js
+apps/frontend/src/collab-simulation.js
+apps/frontend/src/editor/handlers/KeyboardHandler.test.js
