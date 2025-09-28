@@ -30,7 +30,7 @@ export class EditorController {
     this.keyBoardHandler = new KeyboardHandler(this, this.hiddenInput);
     this.searchHandler = new SearchHandler(this, this.view, this.model);
     this.toolbarHandler = new ToolbarHandler(this);
-    this.undoManager = new UndoManager();
+    this.undoManager = new UndoManager(this);
 
     // Listen for global shortcuts
     window.addEventListener("keydown", this.onGlobalKeyDown);
@@ -266,13 +266,23 @@ export class EditorController {
         getMeta: (key) => key === 'collab' ? null : undefined
       };
       this.collabManager.applyTransaction(tr);
-      command.execute(this.model);
-      this.view.render();
-    } else {
-      command.execute(this.model);
-      this.undoManager.add(command);
-      this.view.render();
     }
+    command.execute(this.model);
+    this.undoManager.add(command);
+    this.view.render();
+  }
+
+  executeUndoRedoCommand(command) {
+    if (this.collabManager) {
+      const tr = {
+        steps: [command],
+        docChanged: true,
+        getMeta: (key) => key === 'collab' ? null : undefined,
+      };
+      this.collabManager.applyTransaction(tr);
+    }
+    command.execute(this.model);
+    this.view.render();
   }
 
   // Ensure editor is focused and ready for input

@@ -1,5 +1,6 @@
 export class UndoManager {
-  constructor() {
+  constructor(controller) {
+    this.controller = controller;
     this.undoStack = [];
     this.redoStack = [];
 
@@ -51,7 +52,10 @@ export class UndoManager {
     const batch = this.undoStack.pop();
     // undo in reverse order
     for (let i = batch.length - 1; i >= 0; i--) {
-      batch[i].undo();
+      const invertedCommand = batch[i].invert();
+      if (invertedCommand) {
+        this.controller.executeUndoRedoCommand(invertedCommand);
+      }
     }
     this.redoStack.push(batch);
   }
@@ -62,7 +66,7 @@ export class UndoManager {
 
     const batch = this.redoStack.pop();
     for (let cmd of batch) {
-      cmd.execute();
+      this.controller.executeUndoRedoCommand(cmd);
     }
     this.undoStack.push(batch);
   }
