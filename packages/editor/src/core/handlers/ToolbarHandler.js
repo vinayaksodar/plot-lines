@@ -1,10 +1,10 @@
 import { SetLineTypeCommand } from "../commands.js";
 
 export class ToolbarHandler {
-  constructor(editor, toolbar, fileManager, hiddenInput) {
+  constructor(editor, toolbar, persistence, hiddenInput) {
     this.editor = editor;
     this.toolbar = toolbar;
-    this.fileManager = fileManager;
+    this.persistence = persistence;
     this.hiddenInput = hiddenInput;
 
     if (this.toolbar) {
@@ -26,25 +26,25 @@ export class ToolbarHandler {
     try {
       switch (action) {
         case "new":
-          this.fileManager.handleNewFile();
+          this.persistence.new();
           break;
         case "open":
-          await this.fileManager.handleOpenFile();
+          await this.persistence.import();
           break;
         case "save":
-          this.fileManager.handleSaveFile();
+          this.persistence.save();
           break;
         case "export":
-          this.fileManager.handleExportFile();
+          this.persistence.export();
           break;
         case "import-fountain":
-          await this.fileManager.handleImportFountain();
+          await this.persistence.import('fountain');
           break;
         case "export-fountain":
-          this.fileManager.handleExportFountain();
+          this.persistence.export('fountain');
           break;
         case "files":
-          this.fileManager.handleManageFiles();
+          this.persistence.manage();
           break;
         case "undo":
           editor.undo();

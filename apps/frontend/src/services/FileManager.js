@@ -1,10 +1,10 @@
-import { FountainParser } from "./FountainParser.js";
+import { Persistence, FountainParser } from "@plot-lines/editor";
 
-export class FileManager {
-  constructor(editor, titlePage) {
-    this.editor = editor;
-    this.model = editor.getModel();
-    this.view = editor.getView();
+export class FileManager extends Persistence {
+  constructor(model, view, titlePage) {
+    super(null); // The editor instance will be injected by the Editor.
+    this.model = model;
+    this.view = view;
     this.titlePage = titlePage;
     this.fountainParser = new FountainParser();
     this.currentFileName = "untitled.txt";
@@ -466,5 +466,45 @@ export class FileManager {
     });
 
     document.body.appendChild(modal);
+  }
+
+  // --- Persistence Interface Implementation ---
+
+  async new() {
+    this.handleNewFile();
+  }
+
+  async load(documentId) {
+    return this.loadFromLocalStorage(documentId);
+  }
+
+  async save(options) {
+    const fileName = options && options.fileName ? options.fileName : prompt("Enter filename:", this.currentFileName);
+    if (fileName) {
+      this.saveToLocalStorage(fileName);
+      console.log(`Saved as: ${fileName}`);
+    }
+  }
+
+  async import(format) {
+    if (format === 'fountain') {
+      return this.handleImportFountain();
+    }
+    return this.handleOpenFile();
+  }
+
+  async export(format) {
+    if (format === 'fountain') {
+      return this.handleExportFountain();
+    }
+    this.exportFile();
+  }
+
+  async list() {
+    return Object.values(this.getSavedFiles());
+  }
+
+  async manage() {
+    this.handleManageFiles();
   }
 }

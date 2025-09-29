@@ -1,20 +1,20 @@
 import "./menubar.css";
 
-export function createMenuBar(fileManager, editorController) {
+export function createMenuBar(persistence, editorController) {
   const menuBar = document.createElement("div");
   menuBar.className = "menu-bar";
 
   const menus = {
     File: {
-      "New File": () => fileManager.handleNewFile(),
-      // 'Open File': () => fileManager.handleOpenFile(),
-      "Save File": () => fileManager.handleSaveFile(),
-      // 'Export File': () => fileManager.handleExportFile(),
+      "New File": () => persistence.new(),
+      // 'Open File': () => persistence.import(),
+      "Save File": () => persistence.save(),
+      // 'Export File': () => persistence.export(),
       hr1: "hr",
-      "Import Fountain": () => fileManager.handleImportFountain(),
-      "Export Fountain": () => fileManager.handleExportFountain(),
+      "Import Fountain": () => persistence.import('fountain'),
+      "Export Fountain": () => persistence.export('fountain'),
       hr2: "hr",
-      "Manage Files": () => fileManager.handleManageFiles(),
+      "Manage Files": () => persistence.manage(),
     },
     Edit: {
       Undo: () => editorController.handleUndo(),

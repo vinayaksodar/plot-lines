@@ -19,7 +19,7 @@ The editor follows a Model-View-Controller (MVC) pattern:
   - `PointerHandler`: Manages mouse and touch inputs for cursor placement and text selection.
   - `ToolbarHandler`: Manages interactions with the toolbar buttons.
   - `SearchHandler`: Manages the search functionality.
-  - `FileHandler`: Manages file operations like new, open, save, and export.
+- **`Persistence`**: The editor uses a persistence interface for saving, loading, and managing documents. This decouples the core editor from any specific storage mechanism (e.g., local storage, cloud, file system).
 
 ### Key Features
 
@@ -27,7 +27,7 @@ The editor follows a Model-View-Controller (MVC) pattern:
 - **MVC Architecture**: A clean separation of concerns, making the codebase easy to understand and extend.
 - **Virtual Scrolling**: The editor can handle very large files without performance degradation by only rendering the visible lines.
 - **Command Pattern with Undo/Redo**: All text modifications are encapsulated in command objects (`InsertCharCommand`, `DeleteCharCommand`, etc.), providing a robust undo/redo system managed by the `UndoManager`.
-- **File Management**: The editor supports creating new files, opening local files, saving to browser local storage, and exporting to disk. It also includes an auto-save feature.
+- **Decoupled File Management**: The editor's persistence logic is abstracted through an interface, allowing the frontend application to provide a concrete implementation (e.g., `FileManager` using browser storage). It also includes an auto-save feature.
 - **Component-Based UI**: The UI is built from reusable components, including a `Toolbar`, `SearchWidget`, and `LineNumbers`.
 - **Rich Text Editing**: Supports bold, italic, and underline styles within lines.
 - **Screenplay Element Formatting**: Supports standard screenplay elements like Scene Heading, Action, Character, Dialogue, Parenthetical, and Transition, with specific styling for each.
@@ -41,15 +41,16 @@ The editor follows a Model-View-Controller (MVC) pattern:
 - `package.json`: Defines the project dependencies and scripts for the monorepo.
 - `apps/frontend/index.html`: The main entry point of the application.
 - `apps/frontend/src/main.js`: Initializes the editor and its components.
+- `apps/frontend/src/services/FileManager.js`: The frontend-specific implementation of the `Persistence` interface, handling local storage and file system interactions.
 - `apps/frontend/src/style.css`: Global styles for the application.
-- `apps/frontend/src/editor/EditorModel.js`: The data model for the editor.
-- `apps/frontend/src/editor/EditorView.js`: The view layer, responsible for rendering the editor.
-- `apps/frontend/src/editor/EditorController.js`: The controller that handles user input and orchestrates the application.
-- `apps/frontend/src/editor/commands.js`: Defines the command objects for text manipulation.
-- `apps/frontend/src/editor/undoManager.js`: Manages the undo/redo history.
-- `apps/frontend/src/editor/handlers/`: Contains the input handlers for keyboard, pointer, toolbar, search, and file operations.
-- `apps/frontend/src/components/`: Contains the UI components like the toolbar, search widget, and line numbers.
-- `apps/frontend/src/services/FountainParser.js`: A parser for the Fountain screenplay format.
+- `packages/editor/src/core/EditorModel.js`: The data model for the editor.
+- `packages/editor/src/core/EditorView.js`: The view layer, responsible for rendering the editor.
+- `packages/editor/src/core/EditorController.js`: The controller that handles user input and orchestrates the application.
+- `packages/editor/src/core/commands.js`: Defines the command objects for text manipulation.
+- `packages/editor/src/core/undoManager.js`: Manages the undo/redo history.
+- `packages/editor/src/core/handlers/`: Contains the input handlers for keyboard, pointer, toolbar, and search operations.
+- `packages/editor/src/services/Persistence.js`: Defines the abstract interface for persistence layers.
+- `packages/editor/src/services/FountainParser.js`: A parser for the Fountain screenplay format.
 - `apps/frontend/vite.config.js`: The configuration file for the Vite development server.
 - `GEMINI.md`: This file, containing an overview of the project for the Gemini agent.
 

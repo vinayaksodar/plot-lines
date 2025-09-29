@@ -1,0 +1,12 @@
+{
+  "name": "@plot-lines/editor",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.js",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*"
+  }
+}

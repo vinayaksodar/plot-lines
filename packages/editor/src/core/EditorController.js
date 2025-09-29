@@ -33,7 +33,7 @@ export class EditorController {
     this.pointerHandler = new PointerHandler(this.editor);
     this.keyBoardHandler = new KeyboardHandler(this.editor, this.hiddenInput);
     this.searchHandler = new SearchHandler(this.editor);
-    this.toolbarHandler = new ToolbarHandler(this.editor, this.toolbar, editor.fileManager, this.hiddenInput);
+    this.toolbarHandler = new ToolbarHandler(this.editor, this.toolbar, editor.persistence, this.hiddenInput);
 
     // Add event listeners
     this.container.addEventListener("click", () => this.hiddenInput.focus());

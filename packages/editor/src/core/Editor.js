@@ -1,10 +1,10 @@
 export class Editor {
-  constructor({ model, view, controller, undoManager, fileManager, collabManager }) {
+  constructor({ model, view, controller, undoManager, persistence, collabManager }) {
     this.model = model;
     this.view = view;
     this.controller = controller;
     this.undoManager = undoManager;
-    this.fileManager = fileManager;
+    this.persistence = persistence;
     this.collabManager = collabManager;
 
     // Provide a reference to the editor in each module
@@ -12,7 +12,7 @@ export class Editor {
     if (this.view) this.view.editor = this;
     if (this.controller) this.controller.editor = this;
     if (this.undoManager) this.undoManager.editor = this;
-    if (this.fileManager) this.fileManager.editor = this;
+    if (this.persistence) this.persistence.editor = this;
     if (this.collabManager) this.collabManager.editor = this;
 
     this.plugins = [];

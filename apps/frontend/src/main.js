@@ -1,17 +1,19 @@
 import "./style.css";
-import { Editor } from "./editor/Editor.js";
-import { EditorModel } from "./editor/EditorModel.js";
-import { EditorView } from "./editor/EditorView.js";
-import { EditorController } from "./editor/EditorController.js";
-import { UndoManager } from "./editor/undoManager.js";
-import { FileManager } from "./services/FileHandler.js";
-import { CollabPlugin } from "./editor/plugins/CollabPlugin.js";
-import { createWidgetLayer } from "./components/WidgetLayer/WidgetLayer.js";
-import { createToolbar } from "./components/Toolbar/Toolbar.js";
-import { createEditorContainer } from "./components/EditorContainer/EditorContainer.js";
-import { createMenuBar } from "./components/MenuBar/MenuBar.js";
-import { createSideMenu } from "./components/SideMenu/SideMenu.js";
+import {
+  Editor,
+  EditorModel,
+  EditorView,
+  EditorController,
+  UndoManager,
+  createWidgetLayer,
+  createToolbar,
+  createEditorContainer,
+  CollabPlugin,
+} from "@plot-lines/editor";
 import { TitlePage } from "./components/TitlePage/TitlePage.js";
+import { FileManager } from "./services/FileManager.js";
+import { createSideMenu } from "./components/SideMenu/SideMenu.js";
+import { createMenuBar } from "./components/MenuBar/MenuBar.js";
 
 const app = document.querySelector("#app");
 
@@ -37,6 +39,7 @@ const model = new EditorModel(
 const view = new EditorView(model, editorContainer, widgetLayer);
 const controller = new EditorController();
 const undoManager = new UndoManager();
+const fileManager = new FileManager(model, view, titlePage);
 
 // --- Editor Instantiation ---
 const editor = new Editor({
@@ -44,15 +47,14 @@ const editor = new Editor({
   view,
   controller,
   undoManager,
+  persistence: fileManager,
 });
 
 // --- Initialize Components that need the Editor instance ---
-const fileManager = new FileManager(editor, titlePage);
-editor.fileManager = fileManager;
 controller.initialize(editor, toolbar, hiddenInput);
 
 // --- UI Assembly ---
-const menuBar = createMenuBar(editor.fileManager, editor.controller);
+const menuBar = createMenuBar(editor.persistence, editor.controller);
 const sideMenu = createSideMenu(titlePage, editorArea, editorWrapper);
 const mainArea = document.createElement("div");
 mainArea.className = "main-area";
@@ -68,7 +70,7 @@ app.appendChild(mainArea);
 // --- Collaboration Setup ---
 const useCollaboration = true;
 if (useCollaboration) {
-  const collabPlugin = new CollabPlugin({ serverUrl: 'ws://localhost:3000' });
+  const collabPlugin = new CollabPlugin({ serverUrl: "ws://localhost:3000" });
   editor.registerPlugin(collabPlugin);
 }
 

@@ -1,4 +1,4 @@
-import { createSearchWidget } from "../components/SearchWidget/SearchWidget,js";
+import { createSearchWidget } from "../components/SearchWidget/SearchWidget.js";
 class NaiveLayoutManager {
   static DPI = 96;
   static PAGE_CONTENT_HEIGHT_PX = 9 * NaiveLayoutManager.DPI; // 9"

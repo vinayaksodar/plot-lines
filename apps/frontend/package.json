@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "lint": "eslint ."
   },
+  "dependencies": {
+    "@plot-lines/editor": "*"
+  },
   "devDependencies": {
     "vite": "^7.0.4",
     "@repo/eslint-config": "*",
