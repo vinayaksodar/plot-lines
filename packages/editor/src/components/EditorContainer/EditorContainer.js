@@ -1,4 +1,4 @@
-// editor/EditorContainer/EditorContainer.js
+// components/EditorContainer/EditorContainer.js
 import "./editorcontainer.css";
 
 export function createEditorContainer() {
