@@ -2,7 +2,7 @@ class AuthService {
   constructor() {
     this.currentUser = null;
     try {
-      this.currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
+      this.currentUser = JSON.parse(localStorage.getItem("currentUser"));
     } catch (e) {
       this.currentUser = null;
     }
@@ -14,12 +14,12 @@ class AuthService {
 
   login(user) {
     this.currentUser = user;
-    sessionStorage.setItem("currentUser", JSON.stringify(user));
+    localStorage.setItem("currentUser", JSON.stringify(user));
   }
 
   logout() {
     this.currentUser = null;
-    sessionStorage.removeItem("currentUser");
+    localStorage.removeItem("currentUser");
   }
 
   showLoginModal() {

@@ -8,16 +8,19 @@ export class BackendManager extends Persistence {
 
   async new(name, userId) {
     const response = await fetch(`${this.baseUrl}/documents`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ name, userId }),
     });
+    // Always parse the JSON body, whether it's a success or an error
+    const result = await response.json();
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+        // If the response is not ok, the result should contain the error message
+        return result;
     }
-    return await response.json();
+    return result;
   }
 
   async load(documentId) {

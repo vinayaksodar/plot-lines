@@ -8,41 +8,52 @@ export class PersistenceManager extends Persistence {
     this.backendManager = backendManager;
   }
 
-  async new(name, isCloud = false) {
-    this.editor.documentId = null; // It's a new document
-    this.editor.isCloudDocument = isCloud;
-    this.editor.getModel().setText("");
-    this.editor.focusEditor();
-
+  async new(name = "Untitled", isCloud = false) {
     if (isCloud) {
-      let user = authService.getCurrentUser();
-      if (!user) {
-        try {
-          user = await authService.showLoginModal();
-        } catch (e) {
-          // User cancelled login, revert to a local doc
-          this.editor.isCloudDocument = false;
-          return; // Return undefined on cancel
+        let user = authService.getCurrentUser();
+        if (!user) {
+            try {
+                user = await authService.showLoginModal();
+            } catch (e) {
+                return false; // User cancelled login, do not proceed
+            }
         }
-      }
+
+        const result = await this.backendManager.new(name, user.id);
+        if (result.error) {
+            alert(result.error);
+            return false; // Do not proceed
+        }
+
+        this.editor.documentId = `cloud-${result.id}`;
+        this.editor.isCloudDocument = true;
+        this.editor.getModel().setText("");
+        this.editor.focusEditor();
+        return true; // Success
+
+    } else {
+        this.editor.documentId = null;
+        this.editor.isCloudDocument = false;
+        this.editor.getModel().setText("");
+        this.editor.focusEditor();
+        return true; // Success
     }
-    return true; // Return true on success
   }
 
   async load(documentId) {
     if (documentId.startsWith("cloud-")) {
-      let user = authService.getCurrentUser();
-      if (!user) {
-        try {
-          user = await authService.showLoginModal();
-        } catch (e) {
-          return; // User cancelled login
+        let user = authService.getCurrentUser();
+        if (!user) {
+            try {
+                user = await authService.showLoginModal();
+            } catch (e) {
+                return; // User cancelled login
+            }
         }
-      }
       this.editor.documentId = documentId;
       this.editor.isCloudDocument = true;
       const { data: doc } = await this.backendManager.load(
-        documentId.replace("cloud-", ""),
+        documentId.replace("cloud-", "")
       );
       if (doc && doc.content) {
         this.editor.getModel().lines = JSON.parse(doc.content);
@@ -56,37 +67,24 @@ export class PersistenceManager extends Persistence {
   }
 
   async save(options) {
-    const isNew = !this.editor.documentId;
-
     try {
         if (this.editor.isCloudDocument) {
-            if (isNew) {
+            if (!this.editor.documentId) {
+                // This case should ideally not be reached with the new workflow
+                // but as a fallback, we can treat it as a first save.
                 const name = prompt("Enter a name for your cloud document:");
                 if (!name) return;
-
-                let user = authService.getCurrentUser();
-                if (!user) {
-                    try {
-                        user = await authService.showLoginModal();
-                    } catch (e) {
-                        return; // User cancelled login
-                    }
-                }
-
-                const result = await this.backendManager.new(name, user.id);
-                if (result.error) {
-                    alert(result.error);
-                    return this.fileManager.new();
-                }
-                this.editor.documentId = `cloud-${result.id}`;
+                await this.new(name, true);
+                return; 
             }
-            // Now save the snapshot
+            // Save a snapshot for an existing cloud document
             const content = JSON.stringify(this.editor.getModel().lines);
             const ot_version = this.editor.collab.getVersion();
             const documentId = this.editor.documentId.replace("cloud-", "");
             await this.backendManager.createSnapshot(documentId, content, ot_version);
 
         } else {
+          // This handles both new and existing local files
           this.fileManager.save(options);
         }
         this.showToast("Saved successfully");
