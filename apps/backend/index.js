@@ -1,9 +1,11 @@
-const express = require("express");
-const http = require("http");
-const WebSocket = require("ws");
-const db = require("./src/database.js");
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const db = require('./src/database.js');
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -101,7 +103,20 @@ wss.on("connection", (ws) => {
 });
 
 app.get("/api/documents/:id", (req, res) => {
-  const sql = "select * from documents where id = ?";
+  const sql = `
+    SELECT
+        d.id,
+        d.name,
+        d.user_id,
+        d.ot_version,
+        s.content,
+        s.snapshot_version
+    FROM documents d
+    LEFT JOIN snapshots s ON d.id = s.document_id
+    WHERE d.id = ?
+    ORDER BY s.snapshot_version DESC
+    LIMIT 1;
+  `;
   const params = [req.params.id];
   db.get(sql, params, (err, row) => {
     if (err) {
@@ -129,29 +144,50 @@ app.post("/api/documents", (req, res) => {
       return res.status(400).json({ error: err.message });
     }
 
-    if (!user || !user.is_premium) {
-      return res.json({ message: "not-premium" });
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
     }
 
-    const data = {
-      name: name,
-      content: req.body.content || "",
-      user_id: userId,
-    };
-    const sql = "INSERT INTO documents (name, content, user_id) VALUES (?,?,?)";
-    const params = [data.name, data.content, data.user_id];
-    db.run(sql, params, function (err, result) {
-      if (err) {
-        return res.status(400).json({ error: err.message });
-      }
-      res.json({
-        message: "success",
-        data: data,
-        id: this.lastID,
-      });
-    });
+    if (user.is_premium) {
+        // Premium users can create unlimited documents
+        createDocument(req, res);
+    } else {
+        // Free users can create one document
+        const sql = "SELECT COUNT(*) as count FROM documents WHERE user_id = ?";
+        db.get(sql, [userId], (err, row) => {
+            if (err) {
+                return res.status(400).json({ error: err.message });
+            }
+            if (row.count > 0) {
+                return res.status(403).json({ error: "Free users can only create one cloud document. Please delete your existing cloud document to create a new one." });
+            }
+            createDocument(req, res);
+        });
+    }
   });
 });
+
+function createDocument(req, res) {
+    const { name, userId } = req.body;
+    const docSql = "INSERT INTO documents (name, user_id) VALUES (?,?)";
+    db.run(docSql, [name, userId], function (err) {
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+        const docId = this.lastID;
+        const snapSql = "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, 0, 0)";
+        const initialContent = JSON.stringify([{ type: 'action', segments: [{ text: '' }] }]);
+        db.run(snapSql, [docId, initialContent], function(err) {
+            if (err) {
+                return res.status(400).json({ error: err.message });
+            }
+            res.json({
+                message: "success",
+                id: docId,
+            });
+        });
+    });
+}
 
 app.get("/api/users/:userId/documents", (req, res) => {
   const { userId } = req.params;
@@ -167,36 +203,27 @@ app.get("/api/users/:userId/documents", (req, res) => {
   });
 });
 
-app.put("/api/documents/:id", (req, res) => {
+app.post("/api/documents/:id/snapshots", (req, res) => {
   const { content, ot_version } = req.body;
-  const id = req.params.id;
+  const documentId = req.params.id;
 
-  db.get(
-    "SELECT snapshot_version FROM documents WHERE id = ?",
-    [id],
-    (err, row) => {
+  db.get("SELECT MAX(snapshot_version) as max_version FROM snapshots WHERE document_id = ?", [documentId], (err, row) => {
       if (err) {
-        return res.status(400).json({ error: err.message });
-      }
-      if (!row) {
-        return res.status(404).json({ error: "Document not found" });
-      }
-
-      const newSnapshotVersion = row.snapshot_version + 1;
-      const sql =
-        "UPDATE documents SET content = ?, snapshot_version = ?, ot_version = ? WHERE id = ?";
-      const params = [content, newSnapshotVersion, ot_version, id];
-      db.run(sql, params, function (err, result) {
-        if (err) {
           return res.status(400).json({ error: err.message });
-        }
-        res.json({
-          message: "success",
-          snapshot_version: newSnapshotVersion,
-        });
+      }
+      const newSnapshotVersion = (row.max_version || 0) + 1;
+      const sql = "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, ?, ?)";
+      const params = [documentId, content, newSnapshotVersion, ot_version];
+      db.run(sql, params, function (err) {
+          if (err) {
+              return res.status(400).json({ error: err.message });
+          }
+          res.json({
+              message: "success",
+              snapshot_version: newSnapshotVersion
+          });
       });
-    },
-  );
+  });
 });
 
 app.get("/api/documents/:id/steps", (req, res) => {
@@ -233,46 +260,51 @@ app.delete("/api/documents/:id", (req, res) => {
   });
 });
 
-app.post("/api/signup", (req, res) => {
-  const { name, password } = req.body;
-  if (!name || !password) {
-    return res.status(400).json({ error: "Name and password are required" });
-  }
-  // In a real app, you should hash the password
-  const sql = "INSERT INTO users (name, password) VALUES (?,?)";
-  db.run(sql, [name, password], function (err, result) {
-    if (err) {
-      return res.status(400).json({ error: err.message });
+app.post('/api/signup', (req, res) => {
+    const { name, password } = req.body;
+    if (!name || !password) {
+        console.error('Signup failed: Name or password missing.');
+        return res.status(400).json({ "error": "Name and password are required" });
     }
-    res.json({
-      message: "success",
-      id: this.lastID,
+    // In a real app, you should hash the password
+    const sql = 'INSERT INTO users (name, password) VALUES (?,?)';
+    db.run(sql, [name, password], function (err, result) {
+        if (err) {
+            console.error('Signup failed:', err.message);
+            return res.status(400).json({ "error": err.message });
+        }
+        res.json({
+            "message": "success",
+            "id": this.lastID
+        });
     });
-  });
 });
 
-app.post("/api/login", (req, res) => {
-  const { name, password } = req.body;
-  if (!name || !password) {
-    return res.status(400).json({ error: "Name and password are required" });
-  }
-  const sql = "SELECT * FROM users WHERE name = ? AND password = ?";
-  db.get(sql, [name, password], (err, row) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
+app.post('/api/login', (req, res) => {
+    const { name, password } = req.body;
+    if (!name || !password) {
+        console.error('Login failed: Name or password missing.');
+        return res.status(400).json({ "error": "Name and password are required" });
     }
-    if (!row) {
-      return res.status(400).json({ error: "Invalid credentials" });
-    }
-    res.json({
-      message: "success",
-      data: {
-        id: row.id,
-        name: row.name,
-        is_premium: row.is_premium,
-      },
+    const sql = "SELECT * FROM users WHERE name = ? AND password = ?"
+    db.get(sql, [name, password], (err, row) => {
+        if (err) {
+            console.error('Login failed:', err.message);
+            return res.status(400).json({ "error": err.message });
+        }
+        if (!row) {
+            console.error(`Login failed: Invalid credentials for user '${name}'`);
+            return res.status(400).json({ "error": "Invalid credentials" });
+        }
+        res.json({
+            "message": "success",
+            "data": {
+                id: row.id,
+                name: row.name,
+                is_premium: row.is_premium
+            }
+        });
     });
-  });
 });
 
 server.listen(port, () => {

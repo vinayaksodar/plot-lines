@@ -58,37 +58,41 @@ export class PersistenceManager extends Persistence {
   async save(options) {
     const isNew = !this.editor.documentId;
 
-    if (this.editor.isCloudDocument) {
-      if (isNew) {
-        const name = prompt("Enter a name for your cloud document:");
-        if (!name) return;
+    try {
+        if (this.editor.isCloudDocument) {
+            if (isNew) {
+                const name = prompt("Enter a name for your cloud document:");
+                if (!name) return;
 
-        let user = authService.getCurrentUser();
-        if (!user) {
-          try {
-            user = await authService.showLoginModal();
-          } catch (e) {
-            return; // User cancelled login
-          }
-        }
+                let user = authService.getCurrentUser();
+                if (!user) {
+                    try {
+                        user = await authService.showLoginModal();
+                    } catch (e) {
+                        return; // User cancelled login
+                    }
+                }
 
-        const result = await this.backendManager.new(name, user.id);
-        if (result.message === "not-premium") {
-          alert(
-            "You must be a premium user to create cloud documents. Saving locally instead.",
-          );
-          this.editor.isCloudDocument = false;
-          return this.fileManager.save({ fileName: name });
+                const result = await this.backendManager.new(name, user.id);
+                if (result.error) {
+                    alert(result.error);
+                    return this.fileManager.new();
+                }
+                this.editor.documentId = `cloud-${result.id}`;
+            }
+            // Now save the snapshot
+            const content = JSON.stringify(this.editor.getModel().lines);
+            const ot_version = this.editor.collab.getVersion();
+            const documentId = this.editor.documentId.replace("cloud-", "");
+            await this.backendManager.createSnapshot(documentId, content, ot_version);
+
+        } else {
+          this.fileManager.save(options);
         }
-        this.editor.documentId = `cloud-${result.id}`;
-      }
-      // Now save the snapshot
-      const content = JSON.stringify(this.editor.getModel().lines);
-      const ot_version = this.editor.collab.getVersion();
-      const documentId = this.editor.documentId.replace("cloud-", "");
-      await this.backendManager.saveSnapshot(documentId, content, ot_version);
-    } else {
-      this.fileManager.save(options);
+        this.showToast("Saved successfully");
+    } catch (e) {
+        console.error("Save failed:", e);
+        this.showToast("Save failed", "error");
     }
   }
 
@@ -195,5 +199,23 @@ export class PersistenceManager extends Persistence {
     });
 
     document.body.appendChild(modal);
+  }
+
+  showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100); // Delay to allow for CSS transition
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 500); // Wait for fade out transition
+    }, 3000); // Display for 3 seconds
   }
 }

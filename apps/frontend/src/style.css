@@ -300,3 +300,27 @@ body {
   gap: 1rem;
   margin-top: 1rem;
 }
+
+/* Toast Notification */
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #2d3748; /* Gray 800 */
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    z-index: 3000;
+    opacity: 0;
+    transition: opacity 0.5s, bottom 0.5s;
+}
+
+.toast-notification.show {
+    opacity: 1;
+    bottom: 30px;
+}
+
+.toast-notification.error {
+    background-color: #c53030; /* Red 700 */
+}

@@ -32,16 +32,16 @@ export class BackendManager extends Persistence {
     return result.data;
   }
 
-  async saveSnapshot(documentId, content, ot_version) {
-    const response = await fetch(`${this.baseUrl}/documents/${documentId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ content, ot_version }),
+  async createSnapshot(documentId, content, ot_version) {
+    const response = await fetch(`${this.baseUrl}/documents/${documentId}/snapshots`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content, ot_version }),
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
     }
     return await response.json();
   }

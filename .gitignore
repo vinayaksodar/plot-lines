@@ -26,6 +26,9 @@ dist-ssr
 # Turborepo cache
 .turbo
 
+#sqlite database
+*.db
+
 # Temp files remove later
 apps/backend/collab-test-full.js
 apps/backend/collab-test.js
