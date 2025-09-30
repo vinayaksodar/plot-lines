@@ -281,30 +281,52 @@ export class EditorModel {
 
     const { start, end } = this.normalizeSelection();
 
-    const { segment: startSegment, segmentIndex: startSegmentIndex, offset: startOffset } = this._findSegmentAt(start.line, start.ch);
-    const { segment: endSegment, segmentIndex: endSegmentIndex, offset: endOffset } = this._findSegmentAt(end.line, end.ch);
+    const {
+      segment: startSegment,
+      segmentIndex: startSegmentIndex,
+      offset: startOffset,
+    } = this._findSegmentAt(start.line, start.ch);
+    const {
+      segment: endSegment,
+      segmentIndex: endSegmentIndex,
+      offset: endOffset,
+    } = this._findSegmentAt(end.line, end.ch);
 
     // Part of the start line to keep
-    const startLineSegments = this.lines[start.line].segments.slice(0, startSegmentIndex);
-    const truncatedStart = { ...startSegment, text: startSegment.text.slice(0, startOffset) };
+    const startLineSegments = this.lines[start.line].segments.slice(
+      0,
+      startSegmentIndex,
+    );
+    const truncatedStart = {
+      ...startSegment,
+      text: startSegment.text.slice(0, startOffset),
+    };
     if (truncatedStart.text) {
-        startLineSegments.push(truncatedStart);
+      startLineSegments.push(truncatedStart);
     }
 
     // Part of the end line to keep
     const endLineSegments = [];
-    const truncatedEnd = { ...endSegment, text: endSegment.text.slice(endOffset) };
+    const truncatedEnd = {
+      ...endSegment,
+      text: endSegment.text.slice(endOffset),
+    };
     if (truncatedEnd.text) {
-        endLineSegments.push(truncatedEnd);
+      endLineSegments.push(truncatedEnd);
     }
-    endLineSegments.push(...this.lines[end.line].segments.slice(endSegmentIndex + 1));
+    endLineSegments.push(
+      ...this.lines[end.line].segments.slice(endSegmentIndex + 1),
+    );
 
     // Replace the start line with the merged content
-    this.lines[start.line].segments = [...startLineSegments, ...endLineSegments];
+    this.lines[start.line].segments = [
+      ...startLineSegments,
+      ...endLineSegments,
+    ];
 
     // Remove the lines in between
     if (start.line < end.line) {
-        this.lines.splice(start.line + 1, end.line - start.line);
+      this.lines.splice(start.line + 1, end.line - start.line);
     }
 
     this._mergeSegments(start.line);
@@ -405,7 +427,8 @@ export class EditorModel {
   }
 
   toggleInlineStyle(style, selection) {
-    const sel = selection || (this.hasSelection() ? this.normalizeSelection() : null);
+    const sel =
+      selection || (this.hasSelection() ? this.normalizeSelection() : null);
     if (!sel) return;
 
     const { start, end } = sel;
@@ -467,6 +490,6 @@ export class EditorModel {
   }
 
   applyCommand(command) {
-      command.execute(this);
+    command.execute(this);
   }
 }

@@ -7,7 +7,9 @@
 export class Persistence {
   constructor(editor) {
     if (this.constructor === Persistence) {
-      throw new Error("Persistence is an interface and cannot be instantiated directly.");
+      throw new Error(
+        "Persistence is an interface and cannot be instantiated directly.",
+      );
     }
     this.editor = editor;
   }
@@ -55,20 +57,21 @@ export class Persistence {
   async import(format) {
     throw new Error("Method 'import()' must be implemented.");
   }
-  
+
   /**
    * Lists available documents.
    * @returns {Promise<Array<object>>} - A list of document metadata.
    */
-    async list() {
-         throw new Error("Method 'list()' must be implemented.");
-    }
-  
-    /**
-     * Opens a UI for managing stored documents, if applicable.
-     * @returns {Promise<void>}
-     */
-    async manage() {
-      // This may not be implemented by all adapters
-      console.log("This persistence adapter does not provide a management UI.");
-    }}
+  async list() {
+    throw new Error("Method 'list()' must be implemented.");
+  }
+
+  /**
+   * Opens a UI for managing stored documents, if applicable.
+   * @returns {Promise<void>}
+   */
+  async manage() {
+    // This may not be implemented by all adapters
+    console.log("This persistence adapter does not provide a management UI.");
+  }
+}

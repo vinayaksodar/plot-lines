@@ -50,7 +50,7 @@ export class UndoManager {
     const batch = this.undoStack.pop();
     this.redoStack.push(batch);
 
-    return batch.map(cmd => cmd.invert()).reverse();
+    return batch.map((cmd) => cmd.invert()).reverse();
   }
 
   getCommandsForRedo() {

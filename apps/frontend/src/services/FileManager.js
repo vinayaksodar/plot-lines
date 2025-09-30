@@ -306,9 +306,21 @@ export class FileManager extends Persistence {
   // Create new file
   newFile() {
     this.model.setText("");
-    this.currentFileName = "untitled.txt";
+    this.currentFileName = null; // A new file is untitled
     this.model.updateCursor({ line: 0, ch: 0 });
     this.model.clearSelection();
+  }
+
+  // ... (rest of the file)
+
+  async save(options) {
+    let fileName = (options && options.fileName) || this.currentFileName;
+    if (!fileName) {
+      fileName = prompt("Enter filename:", "untitled.txt");
+      if (!fileName) return; // User cancelled
+    }
+    this.saveToLocalStorage(fileName);
+    console.log(`Saved as: ${fileName}`);
   }
 
   // Get current file info
@@ -324,13 +336,18 @@ export class FileManager extends Persistence {
 
   // Check if file has unsaved changes
   hasUnsavedChanges() {
-    try {
-      const saved = localStorage.getItem("editor-autosave");
-      if (!saved) return true;
+    const saved = localStorage.getItem("editor-autosave");
+    const currentText = this.model.getText();
 
+    if (!saved) {
+      // If there's no autosave, there are "unsaved changes" only if
+      // the user has typed something into the initial blank document.
+      return currentText !== "";
+    }
+
+    try {
       const saveData = JSON.parse(saved);
-      return saveData.content !== this.model.getText();
-      // eslint-disable-next-line no-unused-vars
+      return saveData.content !== currentText;
     } catch (error) {
       return true;
     }
@@ -348,6 +365,11 @@ export class FileManager extends Persistence {
   }
 
   async handleOpenFile() {
+    if (this.hasUnsavedChanges()) {
+      if (!confirm("You have unsaved changes. Open new file anyway?")) {
+        return;
+      }
+    }
     try {
       const result = await this.importFile();
       this.editor.focusEditor();
@@ -379,6 +401,11 @@ export class FileManager extends Persistence {
   }
 
   async handleImportFountain() {
+    if (this.hasUnsavedChanges()) {
+      if (!confirm("You have unsaved changes. Import new file anyway?")) {
+        return;
+      }
+    }
     try {
       const result = await this.importFountainFile();
       this.editor.focusEditor();
@@ -401,71 +428,7 @@ export class FileManager extends Persistence {
   }
 
   handleManageFiles() {
-    this.showFileManager();
-  }
-
-  showFileManager() {
-    // Create a simple file manager modal
-    const modal = document.createElement("div");
-    modal.className = "file-manager-modal";
-    modal.innerHTML = `
-      <div class="file-manager-content">
-        <h3>Manage Files</h3>
-        <div class="file-list"></div>
-        <div class="file-manager-actions">
-          <button class="btn" data-action="close">Close</button>
-        </div>
-      </div>
-    `;
-
-    const fileList = modal.querySelector(".file-list");
-    const savedFiles = this.getSavedFiles();
-
-    if (Object.keys(savedFiles).length === 0) {
-      fileList.innerHTML = "<p>No saved files</p>";
-    } else {
-      Object.entries(savedFiles).forEach(([fileName, fileData]) => {
-        const fileItem = document.createElement("div");
-        fileItem.className = "file-item";
-        fileItem.innerHTML = `
-          <span class="file-name">${fileName}</span>
-          <span class="file-date">${new Date(
-            fileData.timestamp,
-          ).toLocaleString()}</span>
-          <button class="btn-small" data-action="load" data-filename="${fileName}">Load</button>
-          <button class="btn-small btn-danger" data-action="delete" data-filename="${fileName}">Delete</button>
-        `;
-        fileList.appendChild(fileItem);
-      });
-    }
-
-    modal.addEventListener("click", (e) => {
-      const action = e.target.dataset.action;
-      const fileName = e.target.dataset.filename;
-
-      if (action === "close") {
-        document.body.removeChild(modal);
-        // Restore focus to editor when modal closes
-        this.editor.focusEditor();
-      } else if (action === "load") {
-        if (this.loadFromLocalStorage(fileName)) {
-          if (this.view) {
-            this.view.render();
-          }
-          this.editor.focusEditor();
-          document.body.removeChild(modal);
-        }
-      } else if (action === "delete") {
-        if (confirm(`Delete file "${fileName}"?`)) {
-          this.deleteFromLocalStorage(fileName);
-          this.showFileManager(); // Refresh the modal
-          document.body.removeChild(modal);
-          // Focus will be handled by the new modal
-        }
-      }
-    });
-
-    document.body.appendChild(modal);
+    // This is now handled by the PersistenceManager
   }
 
   // --- Persistence Interface Implementation ---
@@ -479,7 +442,10 @@ export class FileManager extends Persistence {
   }
 
   async save(options) {
-    const fileName = options && options.fileName ? options.fileName : prompt("Enter filename:", this.currentFileName);
+    const fileName =
+      options && options.fileName
+        ? options.fileName
+        : prompt("Enter filename:", this.currentFileName);
     if (fileName) {
       this.saveToLocalStorage(fileName);
       console.log(`Saved as: ${fileName}`);
@@ -487,14 +453,14 @@ export class FileManager extends Persistence {
   }
 
   async import(format) {
-    if (format === 'fountain') {
+    if (format === "fountain") {
       return this.handleImportFountain();
     }
     return this.handleOpenFile();
   }
 
   async export(format) {
-    if (format === 'fountain') {
+    if (format === "fountain") {
       return this.handleExportFountain();
     }
     this.exportFile();

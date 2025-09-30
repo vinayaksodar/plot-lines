@@ -12,6 +12,8 @@ import {
 } from "@plot-lines/editor";
 import { TitlePage } from "./components/TitlePage/TitlePage.js";
 import { FileManager } from "./services/FileManager.js";
+import { BackendManager } from "./services/BackendManager.js";
+import { PersistenceManager } from "./services/PersistenceManager.js";
 import { createSideMenu } from "./components/SideMenu/SideMenu.js";
 import { createMenuBar } from "./components/MenuBar/MenuBar.js";
 
@@ -33,13 +35,17 @@ editorWrapper.appendChild(editorArea);
 const titlePage = new TitlePage();
 
 // --- Editor Component Instantiation ---
-const model = new EditorModel(
-  "Welcome to your editor!\nStart typing here.\nYou can also import files and save files\nto both browser local storage\nand your device storage.\n"
-);
+const model = new EditorModel();
 const view = new EditorView(model, editorContainer, widgetLayer);
 const controller = new EditorController();
 const undoManager = new UndoManager();
 const fileManager = new FileManager(model, view, titlePage);
+const backendManager = new BackendManager(null);
+const persistenceManager = new PersistenceManager(
+  null,
+  fileManager,
+  backendManager,
+);
 
 // --- Editor Instantiation ---
 const editor = new Editor({
@@ -47,8 +53,11 @@ const editor = new Editor({
   view,
   controller,
   undoManager,
-  persistence: fileManager,
+  persistence: persistenceManager,
 });
+
+backendManager.editor = editor;
+persistenceManager.editor = editor;
 
 // --- Initialize Components that need the Editor instance ---
 controller.initialize(editor, toolbar, hiddenInput);
@@ -70,17 +79,17 @@ app.appendChild(mainArea);
 // --- Collaboration Setup ---
 const useCollaboration = true;
 if (useCollaboration) {
-  const collabPlugin = new CollabPlugin({ serverUrl: "ws://localhost:3000" });
+  const collabPlugin = new CollabPlugin({
+    serverUrl: "ws://localhost:3000",
+    backendManager,
+    persistenceManager,
+  });
   editor.registerPlugin(collabPlugin);
 }
 
 // --- Final Setup ---
-if (fileManager.loadFromAutoSave()) {
-  console.log("Loaded from auto-save");
-}
-
 editorArea.addEventListener("click", (e) => {
   hiddenInput.focus();
 });
 
-view.render();
+persistenceManager.manage();

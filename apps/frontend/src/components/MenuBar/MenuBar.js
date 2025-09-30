@@ -6,13 +6,12 @@ export function createMenuBar(persistence, editorController) {
 
   const menus = {
     File: {
-      "New File": () => persistence.new(),
       // 'Open File': () => persistence.import(),
       "Save File": () => persistence.save(),
       // 'Export File': () => persistence.export(),
       hr1: "hr",
-      "Import Fountain": () => persistence.import('fountain'),
-      "Export Fountain": () => persistence.export('fountain'),
+      "Import Fountain": () => persistence.import("fountain"),
+      "Export Fountain": () => persistence.export("fountain"),
       hr2: "hr",
       "Manage Files": () => persistence.manage(),
     },

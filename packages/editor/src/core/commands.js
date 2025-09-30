@@ -22,7 +22,12 @@ export class InsertCharCommand {
   }
 
   mapPosition(pos) {
-    console.log("[InsertCharCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
+    console.log(
+      "[InsertCharCommand] mapPosition, pos:",
+      pos,
+      "this.pos:",
+      this.pos,
+    );
     if (pos.line === this.pos.line && pos.ch > this.pos.ch) {
       return { line: pos.line, ch: pos.ch + 1 };
     }
@@ -37,14 +42,14 @@ export class InsertCharCommand {
   }
 
   clone(newPos) {
-      return new InsertCharCommand(newPos, this.char);
+    return new InsertCharCommand(newPos, this.char);
   }
 
   toJSON() {
     return {
-        type: 'InsertCharCommand',
-        pos: this.pos,
-        char: this.char
+      type: "InsertCharCommand",
+      pos: this.pos,
+      char: this.char,
     };
   }
 }
@@ -72,11 +77,16 @@ export class InsertNewLineCommand {
   }
 
   mapPosition(pos) {
-    console.log("[InsertNewLineCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
+    console.log(
+      "[InsertNewLineCommand] mapPosition, pos:",
+      pos,
+      "this.pos:",
+      this.pos,
+    );
     if (pos.line > this.pos.line) {
       return { line: pos.line + 1, ch: pos.ch };
     } else if (pos.line === this.pos.line && pos.ch >= this.pos.ch) {
-        return { line: pos.line + 1, ch: pos.ch - this.pos.ch };
+      return { line: pos.line + 1, ch: pos.ch - this.pos.ch };
     }
     return pos;
   }
@@ -89,13 +99,13 @@ export class InsertNewLineCommand {
   }
 
   clone(newPos) {
-      return new InsertNewLineCommand(newPos);
+    return new InsertNewLineCommand(newPos);
   }
 
   toJSON() {
     return {
-        type: 'InsertNewLineCommand',
-        pos: this.pos
+      type: "InsertNewLineCommand",
+      pos: this.pos,
     };
   }
 }
@@ -110,7 +120,7 @@ export class DeleteCharCommand {
   execute(model) {
     console.log("[DeleteCharCommand] execute", this.pos);
     if (this.pos.ch === 0 && this.pos.line > 0) {
-        this.prevLineLength = model.getLineLength(this.pos.line - 1);
+      this.prevLineLength = model.getLineLength(this.pos.line - 1);
     }
     model.cursor = { ...this.pos };
     this.deletedChar = model.deleteChar();
@@ -122,8 +132,7 @@ export class DeleteCharCommand {
     model.cursor = { line: this.pos.line, ch: this.pos.ch - 1 };
     if (this.deletedChar === "\n") {
       model.insertNewLine();
-    }
-    else {
+    } else {
       model.insertChar(this.deletedChar);
     }
   }
@@ -131,20 +140,31 @@ export class DeleteCharCommand {
   invert() {
     console.log("[DeleteCharCommand] invert");
     if (this.deletedChar === "\n") {
-        return new InsertNewLineCommand({ line: this.pos.line, ch: this.pos.ch - 1 });
+      return new InsertNewLineCommand({
+        line: this.pos.line,
+        ch: this.pos.ch - 1,
+      });
     } else {
-        return new InsertCharCommand({ line: this.pos.line, ch: this.pos.ch - 1 }, this.deletedChar);
+      return new InsertCharCommand(
+        { line: this.pos.line, ch: this.pos.ch - 1 },
+        this.deletedChar,
+      );
     }
   }
 
   mapPosition(pos) {
-    console.log("[DeleteCharCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
-    if (this.deletedChar === '\n') {
-        if (pos.line > this.pos.line) {
-            return { line: pos.line - 1, ch: pos.ch };
-        } else if (pos.line === this.pos.line) {
-            return { line: this.pos.line - 1, ch: this.prevLineLength + pos.ch };
-        }
+    console.log(
+      "[DeleteCharCommand] mapPosition, pos:",
+      pos,
+      "this.pos:",
+      this.pos,
+    );
+    if (this.deletedChar === "\n") {
+      if (pos.line > this.pos.line) {
+        return { line: pos.line - 1, ch: pos.ch };
+      } else if (pos.line === this.pos.line) {
+        return { line: this.pos.line - 1, ch: this.prevLineLength + pos.ch };
+      }
     } else if (pos.line === this.pos.line && pos.ch >= this.pos.ch) {
       return { line: pos.line, ch: pos.ch - 1 };
     }
@@ -159,13 +179,13 @@ export class DeleteCharCommand {
   }
 
   clone(newPos) {
-      return new DeleteCharCommand(newPos);
+    return new DeleteCharCommand(newPos);
   }
 
   toJSON() {
     return {
-        type: 'DeleteCharCommand',
-        pos: this.pos
+      type: "DeleteCharCommand",
+      pos: this.pos,
     };
   }
 }
@@ -199,7 +219,12 @@ export class DeleteSelectionCommand {
   }
 
   mapPosition(pos) {
-    console.log("[DeleteSelectionCommand] mapPosition, pos:", pos, "this.selection:", this.selection);
+    console.log(
+      "[DeleteSelectionCommand] mapPosition, pos:",
+      pos,
+      "this.selection:",
+      this.selection,
+    );
     const { start, end } = this.selection;
     if (pos.line < start.line) {
       return pos;
@@ -210,30 +235,30 @@ export class DeleteSelectionCommand {
     if (pos.line > end.line) {
       return { line: pos.line - (end.line - start.line), ch: pos.ch };
     } else if (pos.line === end.line) {
-        return { line: start.line, ch: start.ch + pos.ch - end.ch };
+      return { line: start.line, ch: start.ch + pos.ch - end.ch };
     } else {
-        return { line: start.line, ch: start.ch };
+      return { line: start.line, ch: start.ch };
     }
   }
 
   map(mapping) {
     console.log("[DeleteSelectionCommand] map, mapping:", mapping);
     const newSelection = {
-        start: mapping.map(this.selection.start),
-        end: mapping.map(this.selection.end),
-    }
+      start: mapping.map(this.selection.start),
+      end: mapping.map(this.selection.end),
+    };
     console.log("[DeleteSelectionCommand] map, newSelection:", newSelection);
     return new DeleteSelectionCommand(newSelection);
   }
 
   clone(newSelection) {
-      return new DeleteSelectionCommand(newSelection);
+    return new DeleteSelectionCommand(newSelection);
   }
 
   toJSON() {
     return {
-        type: 'DeleteSelectionCommand',
-        selection: this.selection
+      type: "DeleteSelectionCommand",
+      selection: this.selection,
     };
   }
 }
@@ -253,9 +278,11 @@ export class InsertTextCommand {
   undo(model) {
     console.log("[InsertTextCommand] undo");
     const endPos = {
-        line: this.pos.line + this.text.split('\n').length - 1,
-        ch: (this.text.split('\n').length > 1 ? 0 : this.pos.ch) + this.text.split('\n').pop().length
-    }
+      line: this.pos.line + this.text.split("\n").length - 1,
+      ch:
+        (this.text.split("\n").length > 1 ? 0 : this.pos.ch) +
+        this.text.split("\n").pop().length,
+    };
     model.selection = {
       start: { ...this.pos },
       end: endPos,
@@ -266,32 +293,39 @@ export class InsertTextCommand {
   invert() {
     console.log("[InsertTextCommand] invert");
     const endPos = {
-        line: this.pos.line + this.text.split('\n').length - 1,
-        ch: (this.text.split('\n').length > 1 ? 0 : this.pos.ch) + this.text.split('\n').pop().length
-    }
+      line: this.pos.line + this.text.split("\n").length - 1,
+      ch:
+        (this.text.split("\n").length > 1 ? 0 : this.pos.ch) +
+        this.text.split("\n").pop().length,
+    };
     const selection = { start: this.pos, end: endPos };
     return new DeleteSelectionCommand(selection);
   }
 
   mapPosition(pos) {
-    console.log("[InsertTextCommand] mapPosition, pos:", pos, "this.pos:", this.pos);
-    const lines = this.text.split('\n');
+    console.log(
+      "[InsertTextCommand] mapPosition, pos:",
+      pos,
+      "this.pos:",
+      this.pos,
+    );
+    const lines = this.text.split("\n");
     const endPos = {
-        line: this.pos.line + lines.length - 1,
-        ch: (lines.length > 1 ? 0 : this.pos.ch) + lines.pop().length
-    }
+      line: this.pos.line + lines.length - 1,
+      ch: (lines.length > 1 ? 0 : this.pos.ch) + lines.pop().length,
+    };
 
     if (pos.line < this.pos.line) {
-        return pos;
+      return pos;
     }
     if (pos.line === this.pos.line && pos.ch <= this.pos.ch) {
-        return pos;
+      return pos;
     }
 
     if (pos.line === this.pos.line) {
-        return { line: endPos.line, ch: endPos.ch + (pos.ch - this.pos.ch) };
+      return { line: endPos.line, ch: endPos.ch + (pos.ch - this.pos.ch) };
     } else {
-        return { line: pos.line + (endPos.line - this.pos.line), ch: pos.ch };
+      return { line: pos.line + (endPos.line - this.pos.line), ch: pos.ch };
     }
   }
 
@@ -303,14 +337,14 @@ export class InsertTextCommand {
   }
 
   clone(newPos) {
-      return new InsertTextCommand(this.text, newPos);
+    return new InsertTextCommand(this.text, newPos);
   }
 
   toJSON() {
     return {
-        type: 'InsertTextCommand',
-        text: this.text,
-        pos: this.pos
+      type: "InsertTextCommand",
+      text: this.text,
+      pos: this.pos,
     };
   }
 }
@@ -324,15 +358,20 @@ export class SetLineTypeCommand {
   }
 
   execute(model) {
-    console.log("[SetLineTypeCommand] execute", this.newType, this.selection, this.cursorLine);
+    console.log(
+      "[SetLineTypeCommand] execute",
+      this.newType,
+      this.selection,
+      this.cursorLine,
+    );
 
     // If context is not on the command, capture it from the model.
     if (!this.selection && this.cursorLine === undefined) {
-        if (model.hasSelection()) {
-            this.selection = model.normalizeSelection();
-        } else {
-            this.cursorLine = model.cursor.line;
-        }
+      if (model.hasSelection()) {
+        this.selection = model.normalizeSelection();
+      } else {
+        this.cursorLine = model.cursor.line;
+      }
     }
 
     // Now, use the command's properties to execute the change.
@@ -360,8 +399,10 @@ export class SetLineTypeCommand {
 
   invert() {
     console.log("[SetLineTypeCommand] invert");
-      const invertedCommands = this.oldTypes.map(old => new SetLineTypeCommand(old.type, this.selection, old.line));
-      return invertedCommands.length > 1 ? invertedCommands : invertedCommands[0];
+    const invertedCommands = this.oldTypes.map(
+      (old) => new SetLineTypeCommand(old.type, this.selection, old.line),
+    );
+    return invertedCommands.length > 1 ? invertedCommands : invertedCommands[0];
   }
 
   mapPosition(pos) {
@@ -370,24 +411,26 @@ export class SetLineTypeCommand {
 
   map(mapping) {
     console.log("[SetLineTypeCommand] map, mapping:", mapping);
-    const newSelection = this.selection ? {
-        start: mapping.map(this.selection.start),
-        end: mapping.map(this.selection.end),
-    } : null;
-    const newCursorLine = mapping.map({line: this.cursorLine, ch: 0}).line;
+    const newSelection = this.selection
+      ? {
+          start: mapping.map(this.selection.start),
+          end: mapping.map(this.selection.end),
+        }
+      : null;
+    const newCursorLine = mapping.map({ line: this.cursorLine, ch: 0 }).line;
     return new SetLineTypeCommand(this.newType, newSelection, newCursorLine);
   }
 
   clone(newSelection, newCursorLine) {
-      return new SetLineTypeCommand(this.newType, newSelection, newCursorLine);
+    return new SetLineTypeCommand(this.newType, newSelection, newCursorLine);
   }
 
   toJSON() {
     return {
-        type: 'SetLineTypeCommand',
-        newType: this.newType,
-        selection: this.selection,
-        cursorLine: this.cursorLine
+      type: "SetLineTypeCommand",
+      newType: this.newType,
+      selection: this.selection,
+      cursorLine: this.cursorLine,
     };
   }
 }
@@ -399,10 +442,14 @@ export class ToggleInlineStyleCommand {
   }
 
   execute(model) {
-    console.log("[ToggleInlineStyleCommand] execute", this.style, this.selection);
+    console.log(
+      "[ToggleInlineStyleCommand] execute",
+      this.style,
+      this.selection,
+    );
     // If no selection was provided to the command, grab it from the model.
     if (!this.selection) {
-        this.selection = model.hasSelection() ? model.normalizeSelection() : null;
+      this.selection = model.hasSelection() ? model.normalizeSelection() : null;
     }
     if (!this.selection) return;
     model.toggleInlineStyle(this.style, this.selection);
@@ -410,7 +457,9 @@ export class ToggleInlineStyleCommand {
 
   undo(model) {
     console.log("[ToggleInlineStyleCommand] undo");
-    const selection = this.selection || (model.hasSelection() ? model.normalizeSelection() : null);
+    const selection =
+      this.selection ||
+      (model.hasSelection() ? model.normalizeSelection() : null);
     if (!selection) return;
     model.toggleInlineStyle(this.style, selection);
   }
@@ -426,22 +475,24 @@ export class ToggleInlineStyleCommand {
 
   map(mapping) {
     console.log("[ToggleInlineStyleCommand] map, mapping:", mapping);
-    const newSelection = this.selection ? {
-        start: mapping.map(this.selection.start),
-        end: mapping.map(this.selection.end),
-    } : null;
+    const newSelection = this.selection
+      ? {
+          start: mapping.map(this.selection.start),
+          end: mapping.map(this.selection.end),
+        }
+      : null;
     return new ToggleInlineStyleCommand(this.style, newSelection);
   }
 
   clone(newSelection) {
-      return new ToggleInlineStyleCommand(this.style, newSelection);
+    return new ToggleInlineStyleCommand(this.style, newSelection);
   }
 
   toJSON() {
     return {
-        type: 'ToggleInlineStyleCommand',
-        style: this.style,
-        selection: this.selection
+      type: "ToggleInlineStyleCommand",
+      style: this.style,
+      selection: this.selection,
     };
   }
 }

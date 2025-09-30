@@ -9,7 +9,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@plot-lines/editor": path.resolve(__dirname, "../../packages/editor/src/index.js"),
+      "@plot-lines/editor": path.resolve(
+        __dirname,
+        "../../packages/editor/src/index.js",
+      ),
     },
   },
 });

@@ -2,7 +2,11 @@ import { PointerHandler } from "./handlers/PointerHandler.js";
 import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
 import { SearchHandler } from "./handlers/SearchHandler.js";
 import { ToolbarHandler } from "./handlers/ToolbarHandler.js";
-import { ToggleInlineStyleCommand, DeleteSelectionCommand, InsertTextCommand } from "./commands.js";
+import {
+  ToggleInlineStyleCommand,
+  DeleteSelectionCommand,
+  InsertTextCommand,
+} from "./commands.js";
 
 export class EditorController {
   constructor() {
@@ -33,7 +37,12 @@ export class EditorController {
     this.pointerHandler = new PointerHandler(this.editor);
     this.keyBoardHandler = new KeyboardHandler(this.editor, this.hiddenInput);
     this.searchHandler = new SearchHandler(this.editor);
-    this.toolbarHandler = new ToolbarHandler(this.editor, this.toolbar, editor.persistence, this.hiddenInput);
+    this.toolbarHandler = new ToolbarHandler(
+      this.editor,
+      this.toolbar,
+      editor.persistence,
+      this.hiddenInput,
+    );
 
     // Add event listeners
     this.container.addEventListener("click", () => this.hiddenInput.focus());

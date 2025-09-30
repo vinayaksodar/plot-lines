@@ -1,5 +1,12 @@
 export class Editor {
-  constructor({ model, view, controller, undoManager, persistence, collabManager }) {
+  constructor({
+    model,
+    view,
+    controller,
+    undoManager,
+    persistence,
+    collabManager,
+  }) {
     this.model = model;
     this.view = view;
     this.controller = controller;
@@ -37,7 +44,7 @@ export class Editor {
   executeCommand(command) {
     command.execute(this.model);
     this.undoManager.add(command);
-    this.dispatch('command', command);
+    this.dispatch("command", command);
     this.view.render();
   }
 
@@ -46,16 +53,16 @@ export class Editor {
     command.execute(this.model);
     // For now, we clear the undo history on remote changes for simplicity.
     // A more advanced implementation would rebase the undo stack.
-    this.undoManager.clear(); 
+    this.undoManager.clear();
     this.view.render();
   }
 
   undo() {
     const commands = this.undoManager.getInvertedCommandsForUndo();
     if (commands) {
-      commands.forEach(cmd => {
+      commands.forEach((cmd) => {
         cmd.execute(this.model);
-        this.dispatch('command', cmd);
+        this.dispatch("command", cmd);
       });
       this.view.render();
     }
@@ -64,9 +71,9 @@ export class Editor {
   redo() {
     const commands = this.undoManager.getCommandsForRedo();
     if (commands) {
-      commands.forEach(cmd => {
+      commands.forEach((cmd) => {
         cmd.execute(this.model);
-        this.dispatch('command', cmd);
+        this.dispatch("command", cmd);
       });
       this.view.render();
     }

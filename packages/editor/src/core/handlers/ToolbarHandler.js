@@ -38,10 +38,10 @@ export class ToolbarHandler {
           this.persistence.export();
           break;
         case "import-fountain":
-          await this.persistence.import('fountain');
+          await this.persistence.import("fountain");
           break;
         case "export-fountain":
-          this.persistence.export('fountain');
+          this.persistence.export("fountain");
           break;
         case "files":
           this.persistence.manage();
