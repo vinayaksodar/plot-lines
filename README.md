@@ -1,30 +1,31 @@
-# Plot Lines - A Screenplay Editor
+# Plot Lines - A Collaborative Screenplay Editor
 
-Plot Lines is a web-based, feature-rich text editor designed specifically for screenwriters. It provides a clean, distraction-free writing environment with essential tools to format and manage screenplays according to industry standards.
+Plot Lines is a modern, web-based editor designed for screenwriters. It provides a clean, distraction-free writing environment with essential tools to format and manage screenplays. It supports both offline, local-only editing and powerful **real-time collaboration** for teams.
 
 This project is a monorepo built with vanilla JavaScript, HTML, and CSS, using Vite for a fast development experience. It's designed to be lightweight, performant, and easily extensible.
 
 ## Features
 
-- **Screenplay Formatting:** Automatic formatting for standard screenplay elements like Scene Headings, Action, Characters, Dialogue, Parentheticals, and Transitions.
-- **Fountain Support**: Import and export screenplays in the popular `.fountain` format.
-- **Rich Text Editing:** Supports **bold**, _italic_, and _underline_ inline styles.
-- **Virtual Scrolling:** The editor can handle very large scripts with excellent performance by only rendering the visible portion of the document.
-- **File Management:**
-  - Create new files, open `.fountain` files.
-  - Save your work to the browser's local storage.
-  - Export scripts as `.fountain` files.
-  - A file manager to browse and load previously saved work.
-- **Undo/Redo:** Robust undo and redo functionality for all text and formatting changes.
-- **Search:** A built-in search widget to quickly find text within your script.
-- **Title Page Editor:** A dedicated editor for your screenplay's title page.
-- **Responsive Design:** A clean and responsive UI that works on both desktop and mobile devices.
+-   **Real-Time Collaboration:** For cloud-based documents, you can write with your team in real-time. Changes are synchronized instantly between all collaborators using an Operational Transformation (OT) engine.
+-   **Hybrid Storage Model:**
+    -   **Cloud Storage:** Log in to save your screenplays to the cloud, enabling collaboration and access from any device.
+    -   **Local Storage:** Work offline and save files directly to your browser's local storage. The editor preserves all rich text formatting and screenplay structure.
+-   **Standard Screenplay Formatting:** Automatic formatting for Scene Headings, Action, Characters, Dialogue, Parentheticals, and Transitions.
+-   **Fountain Support**: Import and export screenplays in the popular `.fountain` format.
+-   **Rich Text Editing:** Supports **bold**, _italic_, and _underline_ inline styles.
+-   **Title Page Editor:** A dedicated editor for your screenplay's title page, with all data saved alongside your script.
+-   **Integrated File Management:** A single, clean file manager to browse, open, and delete both local and cloud documents, with an integrated login flow to access your cloud files.
+-   **High Performance:** The editor uses a virtual scrolling engine to handle even the largest scripts with excellent performance.
+-   **Undo/Redo:** Robust undo and redo functionality for all text and formatting changes.
+-   **Search:** A built-in search widget to quickly find text within your script.
+-   **Responsive Design:** A clean and responsive UI that works on both desktop and mobile devices.
 
 ## Tech Stack
 
-- **Monorepo:** npm workspaces with Turborepo
-- **Frontend:** Vanilla JavaScript (ES6+), HTML5, CSS3
-- **Build Tool:** [Vite](https://vitejs.dev/)
+-   **Monorepo:** npm workspaces with Turborepo
+-   **Frontend:** Vanilla JavaScript (ES6+), HTML5, CSS3
+-   **Collaboration:** WebSocket API with an Operational Transformation (OT) core.
+-   **Build Tool:** [Vite](https://vitejs.dev/)
 
 ## Getting Started
 
@@ -32,7 +33,8 @@ To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 
-- Node.js and npm (or a compatible package manager).
+-   Node.js and npm (or a compatible package manager).
+-   A running instance of the backend server for collaboration and cloud storage features.
 
 ### Installation & Running
 
