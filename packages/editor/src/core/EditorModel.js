@@ -202,6 +202,14 @@ export class EditorModel {
     return text;
   }
 
+  getTextInRange(start, end) {
+    const oldSelection = this.selection;
+    this.selection = { start, end };
+    const text = this.getSelectedText();
+    this.selection = oldSelection;
+    return text;
+  }
+
   normalizeSelection() {
     const { start, end } = this.selection;
     if (

@@ -100,7 +100,7 @@ export class FileManager extends Persistence {
         if (saveData.selection) {
           this.model.setSelection(
             saveData.selection.start,
-            saveData.selection.end,
+            saveData.selection.end
           );
         }
 
@@ -163,7 +163,7 @@ export class FileManager extends Persistence {
         if (fileData.selection) {
           this.model.setSelection(
             fileData.selection.start,
-            fileData.selection.end,
+            fileData.selection.end
           );
         }
 
@@ -439,17 +439,6 @@ export class FileManager extends Persistence {
 
   async load(documentId) {
     return this.loadFromLocalStorage(documentId);
-  }
-
-  async save(options) {
-    const fileName =
-      options && options.fileName
-        ? options.fileName
-        : prompt("Enter filename:", this.currentFileName);
-    if (fileName) {
-      this.saveToLocalStorage(fileName);
-      console.log(`Saved as: ${fileName}`);
-    }
   }
 
   async import(format) {

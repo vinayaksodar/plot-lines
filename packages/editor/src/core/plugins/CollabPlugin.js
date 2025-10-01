@@ -5,7 +5,9 @@ import {
   sendableSteps,
   getVersion,
   CollabState,
+  Rebaseable,
 } from "../collab.js";
+import { InsertCharCommand, InsertTextCommand, DeleteCharCommand, DeleteSelectionCommand } from "../commands.js";
 
 export class CollabPlugin extends Plugin {
   constructor({ serverUrl, backendManager, persistenceManager }) {
@@ -92,6 +94,8 @@ export class CollabPlugin extends Plugin {
 
   poll() {
     if (this.socket.readyState === WebSocket.OPEN && this.editor.documentId) {
+      this._combineUnconfirmedSteps();
+
       const sendable = this.sendableSteps();
       if (sendable && sendable.steps.length > 0) {
         console.log("Sending local changes:", sendable);
@@ -104,6 +108,125 @@ export class CollabPlugin extends Plugin {
       }
     }
     setTimeout(() => this.poll(), 1000);
+  }
+
+  _combineUnconfirmedSteps() {
+    let unconfirmed = this.collabState.collab.unconfirmed;
+    if (unconfirmed.length < 2) {
+      return;
+    }
+
+    unconfirmed = this._combineInsertCharsInUnconfirmed(unconfirmed);
+    unconfirmed = this._combineDeleteCharsInUnconfirmed(unconfirmed);
+
+    this.collabState.collab.unconfirmed = unconfirmed;
+  }
+
+  _combineInsertCharsInUnconfirmed(unconfirmed) {
+    if (unconfirmed.length < 2) {
+        return unconfirmed;
+    }
+
+    const newUnconfirmed = [];
+    let i = 0;
+    while (i < unconfirmed.length) {
+        const currentRebaseable = unconfirmed[i];
+        const currentStep = currentRebaseable.step;
+
+        if ((currentStep instanceof InsertCharCommand || currentStep instanceof InsertTextCommand)) {
+            let combinedText = (currentStep instanceof InsertCharCommand) ? currentStep.char : currentStep.text;
+            let startPos = currentStep.pos;
+            let origin = currentRebaseable.origin;
+            let lastIndex = i;
+
+            for (let j = i + 1; j < unconfirmed.length; j++) {
+                const nextRebaseable = unconfirmed[j];
+                const nextStep = nextRebaseable.step;
+
+                if ((nextStep instanceof InsertCharCommand || nextStep instanceof InsertTextCommand) &&
+                    nextStep.pos.line === startPos.line &&
+                    nextStep.pos.ch === startPos.ch + combinedText.length) {
+
+                    const nextText = (nextStep instanceof InsertCharCommand) ? nextStep.char : nextStep.text;
+                    combinedText += nextText;
+                    lastIndex = j;
+                } else {
+                    break; // Sequence broken
+                }
+            }
+
+            if (lastIndex > i) {
+                // Combination happened
+                const combinedCommand = new InsertTextCommand(combinedText, startPos);
+                const inverted = combinedCommand.invert();
+                newUnconfirmed.push(new Rebaseable(combinedCommand, inverted, origin));
+                i = lastIndex + 1;
+            } else {
+                // No combination
+                newUnconfirmed.push(currentRebaseable);
+                i++;
+            }
+        } else {
+            // Not an insert command
+            newUnconfirmed.push(currentRebaseable);
+            i++;
+        }
+    }
+    return newUnconfirmed;
+  }
+
+  _combineDeleteCharsInUnconfirmed(unconfirmed) {
+    if (unconfirmed.length < 2) {
+        return unconfirmed;
+    }
+
+    const newUnconfirmed = [];
+    let i = 0;
+    while (i < unconfirmed.length) {
+        const currentRebaseable = unconfirmed[i];
+        const currentStep = currentRebaseable.step;
+
+        // Combine backward deletions
+        if (currentStep instanceof DeleteCharCommand && currentStep.pos.ch > 0) {
+            let selectionStart = { line: currentStep.pos.line, ch: currentStep.pos.ch - 1 };
+            let selectionEnd = { ...currentStep.pos };
+            let origin = currentRebaseable.origin;
+            let lastIndex = i;
+
+            for (let j = i + 1; j < unconfirmed.length; j++) {
+                const nextRebaseable = unconfirmed[j];
+                const nextStep = nextRebaseable.step;
+
+                if (nextStep instanceof DeleteCharCommand &&
+                    nextStep.pos.line === selectionStart.line &&
+                    nextStep.pos.ch === selectionStart.ch) {
+                    
+                    selectionStart.ch--;
+                    lastIndex = j;
+                } else {
+                    break; // Sequence broken
+                }
+            }
+
+            if (lastIndex > i) {
+                // Combination happened
+                const text = this.editor.getModel().getTextInRange(selectionStart, selectionEnd);
+                const combinedCommand = new DeleteSelectionCommand({ start: selectionStart, end: selectionEnd });
+                const inverted = new InsertTextCommand(text, selectionStart);
+                newUnconfirmed.push(new Rebaseable(combinedCommand, inverted, origin));
+                i = lastIndex + 1;
+            } else {
+                // No combination
+                newUnconfirmed.push(currentRebaseable);
+                i++;
+            }
+        } else {
+            // Not a backward delete command
+            newUnconfirmed.push(currentRebaseable);
+            i++;
+        }
+    }
+    return newUnconfirmed;
   }
 
   onEvent(eventName, data) {
