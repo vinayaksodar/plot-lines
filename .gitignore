@@ -27,6 +27,9 @@ dist-ssr
 .turbo
 
 #sqlite database
+*.db.sqlite3
+*.sqlite3
+apps/backend/main.db
 *.db
 
 # Temp files remove later
