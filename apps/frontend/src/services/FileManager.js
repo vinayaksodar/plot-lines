@@ -71,8 +71,11 @@ export class FileManager extends Persistence {
   }
 
   autoSaveToLocalStorage() {
-    const content = this.model.getText();
+    const content = JSON.stringify(this.model.lines);
+    const titlePage = this.titlePage.model.getData();
     const saveData = {
+      content,
+      titlePage,
       content,
       fileName: this.currentFileName,
       timestamp: Date.now(),
@@ -90,8 +93,19 @@ export class FileManager extends Persistence {
       const saved = localStorage.getItem("editor-autosave");
       if (saved) {
         const saveData = JSON.parse(saved);
-        this.model.setText(saveData.content);
+        try {
+          // Handle new rich-text format
+          this.model.lines = JSON.parse(saveData.content);
+        } catch (e) {
+          // Fallback for old plain-text format
+          this.model.setText(saveData.content);
+        }
         this.currentFileName = saveData.fileName || "untitled.txt";
+
+        if (saveData.titlePage) {
+          this.titlePage.model.update(saveData.titlePage);
+          this.titlePage.render();
+        }
 
         // Restore cursor and selection
         if (saveData.cursor) {
@@ -114,12 +128,11 @@ export class FileManager extends Persistence {
 
   // Manual save to localStorage with custom name
   saveToLocalStorage(fileName = null) {
-    if (fileName) {
-      this.currentFileName = fileName;
-    }
-
-    const content = this.model.getText();
+    const content = JSON.stringify(this.model.lines);
+    const titlePage = this.titlePage.model.getData();
     const saveData = {
+      content,
+      titlePage,
       content,
       fileName: this.currentFileName,
       timestamp: Date.now(),
@@ -153,8 +166,17 @@ export class FileManager extends Persistence {
       const fileData = savedFiles[fileName];
 
       if (fileData) {
-        this.model.setText(fileData.content);
-        this.currentFileName = fileName;
+        try {
+          // Handle new rich-text format
+          this.model.lines = JSON.parse(fileData.content);
+        } catch (e) {
+          // Fallback for old plain-text format
+          this.model.setText(fileData.content);
+        }
+        if (fileData.titlePage) {
+          this.titlePage.model.update(fileData.titlePage);
+          this.titlePage.render();
+        }
 
         // Restore cursor and selection
         if (fileData.cursor) {
@@ -337,17 +359,21 @@ export class FileManager extends Persistence {
   // Check if file has unsaved changes
   hasUnsavedChanges() {
     const saved = localStorage.getItem("editor-autosave");
-    const currentText = this.model.getText();
+    const currentContent = JSON.stringify(this.model.lines);
 
     if (!saved) {
       // If there's no autosave, there are "unsaved changes" only if
       // the user has typed something into the initial blank document.
-      return currentText !== "";
+      const initialContent = JSON.stringify([{
+        type: "action",
+        segments: [{ text: "", bold: false, italic: false, underline: false }],
+      }]);
+      return currentContent !== initialContent;
     }
 
     try {
       const saveData = JSON.parse(saved);
-      return saveData.content !== currentText;
+      return saveData.content !== currentContent;
     } catch (error) {
       return true;
     }

@@ -46,6 +46,7 @@ const persistenceManager = new PersistenceManager(
   null,
   fileManager,
   backendManager,
+  titlePage
 );
 
 // --- Editor Instantiation ---

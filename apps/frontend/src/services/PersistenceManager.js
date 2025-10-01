@@ -2,10 +2,11 @@ import { Persistence, CollabPlugin } from "@plot-lines/editor";
 import { authService } from "./Auth.js";
 
 export class PersistenceManager extends Persistence {
-  constructor(editor, fileManager, backendManager) {
+  constructor(editor, fileManager, backendManager, titlePage) {
     super(editor);
     this.fileManager = fileManager;
     this.backendManager = backendManager;
+    this.titlePage = titlePage;
   }
 
   async new(name = "Untitled", isCloud = false) {
@@ -78,7 +79,12 @@ export class PersistenceManager extends Persistence {
         documentId.replace("cloud-", "")
       );
       if (doc && doc.content) {
-        this.editor.getModel().lines = JSON.parse(doc.content);
+        const payload = JSON.parse(doc.content);
+        this.editor.getModel().lines = payload.lines || [];
+        if (payload.titlePage) {
+            this.titlePage.model.update(payload.titlePage);
+            this.titlePage.render();
+        }
         this.editor.getModel().version = doc.ot_version;
       }
       this.editor.getView().render();
@@ -100,7 +106,11 @@ export class PersistenceManager extends Persistence {
                 return; 
             }
             // Save a snapshot for an existing cloud document
-            const content = JSON.stringify(this.editor.getModel().lines);
+            const payload = {
+                titlePage: this.titlePage.model.getData(),
+                lines: this.editor.getModel().lines,
+            };
+            const content = JSON.stringify(payload);
             const ot_version = this.editor.collab.getVersion();
             const documentId = this.editor.documentId.replace("cloud-", "");
             await this.backendManager.createSnapshot(documentId, content, ot_version);
@@ -142,16 +152,22 @@ export class PersistenceManager extends Persistence {
   }
 
   showFileManager() {
+    const user = authService.getCurrentUser();
+
     // Create a simple file manager modal
     const modal = document.createElement("div");
     modal.className = "file-manager-modal";
     modal.innerHTML = `
       <div class="file-manager-content">
         <h3>Manage Files</h3>
+        ${!user ? '<p class="auth-prompt">Log in to create and view cloud documents. ☁️</p>' : ''}
         <div class="file-list"></div>
         <div class="file-manager-actions">
           <button class="btn" data-action="new-local">New Local Document</button>
-          <button class="btn" data-action="new-cloud">New Cloud Document</button>
+          ${user 
+            ? '<button class="btn" data-action="new-cloud">New Cloud Document</button>'
+            : '<button class="btn" data-action="login">Login / Signup</button>' 
+          }
           <button class="btn" data-action="close">Close</button>
         </div>
       </div>
@@ -189,6 +205,14 @@ export class PersistenceManager extends Persistence {
       if (action === "close") {
         document.body.removeChild(modal);
         this.editor.focusEditor();
+      } else if (action === "login") {
+        try {
+            await authService.showLoginModal();
+            document.body.removeChild(modal);
+            this.showFileManager(); // Refresh the modal
+        } catch (e) {
+            // User cancelled login, do nothing
+        }
       } else if (action === "new-local") {
         await this.new(undefined, false);
         document.body.removeChild(modal);
