@@ -16,6 +16,7 @@ import { BackendManager } from "./services/BackendManager.js";
 import { PersistenceManager } from "./services/PersistenceManager.js";
 import { createSideMenu } from "./components/SideMenu/SideMenu.js";
 import { createMenuBar } from "./components/MenuBar/MenuBar.js";
+import { authService } from "./services/Auth.js";
 
 const app = document.querySelector("#app");
 
@@ -75,17 +76,6 @@ contentArea.appendChild(editorWrapper);
 contentArea.appendChild(titlePage.element);
 app.appendChild(menuBar);
 app.appendChild(mainArea);
-
-// --- Collaboration Setup ---
-const useCollaboration = true;
-if (useCollaboration) {
-  const collabPlugin = new CollabPlugin({
-    serverUrl: "ws://localhost:3000",
-    backendManager,
-    persistenceManager,
-  });
-  editor.registerPlugin(collabPlugin);
-}
 
 // --- Final Setup ---
 editorArea.addEventListener("click", (e) => {

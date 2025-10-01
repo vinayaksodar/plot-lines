@@ -32,6 +32,20 @@ export class Editor {
     }
   }
 
+  destroyPlugin(pluginName) {
+    const pluginIndex = this.plugins.findIndex(
+      (p) => p.constructor.name === pluginName
+    );
+    if (pluginIndex === -1) return;
+
+    const plugin = this.plugins[pluginIndex];
+    if (plugin.destroy) {
+      plugin.destroy();
+    }
+
+    this.plugins.splice(pluginIndex, 1);
+  }
+
   dispatch(eventName, data) {
     for (const plugin of this.plugins) {
       if (plugin.onEvent) {

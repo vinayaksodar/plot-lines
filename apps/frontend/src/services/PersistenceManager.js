@@ -1,4 +1,4 @@
-import { Persistence } from "@plot-lines/editor";
+import { Persistence, CollabPlugin } from "@plot-lines/editor";
 import { authService } from "./Auth.js";
 
 export class PersistenceManager extends Persistence {
@@ -9,6 +9,8 @@ export class PersistenceManager extends Persistence {
   }
 
   async new(name = "Untitled", isCloud = false) {
+    this.editor.destroyPlugin("CollabPlugin");
+
     if (isCloud) {
         let user = authService.getCurrentUser();
         if (!user) {
@@ -27,6 +29,15 @@ export class PersistenceManager extends Persistence {
 
         this.editor.documentId = `cloud-${result.id}`;
         this.editor.isCloudDocument = true;
+
+        const collabPlugin = new CollabPlugin({
+            serverUrl: "ws://localhost:3000",
+            backendManager: this.backendManager,
+            persistenceManager: this,
+            clientID: user.id,
+        });
+        this.editor.registerPlugin(collabPlugin);
+
         this.editor.getModel().setText("");
         this.editor.focusEditor();
         return true; // Success
@@ -41,6 +52,8 @@ export class PersistenceManager extends Persistence {
   }
 
   async load(documentId) {
+    this.editor.destroyPlugin("CollabPlugin");
+
     if (documentId.startsWith("cloud-")) {
         let user = authService.getCurrentUser();
         if (!user) {
@@ -50,6 +63,15 @@ export class PersistenceManager extends Persistence {
                 return; // User cancelled login
             }
         }
+
+      const collabPlugin = new CollabPlugin({
+        serverUrl: "ws://localhost:3000",
+        backendManager: this.backendManager,
+        persistenceManager: this,
+        clientID: user.id,
+      });
+      this.editor.registerPlugin(collabPlugin);
+
       this.editor.documentId = documentId;
       this.editor.isCloudDocument = true;
       const { data: doc } = await this.backendManager.load(

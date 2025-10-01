@@ -10,13 +10,15 @@ import {
 import { InsertCharCommand, InsertTextCommand, DeleteCharCommand, DeleteSelectionCommand } from "../commands.js";
 
 export class CollabPlugin extends Plugin {
-  constructor({ serverUrl, backendManager, persistenceManager }) {
+  constructor({ serverUrl, backendManager, persistenceManager, clientID }) {
     super();
     this.serverUrl = serverUrl;
     this.backendManager = backendManager;
     this.persistenceManager = persistenceManager;
     this.socket = null;
     this.collabState = null;
+    this.clientID = clientID;
+    this.pollTimeout = null;
   }
 
   onRegister(editor) {
@@ -26,6 +28,7 @@ export class CollabPlugin extends Plugin {
     const initialState = {
       model: this.model,
       version: 0,
+      clientID: this.clientID,
     };
     this.plugin = collab(initialState);
     this.collabState = {
@@ -107,7 +110,7 @@ export class CollabPlugin extends Plugin {
         );
       }
     }
-    setTimeout(() => this.poll(), 1000);
+    this.pollTimeout = setTimeout(() => this.poll(), 1000);
   }
 
   _combineUnconfirmedSteps() {
@@ -210,9 +213,9 @@ export class CollabPlugin extends Plugin {
 
             if (lastIndex > i) {
                 // Combination happened
-                const text = this.editor.getModel().getTextInRange(selectionStart, selectionEnd);
                 const combinedCommand = new DeleteSelectionCommand({ start: selectionStart, end: selectionEnd });
-                const inverted = new InsertTextCommand(text, selectionStart);
+                combinedCommand.text = this.editor.getModel().getTextInRange(selectionStart, selectionEnd);
+                const inverted = combinedCommand.invert();
                 newUnconfirmed.push(new Rebaseable(combinedCommand, inverted, origin));
                 i = lastIndex + 1;
             } else {
@@ -262,5 +265,13 @@ export class CollabPlugin extends Plugin {
 
   getVersion() {
     return getVersion(this.collabState);
+  }
+
+  destroy() {
+    clearTimeout(this.pollTimeout);
+    if (this.socket) {
+      this.socket.close();
+    }
+    console.log("CollabPlugin destroyed");
   }
 }
