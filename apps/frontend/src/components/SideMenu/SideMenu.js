@@ -1,21 +1,29 @@
 import "./sidemenu.css";
 
-export function createSideMenu(titlePage, editorArea, editorWrapper) {
+export function createSideMenu(
+  titlePage,
+  editorArea,
+  editorWrapper,
+  statisticsView
+) {
   const sideMenu = document.createElement("div");
   sideMenu.className = "side-menu";
 
   const buttons = {
     Editor: () => {
       titlePage.hide();
+      statisticsView.hide();
       editorWrapper.style.display = "flex";
     },
     "Title Page": () => {
       editorWrapper.style.display = "none";
+      statisticsView.hide();
       titlePage.show();
     },
     Statistics: () => {
-      // Dummy action
-      alert("Statistics coming soon!");
+      titlePage.hide();
+      editorWrapper.style.display = "none";
+      statisticsView.show();
     },
   };
 

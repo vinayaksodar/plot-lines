@@ -23,6 +23,7 @@ export { TitlePageModel } from "./components/TitlePage/TitlePageModel.js";
 // Services
 export { Persistence } from "./services/Persistence.js";
 export { FountainParser } from "./services/FountainParser.js";
+export { Statistics } from "./services/Statistics.js";
 
 // Plugins
 export { CollabPlugin } from "./core/plugins/CollabPlugin.js";

@@ -17,6 +17,7 @@ import { PersistenceManager } from "./services/PersistenceManager.js";
 import { createSideMenu } from "./components/SideMenu/SideMenu.js";
 import { createMenuBar } from "./components/MenuBar/MenuBar.js";
 import { authService } from "./services/Auth.js";
+import { createStatisticsView } from "./components/StatisticsView/StatisticsView.js";
 
 const app = document.querySelector("#app");
 
@@ -64,9 +65,16 @@ persistenceManager.editor = editor;
 // --- Initialize Components that need the Editor instance ---
 controller.initialize(editor, toolbar, hiddenInput);
 
+const statisticsView = createStatisticsView(editor);
+
 // --- UI Assembly ---
 const menuBar = createMenuBar(editor.persistence, editor.controller);
-const sideMenu = createSideMenu(titlePage, editorArea, editorWrapper);
+const sideMenu = createSideMenu(
+  titlePage,
+  editorArea,
+  editorWrapper,
+  statisticsView
+);
 const mainArea = document.createElement("div");
 mainArea.className = "main-area";
 const contentArea = document.createElement("div");
@@ -75,6 +83,7 @@ mainArea.appendChild(sideMenu);
 mainArea.appendChild(contentArea);
 contentArea.appendChild(editorWrapper);
 contentArea.appendChild(titlePage.element);
+contentArea.appendChild(statisticsView.element);
 app.appendChild(menuBar);
 app.appendChild(mainArea);
 
