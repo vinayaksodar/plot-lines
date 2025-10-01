@@ -24,6 +24,7 @@ This project is a monorepo built with vanilla JavaScript, HTML, and CSS, using V
 
 -   **Monorepo:** npm workspaces with Turborepo
 -   **Frontend:** Vanilla JavaScript (ES6+), HTML5, CSS3
+-   **Backend:** Node.js, Express, WebSocket, SQLite
 -   **Collaboration:** WebSocket API with an Operational Transformation (OT) core.
 -   **Build Tool:** [Vite](https://vitejs.dev/)
 
@@ -34,7 +35,6 @@ To get a local copy up and running, follow these simple steps.
 ### Prerequisites
 
 -   Node.js and npm (or a compatible package manager).
--   A running instance of the backend server for collaboration and cloud storage features.
 
 ### Installation & Running
 
@@ -46,11 +46,14 @@ To get a local copy up and running, follow these simple steps.
     ```sh
     npm install
     ```
-3.  Start the development server
+3.  Start the development servers
+    
+    This command will start both the frontend and backend development servers concurrently.
     ```sh
     npm run dev
     ```
-    The application will be available at `http://localhost:5173`.
+    - The frontend will be available at `http://localhost:5173`.
+    - The backend will be running on `http://localhost:3000`.
 
 ### Building for Production
 
