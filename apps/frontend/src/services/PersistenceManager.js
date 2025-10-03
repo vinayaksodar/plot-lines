@@ -113,6 +113,8 @@ export class PersistenceManager extends Persistence {
         collabPlugin.receive(stepsResult.steps, stepsResult.userIDs);
       }
 
+      collabPlugin.connect();
+
       this.editor.getView().render();
     } else {
       this.editor.isCloudDocument = false;

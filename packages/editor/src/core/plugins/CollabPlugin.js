@@ -68,8 +68,6 @@ export class CollabPlugin extends Plugin {
     };
     this.collabState.collab.config = this.plugin.config;
     this.editor.collab = this;
-
-    this.connect();
   }
 
   connect() {
