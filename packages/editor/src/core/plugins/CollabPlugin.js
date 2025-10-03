@@ -7,18 +7,49 @@ import {
   CollabState,
   Rebaseable,
 } from "../collab.js";
-import { InsertCharCommand, InsertTextCommand, DeleteCharCommand, DeleteSelectionCommand } from "../commands.js";
+import {
+  InsertCharCommand,
+  InsertTextCommand,
+  DeleteCharCommand,
+  DeleteSelectionCommand,
+} from "../commands.js";
 
 export class CollabPlugin extends Plugin {
-  constructor({ serverUrl, backendManager, persistenceManager, clientID }) {
+  constructor({
+    serverUrl,
+    backendManager,
+    persistenceManager,
+    userID,
+    userMap,
+    version,
+  }) {
     super();
     this.serverUrl = serverUrl;
     this.backendManager = backendManager;
     this.persistenceManager = persistenceManager;
     this.socket = null;
     this.collabState = null;
-    this.clientID = clientID;
+    this.userID = userID;
+    this.version = version;
     this.pollTimeout = null;
+    this.remoteCursors = new Map();
+    this.userMap = userMap || new Map();
+    this.isReady = false; // Don't send steps until initial snapshot is created
+  }
+
+  setReady() {
+    this.isReady = true;
+  }
+
+  getUserName(userID) {
+    return this.userMap.get(userID) || `User ${userID}`;
+  }
+
+  updateUserMap(users) {
+    this.userMap.clear();
+    for (const user of users) {
+      this.userMap.set(user.id, user.email);
+    }
   }
 
   onRegister(editor) {
@@ -27,8 +58,8 @@ export class CollabPlugin extends Plugin {
 
     const initialState = {
       model: this.model,
-      version: 0,
-      clientID: this.clientID,
+      version: this.version || 0,
+      userID: this.userID,
     };
     this.plugin = collab(initialState);
     this.collabState = {
@@ -54,13 +85,12 @@ export class CollabPlugin extends Plugin {
 
       if (message.error === "Version mismatch") {
         const result = await this.backendManager.getSteps(
-          message.documentId,
+          message.documentId.replace("cloud-", ""),
           this.getVersion(),
         );
-        if (result.steps && result.steps.length > 0) {
-          this.receive(result.steps, result.clientIDs);
-        } else {
-          // Fallback to snapshot
+
+        if (result.error === "HISTORY_TOO_OLD") {
+          // Fallback to snapshot because we are too far behind
           const unconfirmed = this.sendableSteps()?.steps || [];
           await this.persistenceManager.load(this.editor.documentId);
           // After loading, the model and its version are updated.
@@ -79,14 +109,23 @@ export class CollabPlugin extends Plugin {
               });
             }
           }
+        } else if (result.steps && result.steps.length > 0) {
+          this.receive(result.steps, result.clientIDs);
         }
         return;
       }
 
       if (message.steps) {
-        const clientIDs = message.steps.map(() => message.clientID);
-        this.receive(message.steps, clientIDs);
-        if (message.clientID !== this.collabState.collab.config.clientID) {
+        const userIDs = message.steps.map(() => message.userID);
+        this.receive(message.steps, userIDs);
+        if (message.userID !== this.collabState.collab.config.userID) {
+          this.editor.getView().render();
+        }
+      }
+
+      if (message.cursor) {
+        if (message.userID !== this.collabState.collab.config.userID) {
+          this.remoteCursors.set(message.userID, message.cursor);
           this.editor.getView().render();
         }
       }
@@ -108,6 +147,15 @@ export class CollabPlugin extends Plugin {
             ...sendable,
           }),
         );
+      } else {
+        this.socket.send(
+          JSON.stringify({
+            documentId: this.editor.documentId.replace("cloud-", ""),
+            version: this.getVersion(),
+            cursor: this.model.cursor,
+            userID: this.userID,
+          }),
+        );
       }
     }
     this.pollTimeout = setTimeout(() => this.poll(), 1000);
@@ -127,107 +175,131 @@ export class CollabPlugin extends Plugin {
 
   _combineInsertCharsInUnconfirmed(unconfirmed) {
     if (unconfirmed.length < 2) {
-        return unconfirmed;
+      return unconfirmed;
     }
 
     const newUnconfirmed = [];
     let i = 0;
     while (i < unconfirmed.length) {
-        const currentRebaseable = unconfirmed[i];
-        const currentStep = currentRebaseable.step;
+      const currentRebaseable = unconfirmed[i];
+      const currentStep = currentRebaseable.step;
 
-        if ((currentStep instanceof InsertCharCommand || currentStep instanceof InsertTextCommand)) {
-            let combinedText = (currentStep instanceof InsertCharCommand) ? currentStep.char : currentStep.text;
-            let startPos = currentStep.pos;
-            let origin = currentRebaseable.origin;
-            let lastIndex = i;
+      if (
+        currentStep instanceof InsertCharCommand ||
+        currentStep instanceof InsertTextCommand
+      ) {
+        let combinedText =
+          currentStep instanceof InsertCharCommand
+            ? currentStep.char
+            : currentStep.text;
+        let startPos = currentStep.pos;
+        let origin = currentRebaseable.origin;
+        let lastIndex = i;
 
-            for (let j = i + 1; j < unconfirmed.length; j++) {
-                const nextRebaseable = unconfirmed[j];
-                const nextStep = nextRebaseable.step;
+        for (let j = i + 1; j < unconfirmed.length; j++) {
+          const nextRebaseable = unconfirmed[j];
+          const nextStep = nextRebaseable.step;
 
-                if ((nextStep instanceof InsertCharCommand || nextStep instanceof InsertTextCommand) &&
-                    nextStep.pos.line === startPos.line &&
-                    nextStep.pos.ch === startPos.ch + combinedText.length) {
-
-                    const nextText = (nextStep instanceof InsertCharCommand) ? nextStep.char : nextStep.text;
-                    combinedText += nextText;
-                    lastIndex = j;
-                } else {
-                    break; // Sequence broken
-                }
-            }
-
-            if (lastIndex > i) {
-                // Combination happened
-                const combinedCommand = new InsertTextCommand(combinedText, startPos);
-                const inverted = combinedCommand.invert();
-                newUnconfirmed.push(new Rebaseable(combinedCommand, inverted, origin));
-                i = lastIndex + 1;
-            } else {
-                // No combination
-                newUnconfirmed.push(currentRebaseable);
-                i++;
-            }
-        } else {
-            // Not an insert command
-            newUnconfirmed.push(currentRebaseable);
-            i++;
+          if (
+            (nextStep instanceof InsertCharCommand ||
+              nextStep instanceof InsertTextCommand) &&
+            nextStep.pos.line === startPos.line &&
+            nextStep.pos.ch === startPos.ch + combinedText.length
+          ) {
+            const nextText =
+              nextStep instanceof InsertCharCommand
+                ? nextStep.char
+                : nextStep.text;
+            combinedText += nextText;
+            lastIndex = j;
+          } else {
+            break; // Sequence broken
+          }
         }
+
+        if (lastIndex > i) {
+          // Combination happened
+          const combinedCommand = new InsertTextCommand(combinedText, startPos);
+          const inverted = combinedCommand.invert();
+          newUnconfirmed.push(
+            new Rebaseable(combinedCommand, inverted, origin),
+          );
+          i = lastIndex + 1;
+        } else {
+          // No combination
+          newUnconfirmed.push(currentRebaseable);
+          i++;
+        }
+      } else {
+        // Not an insert command
+        newUnconfirmed.push(currentRebaseable);
+        i++;
+      }
     }
     return newUnconfirmed;
   }
 
   _combineDeleteCharsInUnconfirmed(unconfirmed) {
     if (unconfirmed.length < 2) {
-        return unconfirmed;
+      return unconfirmed;
     }
 
     const newUnconfirmed = [];
     let i = 0;
     while (i < unconfirmed.length) {
-        const currentRebaseable = unconfirmed[i];
-        const currentStep = currentRebaseable.step;
+      const currentRebaseable = unconfirmed[i];
+      const currentStep = currentRebaseable.step;
 
-        // Combine backward deletions
-        if (currentStep instanceof DeleteCharCommand && currentStep.pos.ch > 0) {
-            let selectionStart = { line: currentStep.pos.line, ch: currentStep.pos.ch - 1 };
-            let selectionEnd = { ...currentStep.pos };
-            let origin = currentRebaseable.origin;
-            let lastIndex = i;
+      // Combine backward deletions
+      if (currentStep instanceof DeleteCharCommand && currentStep.pos.ch > 0) {
+        let selectionStart = {
+          line: currentStep.pos.line,
+          ch: currentStep.pos.ch - 1,
+        };
+        let selectionEnd = { ...currentStep.pos };
+        let origin = currentRebaseable.origin;
+        let lastIndex = i;
 
-            for (let j = i + 1; j < unconfirmed.length; j++) {
-                const nextRebaseable = unconfirmed[j];
-                const nextStep = nextRebaseable.step;
+        for (let j = i + 1; j < unconfirmed.length; j++) {
+          const nextRebaseable = unconfirmed[j];
+          const nextStep = nextRebaseable.step;
 
-                if (nextStep instanceof DeleteCharCommand &&
-                    nextStep.pos.line === selectionStart.line &&
-                    nextStep.pos.ch === selectionStart.ch) {
-                    
-                    selectionStart.ch--;
-                    lastIndex = j;
-                } else {
-                    break; // Sequence broken
-                }
-            }
-
-            if (lastIndex > i) {
-                // Combination happened
-                const combinedCommand = new DeleteSelectionCommand({ start: selectionStart, end: selectionEnd });
-                combinedCommand.text = this.editor.getModel().getTextInRange(selectionStart, selectionEnd);
-                const inverted = combinedCommand.invert();
-                newUnconfirmed.push(new Rebaseable(combinedCommand, inverted, origin));
-                i = lastIndex + 1;
-            } else {
-                // No combination
-                newUnconfirmed.push(currentRebaseable);
-                i++;
-            }
-        } else {
-            // Not a backward delete command
-            newUnconfirmed.push(currentRebaseable);
-            i++;
+          if (
+            nextStep instanceof DeleteCharCommand &&
+            nextStep.pos.line === selectionStart.line &&
+            nextStep.pos.ch === selectionStart.ch
+          ) {
+            selectionStart.ch--;
+            lastIndex = j;
+          } else {
+            break; // Sequence broken
+          }
         }
+
+        if (lastIndex > i) {
+          // Combination happened
+          const combinedCommand = new DeleteSelectionCommand({
+            start: selectionStart,
+            end: selectionEnd,
+          });
+          combinedCommand.text = this.editor
+            .getModel()
+            .getTextInRange(selectionStart, selectionEnd);
+          const inverted = combinedCommand.invert();
+          newUnconfirmed.push(
+            new Rebaseable(combinedCommand, inverted, origin),
+          );
+          i = lastIndex + 1;
+        } else {
+          // No combination
+          newUnconfirmed.push(currentRebaseable);
+          i++;
+        }
+      } else {
+        // Not a backward delete command
+        newUnconfirmed.push(currentRebaseable);
+        i++;
+      }
     }
     return newUnconfirmed;
   }
@@ -251,8 +323,8 @@ export class CollabPlugin extends Plugin {
     };
   }
 
-  receive(steps, clientIDs) {
-    const newState = receiveTransaction(this.collabState, steps, clientIDs);
+  receive(steps, userIDs) {
+    const newState = receiveTransaction(this.collabState, steps, userIDs);
     this.collabState = newState;
     this.editor.model = newState.model;
     this.editor.view.model = newState.model;
@@ -272,6 +344,7 @@ export class CollabPlugin extends Plugin {
     if (this.socket) {
       this.socket.close();
     }
+    this.remoteCursors.clear();
     console.log("CollabPlugin destroyed");
   }
 }

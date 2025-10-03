@@ -114,7 +114,7 @@ export class FileManager extends Persistence {
         if (saveData.selection) {
           this.model.setSelection(
             saveData.selection.start,
-            saveData.selection.end
+            saveData.selection.end,
           );
         }
 
@@ -131,7 +131,6 @@ export class FileManager extends Persistence {
     const content = JSON.stringify(this.model.lines);
     const titlePage = this.titlePage.model.getData();
     const saveData = {
-      content,
       titlePage,
       content,
       fileName: this.currentFileName,
@@ -185,7 +184,7 @@ export class FileManager extends Persistence {
         if (fileData.selection) {
           this.model.setSelection(
             fileData.selection.start,
-            fileData.selection.end
+            fileData.selection.end,
           );
         }
 
@@ -364,10 +363,14 @@ export class FileManager extends Persistence {
     if (!saved) {
       // If there's no autosave, there are "unsaved changes" only if
       // the user has typed something into the initial blank document.
-      const initialContent = JSON.stringify([{
-        type: "action",
-        segments: [{ text: "", bold: false, italic: false, underline: false }],
-      }]);
+      const initialContent = JSON.stringify([
+        {
+          type: "action",
+          segments: [
+            { text: "", bold: false, italic: false, underline: false },
+          ],
+        },
+      ]);
       return currentContent !== initialContent;
     }
 

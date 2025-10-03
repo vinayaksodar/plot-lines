@@ -1,6 +1,7 @@
 class AuthService {
   constructor() {
     this.currentUser = null;
+    this.reauthPromise = null;
     try {
       this.currentUser = JSON.parse(localStorage.getItem("currentUser"));
     } catch (e) {
@@ -22,6 +23,15 @@ class AuthService {
     localStorage.removeItem("currentUser");
   }
 
+  reauthenticate() {
+    if (!this.reauthPromise) {
+      this.reauthPromise = this.showLoginModal().finally(() => {
+        this.reauthPromise = null;
+      });
+    }
+    return this.reauthPromise;
+  }
+
   showLoginModal() {
     return new Promise((resolve, reject) => {
       if (document.querySelector(".auth-modal"))
@@ -31,9 +41,9 @@ class AuthService {
       modal.className = "auth-modal";
       modal.innerHTML = `
                 <div class="auth-content">
-                    <h3>Login or Signup for Cloud Storage</h3>
+                    <h3>Login or Signup</h3>
                     <div class="auth-form">
-                        <input type="text" id="auth-name" placeholder="Name" />
+                        <input type="text" id="auth-email" placeholder="email" />
                         <input type="password" id="auth-password" placeholder="Password" />
                         <div class="auth-actions">
                             <button class="btn" id="auth-login">Login</button>
@@ -47,12 +57,12 @@ class AuthService {
       const cleanup = () => document.body.removeChild(modal);
 
       const handleLogin = async () => {
-        const name = modal.querySelector("#auth-name").value;
+        const email = modal.querySelector("#auth-email").value;
         const password = modal.querySelector("#auth-password").value;
         const response = await fetch("/api/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, password }),
+          body: JSON.stringify({ email, password }),
         });
         if (response.ok) {
           const { data } = await response.json();
@@ -60,22 +70,24 @@ class AuthService {
           cleanup();
           resolve(data);
         } else {
-          alert("Login failed");
+          const { error } = await response.json();
+          alert(`Login failed: ${error}`);
         }
       };
 
       const handleSignup = async () => {
-        const name = modal.querySelector("#auth-name").value;
+        const email = modal.querySelector("#auth-email").value;
         const password = modal.querySelector("#auth-password").value;
         const response = await fetch("/api/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, password }),
+          body: JSON.stringify({ email, password }),
         });
         if (response.ok) {
           alert("Signup successful! Please login.");
         } else {
-          alert("Signup failed");
+          const { error } = await response.json();
+          alert(`Signup failed: ${error}`);
         }
       };
 

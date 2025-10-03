@@ -34,7 +34,7 @@ export class Editor {
 
   destroyPlugin(pluginName) {
     const pluginIndex = this.plugins.findIndex(
-      (p) => p.constructor.name === pluginName
+      (p) => p.constructor.name === pluginName,
     );
     if (pluginIndex === -1) return;
 

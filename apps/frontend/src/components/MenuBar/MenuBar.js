@@ -31,8 +31,8 @@ export function createMenuBar(persistence, editorController) {
         }
       },
     },
-    Insert: {
-      "Dummy Action": () => {},
+    Share: {
+      "Manage access": () => {},
     },
   };
 

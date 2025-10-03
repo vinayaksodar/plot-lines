@@ -47,7 +47,7 @@ const persistenceManager = new PersistenceManager(
   null,
   fileManager,
   backendManager,
-  titlePage
+  titlePage,
 );
 
 // --- Editor Instantiation ---
@@ -73,7 +73,7 @@ const sideMenu = createSideMenu(
   titlePage,
   editorArea,
   editorWrapper,
-  statisticsView
+  statisticsView,
 );
 const mainArea = document.createElement("div");
 mainArea.className = "main-area";

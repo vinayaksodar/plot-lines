@@ -4,7 +4,7 @@ export function createSideMenu(
   titlePage,
   editorArea,
   editorWrapper,
-  statisticsView
+  statisticsView,
 ) {
   const sideMenu = document.createElement("div");
   sideMenu.className = "side-menu";

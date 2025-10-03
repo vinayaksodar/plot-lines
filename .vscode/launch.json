@@ -10,6 +10,14 @@
       "name": "Launch Frontend",
       "url": "http://localhost:5173",
       "webRoot": "${workspaceFolder}/apps/frontend"
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Backend",
+      "port": 9229,
+      "restart": true,
+      "cwd": "${workspaceFolder}/apps/backend"
     }
   ]
 }

@@ -41,3 +41,6 @@ apps/frontend/src/core/handlers/KeyboardHandler.test.js
 
 editor_old
 packages/editor/src/core/handlers/KeyboardHandler.test.js
+
+# Environment variables
+apps/backend/.env

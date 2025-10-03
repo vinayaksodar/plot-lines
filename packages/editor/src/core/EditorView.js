@@ -246,6 +246,8 @@ export class EditorView {
     this.currentMatchIndex = -1;
     this.matchesByLine = new Map();
 
+    this.remoteCursors = new Map();
+
     this.cursorEl = document.createElement("div");
     this.cursorEl.className = "cursor";
     this.cursorEl.style.position = "absolute";
@@ -437,6 +439,7 @@ export class EditorView {
     this.container.appendChild(bottomSpacer);
 
     this.updateCursor();
+    this._renderRemoteCursors();
   }
 
   _createPageBreak() {
@@ -596,6 +599,93 @@ export class EditorView {
     }
 
     this.pauseBlinkAndRestart();
+  }
+
+  _renderRemoteCursors() {
+    if (!this.editor.collab) return;
+
+    const oldCursors = new Set(this.remoteCursors.keys());
+
+    for (const [clientID, cursor] of this.editor.collab.remoteCursors) {
+      oldCursors.delete(clientID);
+      let cursorEl = this.remoteCursors.get(clientID);
+      if (!cursorEl) {
+        cursorEl = document.createElement("div");
+        cursorEl.className = "remote-cursor";
+        cursorEl.style.position = "absolute";
+
+        const nameLabel = document.createElement("div");
+        nameLabel.className = "remote-cursor-label";
+        nameLabel.textContent = this.editor.collab.getUserName(clientID);
+        cursorEl.appendChild(nameLabel);
+
+        this.container.appendChild(cursorEl);
+        this.remoteCursors.set(clientID, cursorEl);
+      }
+
+      const { line, ch } = cursor;
+      const lineEl = this.container.querySelector(`[data-line="${line}"]`);
+
+      if (!lineEl) {
+        cursorEl.style.display = "none";
+        continue;
+      }
+      cursorEl.style.display = "block";
+
+      const walker = document.createTreeWalker(
+        lineEl,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false,
+      );
+      let remaining = ch;
+      let targetNode = null;
+      let offset = 0;
+      while (walker.nextNode()) {
+        const len = walker.currentNode.textContent.length;
+        if (remaining <= len) {
+          targetNode = walker.currentNode;
+          offset = remaining;
+          break;
+        }
+        remaining -= len;
+      }
+      if (!targetNode) {
+        if (lineEl.lastChild && lineEl.lastChild.nodeType === Node.TEXT_NODE) {
+          targetNode = lineEl.lastChild;
+          offset = lineEl.lastChild.textContent.length;
+        } else {
+          const emptyNode = document.createTextNode("\u200B");
+          lineEl.appendChild(emptyNode);
+          targetNode = emptyNode;
+          offset = 0;
+        }
+      }
+
+      const range = document.createRange();
+      range.setStart(targetNode, offset);
+      range.setEnd(targetNode, offset);
+      const rects = range.getClientRects();
+      if (rects.length > 0) {
+        const rect = rects[rects.length - 1];
+        const containerRect = this.container.getBoundingClientRect();
+        cursorEl.style.top = `${
+          rect.top - containerRect.top + this.container.scrollTop
+        }px`;
+        cursorEl.style.left = `${
+          rect.left - containerRect.left + this.container.scrollLeft
+        }px`;
+        cursorEl.style.height = `${rect.height}px`;
+      }
+    }
+
+    for (const clientID of oldCursors) {
+      const cursorEl = this.remoteCursors.get(clientID);
+      if (cursorEl) {
+        cursorEl.remove();
+        this.remoteCursors.delete(clientID);
+      }
+    }
   }
 
   startBlink() {

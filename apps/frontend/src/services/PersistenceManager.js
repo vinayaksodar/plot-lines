@@ -13,42 +13,45 @@ export class PersistenceManager extends Persistence {
     this.editor.destroyPlugin("CollabPlugin");
 
     if (isCloud) {
-        let user = authService.getCurrentUser();
-        if (!user) {
-            try {
-                user = await authService.showLoginModal();
-            } catch (e) {
-                return false; // User cancelled login, do not proceed
-            }
+      let user = authService.getCurrentUser();
+      if (!user) {
+        try {
+          user = await authService.showLoginModal();
+        } catch (e) {
+          return false; // User cancelled login, do not proceed
         }
+      }
 
+      try {
         const result = await this.backendManager.new(name, user.id);
-        if (result.error) {
-            alert(result.error);
-            return false; // Do not proceed
-        }
-
         this.editor.documentId = `cloud-${result.id}`;
-        this.editor.isCloudDocument = true;
+      } catch (error) {
+        console.error("Failed to create new cloud document:", error);
+        alert(`Failed to create new cloud document: ${error.message}`);
+        return false; // Do not proceed
+      }
 
-        const collabPlugin = new CollabPlugin({
-            serverUrl: "ws://localhost:3000",
-            backendManager: this.backendManager,
-            persistenceManager: this,
-            clientID: user.id,
-        });
-        this.editor.registerPlugin(collabPlugin);
+      this.editor.isCloudDocument = true;
+      const userMap = new Map([[user.id, user.email]]);
 
-        this.editor.getModel().setText("");
-        this.editor.focusEditor();
-        return true; // Success
+      const collabPlugin = new CollabPlugin({
+        serverUrl: "ws://localhost:3000",
+        backendManager: this.backendManager,
+        persistenceManager: this,
+        userID: user.id,
+        userMap,
+      });
+      this.editor.registerPlugin(collabPlugin);
 
+      this.editor.getModel().setText("");
+      this.editor.focusEditor();
+      return true; // Success
     } else {
-        this.editor.documentId = null;
-        this.editor.isCloudDocument = false;
-        this.editor.getModel().setText("");
-        this.editor.focusEditor();
-        return true; // Success
+      this.editor.documentId = null;
+      this.editor.isCloudDocument = false;
+      this.editor.getModel().setText("");
+      this.editor.focusEditor();
+      return true; // Success
     }
   }
 
@@ -56,37 +59,60 @@ export class PersistenceManager extends Persistence {
     this.editor.destroyPlugin("CollabPlugin");
 
     if (documentId.startsWith("cloud-")) {
-        let user = authService.getCurrentUser();
-        if (!user) {
-            try {
-                user = await authService.showLoginModal();
-            } catch (e) {
-                return; // User cancelled login
-            }
+      let user = authService.getCurrentUser();
+      if (!user) {
+        try {
+          user = await authService.showLoginModal();
+        } catch (e) {
+          return; // User cancelled login
         }
+      }
+
+      this.editor.documentId = documentId;
+      this.editor.isCloudDocument = true;
+
+      try {
+        const doc = await this.backendManager.load(
+          documentId.replace("cloud-", ""),
+        );
+        if (doc && doc.content) {
+          const payload = JSON.parse(doc.content);
+          if (payload.lines && payload.lines.length > 0) {
+            this.editor.getModel().lines = payload.lines;
+          } else {
+            this.editor.getModel().setText("");
+          }
+          if (payload.titlePage) {
+            this.titlePage.model.update(payload.titlePage);
+            this.titlePage.render();
+          }
+          this.editor.getModel().version = doc.snapshot_ot_version;
+        } else {
+          this.editor.getModel().setText("");
+        }
+      } catch (error) {
+        console.error("Failed to load cloud document:", error);
+        return; // Do not proceed
+      }
 
       const collabPlugin = new CollabPlugin({
         serverUrl: "ws://localhost:3000",
         backendManager: this.backendManager,
         persistenceManager: this,
-        clientID: user.id,
+        userID: user.id,
+        userMap: new Map(),
+        version: this.editor.getModel().version,
       });
       this.editor.registerPlugin(collabPlugin);
-
-      this.editor.documentId = documentId;
-      this.editor.isCloudDocument = true;
-      const { data: doc } = await this.backendManager.load(
-        documentId.replace("cloud-", "")
+      const stepsResult = await this.backendManager.getSteps(
+        documentId.replace("cloud-", ""),
+        this.editor.getModel().version,
       );
-      if (doc && doc.content) {
-        const payload = JSON.parse(doc.content);
-        this.editor.getModel().lines = payload.lines || [];
-        if (payload.titlePage) {
-            this.titlePage.model.update(payload.titlePage);
-            this.titlePage.render();
-        }
-        this.editor.getModel().version = doc.ot_version;
+
+      if (stepsResult.steps && stepsResult.steps.length > 0) {
+        collabPlugin.receive(stepsResult.steps, stepsResult.userIDs);
       }
+
       this.editor.getView().render();
     } else {
       this.editor.isCloudDocument = false;
@@ -96,33 +122,38 @@ export class PersistenceManager extends Persistence {
 
   async save(options) {
     try {
-        if (this.editor.isCloudDocument) {
-            if (!this.editor.documentId) {
-                // This case should ideally not be reached with the new workflow
-                // but as a fallback, we can treat it as a first save.
-                const name = prompt("Enter a name for your cloud document:");
-                if (!name) return;
-                await this.new(name, true);
-                return; 
-            }
-            // Save a snapshot for an existing cloud document
-            const payload = {
-                titlePage: this.titlePage.model.getData(),
-                lines: this.editor.getModel().lines,
-            };
-            const content = JSON.stringify(payload);
-            const ot_version = this.editor.collab.getVersion();
-            const documentId = this.editor.documentId.replace("cloud-", "");
-            await this.backendManager.createSnapshot(documentId, content, ot_version);
-
-        } else {
-          // This handles both new and existing local files
-          this.fileManager.save(options);
+      if (this.editor.isCloudDocument) {
+        if (!this.editor.documentId) {
+          // This case should ideally not be reached with the new workflow
+          // but as a fallback, we can treat it as a first save.
+          const name = prompt("Enter a name for your cloud document:");
+          if (!name) return;
+          await this.new(name, true);
+          return;
         }
-        this.showToast("Saved successfully");
+        // Save a snapshot for an existing cloud document
+        const payload = {
+          titlePage: this.titlePage.model.getData(),
+          lines: this.editor.getModel().lines,
+        };
+        const content = JSON.stringify(payload);
+        const ot_version = this.editor.collab
+          ? this.editor.collab.getVersion()
+          : 0;
+        const documentId = this.editor.documentId.replace("cloud-", "");
+        await this.backendManager.createSnapshot(
+          documentId,
+          content,
+          ot_version,
+        );
+      } else {
+        // This handles both new and existing local files
+        this.fileManager.save(options);
+      }
+      this.showToast("Saved successfully");
     } catch (e) {
-        console.error("Save failed:", e);
-        this.showToast("Save failed", "error");
+      console.error("Save failed:", e);
+      this.showToast("Save failed", "error");
     }
   }
 
@@ -130,11 +161,21 @@ export class PersistenceManager extends Persistence {
     const localFiles = await this.fileManager.list();
     const user = authService.getCurrentUser();
     if (user) {
-      const cloudFiles = await this.backendManager.list(user.id);
-      return [
-        ...localFiles,
-        ...cloudFiles.map((f) => ({ ...f, name: f.name, id: `cloud-${f.id}` })),
-      ];
+      try {
+        const cloudFiles = await this.backendManager.list(user.id);
+        return [
+          ...localFiles,
+          ...cloudFiles.map((f) => ({
+            ...f,
+            name: f.name,
+            id: `cloud-${f.id}`,
+          })),
+        ];
+      } catch (error) {
+        console.error("Failed to list cloud files:", error);
+        // Return only local files if cloud files fail to load
+        return localFiles;
+      }
     }
     return localFiles;
   }
@@ -160,13 +201,14 @@ export class PersistenceManager extends Persistence {
     modal.innerHTML = `
       <div class="file-manager-content">
         <h3>Manage Files</h3>
-        ${!user ? '<p class="auth-prompt">Log in to create and view cloud documents. ☁️</p>' : ''}
+        ${!user ? '<p class="auth-prompt">Log in to create and view cloud documents. ☁️</p>' : ""}
         <div class="file-list"></div>
         <div class="file-manager-actions">
           <button class="btn" data-action="new-local">New Local Document</button>
-          ${user 
-            ? '<button class="btn" data-action="new-cloud">New Cloud Document</button>'
-            : '<button class="btn" data-action="login">Login / Signup</button>' 
+          ${
+            user
+              ? '<button class="btn" data-action="new-cloud">New Cloud Document</button>'
+              : '<button class="btn" data-action="login">Login / Signup</button>'
           }
           <button class="btn" data-action="close">Close</button>
         </div>
@@ -175,10 +217,10 @@ export class PersistenceManager extends Persistence {
 
     const fileList = modal.querySelector(".file-list");
     this.list().then((savedFiles) => {
-      if (Object.keys(savedFiles).length === 0) {
+      if (savedFiles.length === 0) {
         fileList.innerHTML = "<p>No saved files</p>";
       } else {
-        Object.values(savedFiles).forEach((fileData) => {
+        savedFiles.forEach((fileData) => {
           const fileItem = document.createElement("div");
           fileItem.className = "file-item";
           const isCloud = fileData.id && fileData.id.startsWith("cloud-");
@@ -207,11 +249,11 @@ export class PersistenceManager extends Persistence {
         this.editor.focusEditor();
       } else if (action === "login") {
         try {
-            await authService.showLoginModal();
-            document.body.removeChild(modal);
-            this.showFileManager(); // Refresh the modal
+          await authService.showLoginModal();
+          document.body.removeChild(modal);
+          this.showFileManager(); // Refresh the modal
         } catch (e) {
-            // User cancelled login, do nothing
+          // User cancelled login, do nothing
         }
       } else if (action === "new-local") {
         await this.new(undefined, false);
@@ -231,13 +273,18 @@ export class PersistenceManager extends Persistence {
         document.body.removeChild(modal);
       } else if (action === "delete") {
         if (confirm(`Delete file "${fileName}"?`)) {
-          if (fileName.startsWith("cloud-")) {
-            await this.backendManager.delete(fileName.replace("cloud-", ""));
-          } else {
-            this.fileManager.deleteFromLocalStorage(fileName);
+          try {
+            if (fileName.startsWith("cloud-")) {
+              await this.backendManager.delete(fileName.replace("cloud-", ""));
+            } else {
+              this.fileManager.deleteFromLocalStorage(fileName);
+            }
+            document.body.removeChild(modal);
+            this.showFileManager(); // Refresh the modal
+          } catch (error) {
+            console.error("Failed to delete file:", error);
+            this.showToast("Failed to delete file", "error");
           }
-          document.body.removeChild(modal);
-          this.showFileManager(); // Refresh the modal
         }
       }
     });
@@ -245,21 +292,21 @@ export class PersistenceManager extends Persistence {
     document.body.appendChild(modal);
   }
 
-  showToast(message, type = 'success') {
-    const toast = document.createElement('div');
+  showToast(message, type = "success") {
+    const toast = document.createElement("div");
     toast.className = `toast-notification ${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
 
     setTimeout(() => {
-        toast.classList.add('show');
+      toast.classList.add("show");
     }, 100); // Delay to allow for CSS transition
 
     setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 500); // Wait for fade out transition
+      toast.classList.remove("show");
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 500); // Wait for fade out transition
     }, 3000); // Display for 3 seconds
   }
 }

@@ -1,4 +1,5 @@
 import { Persistence } from "@plot-lines/editor";
+import { authService } from "./Auth";
 
 export class BackendManager extends Persistence {
   constructor(editor) {
@@ -6,29 +7,64 @@ export class BackendManager extends Persistence {
     this.baseUrl = "http://localhost:3000/api";
   }
 
+  _getHeaders() {
+    const headers = {
+      "Content-Type": "application/json",
+    };
+    const user = authService.getCurrentUser();
+    if (user && user.token) {
+      headers["Authorization"] = `Bearer ${user.token}`;
+    }
+    return headers;
+  }
+
+  async _fetch(url, options = {}, isRetry = false) {
+    const fullUrl = `${this.baseUrl}${url}`;
+    const opts = {
+      ...options,
+      headers: this._getHeaders(),
+    };
+
+    const response = await fetch(fullUrl, opts);
+
+    if (response.status === 401 && !isRetry) {
+      try {
+        await authService.reauthenticate();
+        // Retry the request with the new token
+        return this._fetch(url, options, true);
+      } catch (error) {
+        // Re-authentication failed (e.g., user cancelled)
+        throw new Error("Authentication required.");
+      }
+    }
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type");
+      let error;
+      if (contentType && contentType.includes("application/json")) {
+        const result = await response.json();
+        error = new Error(
+          result.error || `HTTP error! status: ${response.status}`,
+        );
+      } else {
+        const text = await response.text();
+        error = new Error(text || `HTTP error! status: ${response.status}`);
+      }
+      throw error;
+    }
+
+    return response.json();
+  }
+
   async new(name, userId) {
-    const response = await fetch(`${this.baseUrl}/documents`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    return this._fetch("/documents", {
+      method: "POST",
       body: JSON.stringify({ name, userId }),
     });
-    // Always parse the JSON body, whether it's a success or an error
-    const result = await response.json();
-    if (!response.ok) {
-        // If the response is not ok, the result should contain the error message
-        return result;
-    }
-    return result;
   }
 
   async load(documentId) {
-    const response = await fetch(`${this.baseUrl}/documents/${documentId}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const result = await response.json();
+    const result = await this._fetch(`/documents/${documentId}`);
     if (result.data && result.data.content) {
       this.editor.getModel().lines = JSON.parse(result.data.content);
     }
@@ -36,46 +72,43 @@ export class BackendManager extends Persistence {
   }
 
   async createSnapshot(documentId, content, ot_version) {
-    const response = await fetch(`${this.baseUrl}/documents/${documentId}/snapshots`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content, ot_version }),
+    return this._fetch(`/documents/${documentId}/snapshots`, {
+      method: "POST",
+      body: JSON.stringify({ content, ot_version }),
     });
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
   }
 
   async getSteps(documentId, version) {
-    const response = await fetch(
-      `${this.baseUrl}/documents/${documentId}/steps?since=${version}`,
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
+    return this._fetch(`/documents/${documentId}/steps?since=${version}`);
   }
 
   async delete(documentId) {
-    const response = await fetch(`${this.baseUrl}/documents/${documentId}`, {
+    return this._fetch(`/documents/${documentId}`, {
       method: "DELETE",
     });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
   }
 
   async list(userId) {
-    const response = await fetch(`${this.baseUrl}/users/${userId}/documents`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${this.status}`);
-    }
-    const result = await response.json();
+    const result = await this._fetch(`/users/${userId}/documents`);
     return result.data;
+  }
+
+  async getCollaborators(documentId) {
+    const result = await this._fetch(`/documents/${documentId}/collaborators`);
+    return result.data;
+  }
+
+  async addCollaborator(documentId, email) {
+    return this._fetch(`/documents/${documentId}/collaborators`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async removeCollaborator(documentId, userId) {
+    return this._fetch(`/documents/${documentId}/collaborators/${userId}`, {
+      method: "DELETE",
+    });
   }
 
   async manage() {

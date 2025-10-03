@@ -16,6 +16,28 @@
   border-radius: 1px;
 }
 
+.remote-cursor {
+  position: absolute;
+  width: 2px;
+  background: #ef4444;
+  border-radius: 1px;
+  z-index: 10;
+}
+
+.remote-cursor-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ef4444;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
 .selection {
   background: rgba(59, 130, 246, 0.2);
   border-radius: 2px;

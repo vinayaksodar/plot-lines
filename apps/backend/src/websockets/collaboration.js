@@ -1,5 +1,5 @@
-const WebSocket = require('ws');
-const db = require('../database.js');
+const WebSocket = require("ws");
+const db = require("../database.js");
 
 function broadcast(wss, documentId, message) {
   wss.clients.forEach((client) => {
@@ -17,22 +17,24 @@ function setupCollaboration(wss) {
 
     ws.on("message", (message) => {
       try {
-        const { documentId, version, steps, clientID } = JSON.parse(message);
+        const { documentId, ot_version, steps, userID } = JSON.parse(message);
 
         db.get(
-          "SELECT ot_version FROM documents WHERE id = ?",
+          "SELECT MAX(version) as latest_version FROM ot_steps WHERE document_id = ?",
           [documentId],
-          (err, doc) => {
+          (err, row) => {
             if (err) {
               return ws.send(JSON.stringify({ error: err.message }));
             }
-            if (!doc) {
-              return ws.send(JSON.stringify({ error: "Document not found" }));
-            }
-            if (doc.ot_version !== version) {
+            const latest_ot_version = row ? row.latest_version || 0 : 0;
+            if (latest_ot_version !== ot_version) {
               return ws.send(
                 JSON.stringify({ error: "Version mismatch", documentId }),
               );
+            }
+
+            if (!Array.isArray(steps)) {
+              return;
             }
 
             let newVersion = version;
@@ -40,10 +42,10 @@ function setupCollaboration(wss) {
               return new Promise((resolve, reject) => {
                 const stepVersion = version + i + 1;
                 const sql =
-                  "INSERT INTO ot_steps (document_id, version, step, client_id) VALUES (?, ?, ?, ?)";
+                  "INSERT INTO ot_steps (document_id, version, step, user_id) VALUES (?, ?, ?, ?)";
                 db.run(
                   sql,
-                  [documentId, stepVersion, JSON.stringify(step), clientID],
+                  [documentId, stepVersion, JSON.stringify(step), userID],
                   (err) => {
                     if (err) return reject(err);
                     resolve();
@@ -55,26 +57,17 @@ function setupCollaboration(wss) {
             Promise.all(promises)
               .then(() => {
                 newVersion += steps.length;
-                db.run(
-                  "UPDATE documents SET ot_version = ? WHERE id = ?",
-                  [newVersion, documentId],
-                  (err) => {
-                    if (err) {
-                      return ws.send(JSON.stringify({ error: err.message }));
-                    }
-                    broadcast(wss, documentId, {
-                      steps,
-                      clientID,
-                      version: newVersion,
-                    });
-                    ws.send(
-                      JSON.stringify({
-                        message: "success",
-                        version: newVersion,
-                        documentId,
-                      }),
-                    );
-                  },
+                broadcast(wss, documentId, {
+                  steps,
+                  userID,
+                  version: newVersion,
+                });
+                ws.send(
+                  JSON.stringify({
+                    message: "success",
+                    version: newVersion,
+                    documentId,
+                  }),
                 );
               })
               .catch((err) => {

@@ -1,20 +1,25 @@
-const express = require('express');
-const cors = require('cors');
-const documentRoutes = require('./routes/documents');
-const userRoutes = require('./routes/users');
-const authRoutes = require('./routes/auth');
+const express = require("express");
+const cors = require("cors");
+const documentRoutes = require("./routes/documents");
+const userRoutes = require("./routes/users");
+const authRoutes = require("./routes/auth");
+const { authenticateToken } = require("./routes/middleware");
+
+const indexRouter = require("./routes/index");
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
-app.use('/api/documents', documentRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api', authRoutes);
-
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
+app.use("/", indexRouter);
+app.use("/api/documents", authenticateToken, documentRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api", authRoutes);
 
 module.exports = app;

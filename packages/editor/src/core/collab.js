@@ -44,10 +44,10 @@ export function collab(config = {}) {
   console.log("[collab.js] collab, config:", config);
   const conf = {
     version: config.version || 0,
-    clientID:
-      config.clientID == null
+    userID:
+      config.userID == null
         ? Math.floor(Math.random() * 0xffffffff)
-        : config.clientID,
+        : config.userID,
   };
 
   return {
@@ -78,21 +78,21 @@ export function collab(config = {}) {
   };
 }
 
-export function receiveTransaction(state, steps, clientIDs, options = {}) {
+export function receiveTransaction(state, steps, userIDs, options = {}) {
   console.log(
     "[collab.js] receiveTransaction, state:",
     state,
     "steps:",
     steps,
-    "clientIDs:",
-    clientIDs,
+    "userIDs:",
+    userIDs,
   );
   const collabState = state.collab;
   const version = collabState.version + steps.length;
-  const ourID = collabState.config.clientID;
+  const ourUserID = collabState.config.userID;
 
   let ours = 0;
-  while (ours < clientIDs.length && clientIDs[ours] == ourID) ++ours;
+  while (ours < userIDs.length && userIDs[ours] == ourUserID) ++ours;
   let unconfirmed = collabState.unconfirmed.slice(ours);
   steps = ours ? steps.slice(ours) : steps;
 
@@ -193,7 +193,7 @@ export function sendableSteps(state) {
   return {
     version: collabState.version,
     steps: collabState.unconfirmed.map((s) => s.step.toJSON()),
-    clientID: collabState.config.clientID,
+    userID: collabState.config.userID,
     get origins() {
       return (
         this._origins ||

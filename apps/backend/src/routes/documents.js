@@ -1,145 +1,40 @@
-const express = require('express');
-const db = require('../database.js');
+const express = require("express");
+const {
+  getDocument,
+  createNewDocument,
+  deleteDocument,
+  createSnapshot,
+  getSteps,
+  addCollaborator,
+  removeCollaborator,
+  getCollaborators,
+} = require("../controllers/documentController.js");
+const { checkDocumentAccess, checkDocumentOwner } = require("./middleware.js");
 const router = express.Router();
 
-function createDocument(req, res) {
-    const { name, userId } = req.body;
-    const docSql = "INSERT INTO documents (name, user_id) VALUES (?,?)";
-    db.run(docSql, [name, userId], function (err) {
-        if (err) {
-            return res.status(400).json({ error: err.message });
-        }
-        const docId = this.lastID;
-        const snapSql = "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, 0, 0)";
-        const initialContent = JSON.stringify([{ type: 'action', segments: [{ text: '' }] }]);
-        db.run(snapSql, [docId, initialContent], function(err) {
-            if (err) {
-                return res.status(400).json({ error: err.message });
-            }
-            res.json({
-                message: "success",
-                id: docId,
-            });
-        });
-    });
-}
+router.get("/:id", checkDocumentAccess, getDocument);
 
-router.get("/:id", (req, res) => {
-  const sql = `
-    SELECT
-        d.id,
-        d.name,
-        d.user_id,
-        d.ot_version,
-        s.content,
-        s.snapshot_version
-    FROM documents d
-    LEFT JOIN snapshots s ON d.id = s.document_id
-    WHERE d.id = ?
-    ORDER BY s.snapshot_version DESC
-    LIMIT 1;
-  `;
-  const params = [req.params.id];
-  db.get(sql, params, (err, row) => {
-    if (err) {
-      res.status(400).json({ error: err.message });
-      return;
-    }
-    res.json({
-      message: "success",
-      data: row,
-    });
-  });
-});
+router.post("/", createNewDocument);
 
-router.post("/", (req, res) => {
-  const { name, userId } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: "No name specified" });
-  }
-  if (!userId) {
-    return res.status(400).json({ error: "No userId specified" });
-  }
+router.delete("/:id", checkDocumentAccess, checkDocumentOwner, deleteDocument);
 
-  db.get("SELECT is_premium FROM users WHERE id = ?", [userId], (err, user) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
+router.post("/:id/snapshots", checkDocumentAccess, createSnapshot);
 
-    if (!user) {
-        return res.status(404).json({ error: "User not found" });
-    }
+router.get("/:id/steps", checkDocumentAccess, getSteps);
 
-    if (user.is_premium) {
-        // Premium users can create unlimited documents
-        createDocument(req, res);
-    } else {
-        // Free users can create one document
-        const sql = "SELECT COUNT(*) as count FROM documents WHERE user_id = ?";
-        db.get(sql, [userId], (err, row) => {
-            if (err) {
-                return res.status(400).json({ error: err.message });
-            }
-            if (row.count > 0) {
-                return res.status(403).json({ error: "Free users can only create one cloud document. Please delete your existing cloud document to create a new one." });
-            }
-            createDocument(req, res);
-        });
-    }
-  });
-});
+router.post(
+  "/:id/collaborators",
+  checkDocumentAccess,
+  checkDocumentOwner,
+  addCollaborator,
+);
 
-router.delete("/:id", (req, res) => {
-  const id = req.params.id;
-  db.run("DELETE FROM documents WHERE id = ?", id, function (err, result) {
-    if (err) {
-      res.status(400).json({ error: res.message });
-      return;
-    }
-    res.json({ message: "deleted", changes: this.changes });
-  });
-});
+router.delete(
+  "/:id/collaborators/:userId",
+  checkDocumentAccess,
+  removeCollaborator,
+);
 
-router.post("/:id/snapshots", (req, res) => {
-  const { content, ot_version } = req.body;
-  const documentId = req.params.id;
-
-  db.get("SELECT MAX(snapshot_version) as max_version FROM snapshots WHERE document_id = ?", [documentId], (err, row) => {
-      if (err) {
-          return res.status(400).json({ error: err.message });
-      }
-      const newSnapshotVersion = (row.max_version || 0) + 1;
-      const sql = "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, ?, ?)";
-      const params = [documentId, content, newSnapshotVersion, ot_version];
-      db.run(sql, params, function (err) {
-          if (err) {
-              return res.status(400).json({ error: err.message });
-          }
-          res.json({
-              message: "success",
-              snapshot_version: newSnapshotVersion
-          });
-      });
-  });
-});
-
-router.get("/:id/steps", (req, res) => {
-  const { since } = req.query;
-  const documentId = req.params.id;
-
-  const sql =
-    "SELECT * FROM ot_steps WHERE document_id = ? AND version > ? ORDER BY version ASC";
-  db.all(sql, [documentId, since || 0], (err, rows) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-    res.json({
-      message: "success",
-      steps: rows.map((r) => JSON.parse(r.step)),
-      versions: rows.map((r) => r.version),
-      clientIDs: rows.map((r) => r.client_id),
-    });
-  });
-});
+router.get("/:id/collaborators", checkDocumentAccess, getCollaborators);
 
 module.exports = router;

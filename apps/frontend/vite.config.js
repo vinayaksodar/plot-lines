@@ -7,11 +7,11 @@ export default defineConfig({
     port: 5173, // or change if needed
     allowedHosts: true,
     proxy: {
-        '/api': {
-            target: 'http://localhost:3000',
-            changeOrigin: true,
-        }
-    }
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: {
