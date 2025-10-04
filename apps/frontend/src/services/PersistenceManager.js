@@ -230,7 +230,7 @@ export class PersistenceManager extends Persistence {
     this.showFileManager();
   }
 
-  showFileManager() {
+  showFileManager(showCloseButton = true) {
     const user = authService.getCurrentUser();
 
     const modal = document.createElement("div");
@@ -248,7 +248,7 @@ export class PersistenceManager extends Persistence {
               ? '<button class="btn" data-action="new-cloud">New Cloud Document</button>'
               : '<button class="btn" data-action="login">Login / Signup</button>'
           }
-          <button class="btn" data-action="close">Close</button>
+          ${showCloseButton ? '<button class="btn" data-action="close">Close</button>' : ''}
         </div>
       </div>
     `;
@@ -321,7 +321,7 @@ export class PersistenceManager extends Persistence {
               this.closeEditor();
             }
             document.body.removeChild(modal);
-            this.showFileManager();
+            this.showFileManager(this.editor.documentId !== null);
           } catch (error) {
             console.error("Failed to delete file:", error);
             this.showToast("Failed to delete file", "error");
