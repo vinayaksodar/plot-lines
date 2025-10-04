@@ -34,7 +34,7 @@ let db = new sqlite3.Database(DBSOURCE, (err) => {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id INTEGER NOT NULL,
                 content TEXT,
-                version INTEGER NOT NULL,
+                snapshot_version INTEGER NOT NULL,
                 ot_version INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE
@@ -43,14 +43,14 @@ let db = new sqlite3.Database(DBSOURCE, (err) => {
       db.run(`CREATE TABLE IF NOT EXISTS ot_steps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id INTEGER NOT NULL,
-                version INTEGER NOT NULL,
+                ot_version INTEGER NOT NULL,
                 step TEXT NOT NULL,
                 user_id INTEGER NOT NULL,
                 FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )`);
       db.run(
-        `CREATE INDEX IF NOT EXISTS idx_ot_steps_document_version ON ot_steps (document_id, version)`,
+        `CREATE INDEX IF NOT EXISTS idx_ot_steps_document_version ON ot_steps (document_id, ot_version)`,
       );
       // Insert a default premium user for testing
       db.get("SELECT * FROM users WHERE id = 1", (err, row) => {

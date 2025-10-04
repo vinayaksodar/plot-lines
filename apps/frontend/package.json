@@ -14,7 +14,6 @@
   },
   "devDependencies": {
     "vite": "^7.0.4",
-    "@repo/eslint-config": "*",
-    "prettier": "^3.3.2"
+    "@repo/eslint-config": "*"
   }
 }

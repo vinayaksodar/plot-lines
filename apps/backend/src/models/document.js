@@ -25,7 +25,7 @@ const Document = {
             }
 
             const snapSql =
-              "INSERT INTO snapshots (document_id, content, version, ot_version) VALUES (?, ?, 0, 0)";
+              "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, 0, 0)";
             const initialContent = JSON.stringify([
               { type: "action", segments: [{ text: "" }] },
             ]);
@@ -44,14 +44,13 @@ const Document = {
       });
     });
   },
-
   findById: (id) => {
     return new Promise(async (resolve, reject) => {
       try {
         // First, get the latest OT version from the steps table
-        const versionRow = await new Promise((res, rej) => {
+        const otVersionRow = await new Promise((res, rej) => {
           db.get(
-            "SELECT MAX(version) as max_version FROM ot_steps WHERE document_id = ?",
+            "SELECT MAX(ot_version) as max_ot_version FROM ot_steps WHERE document_id = ?",
             [id],
             (err, row) => {
               if (err) return rej(err);
@@ -60,17 +59,22 @@ const Document = {
           );
         });
 
-        const ot_version = versionRow ? versionRow.max_version : 0;
+        const latest_ot_version = otVersionRow?.max_ot_version ?? 0;
 
         // Then, get the document and latest snapshot content
         const docSql = `
-          SELECT d.id, d.name, s.content, s.version as snapshot_version, s.ot_version as snapshot_ot_version
-          FROM documents d
-          LEFT JOIN snapshots s ON d.id = s.document_id
-          WHERE d.id = ?
-          ORDER BY s.version DESC
-          LIMIT 1;
-        `;
+        SELECT 
+          d.id, 
+          d.name, 
+          s.content, 
+          s.snapshot_version, 
+          s.ot_version as snapshot_ot_version
+        FROM documents d
+        LEFT JOIN snapshots s ON d.id = s.document_id
+        WHERE d.id = ?
+        ORDER BY s.snapshot_version DESC
+        LIMIT 1;
+      `;
 
         const docRow = await new Promise((res, rej) => {
           db.get(docSql, [id], (err, row) => {
@@ -80,7 +84,7 @@ const Document = {
         });
 
         if (docRow) {
-          docRow.ot_version = ot_version;
+          docRow.ot_version = latest_ot_version;
         }
 
         resolve(docRow);
@@ -161,13 +165,13 @@ const Document = {
   createSnapshot: (documentId, content, ot_version) => {
     return new Promise((resolve, reject) => {
       db.get(
-        "SELECT MAX(version) as max_version FROM snapshots WHERE document_id = ?",
+        "SELECT MAX(snapshot_version) as max_snapshot_version FROM snapshots WHERE document_id = ?",
         [documentId],
         (err, row) => {
           if (err) return reject(err);
-          const newSnapshotVersion = (row.max_version || 0) + 1;
+          const newSnapshotVersion = (row.max_snapshot_version || 0) + 1;
           const sql =
-            "INSERT INTO snapshots (document_id, content, version, ot_version) VALUES (?, ?, ?, ?)";
+            "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, ?, ?)";
           db.run(
             sql,
             [documentId, content, newSnapshotVersion, ot_version],
@@ -186,7 +190,7 @@ const Document = {
       try {
         const snapshot = await new Promise((res, rej) => {
           db.get(
-            `SELECT ot_version FROM snapshots WHERE document_id = ? ORDER BY version DESC LIMIT 1`,
+            `SELECT ot_version FROM snapshots WHERE document_id = ? ORDER BY snapshot_version DESC LIMIT 1`,
             [documentId],
             (err, row) => {
               if (err) return rej(err);
@@ -200,12 +204,12 @@ const Document = {
         }
 
         const sql =
-          "SELECT * FROM ot_steps WHERE document_id = ? AND version > ? ORDER BY version ASC";
+          "SELECT * FROM ot_steps WHERE document_id = ? AND ot_version > ? ORDER BY ot_version ASC";
         db.all(sql, [documentId, since || 0], (err, rows) => {
           if (err) return reject(err);
           resolve({
             steps: rows.map((r) => JSON.parse(r.step)),
-            versions: rows.map((r) => r.version),
+            ot_versions: rows.map((r) => r.ot_version),
             userIDs: rows.map((r) => r.user_id),
           });
         });

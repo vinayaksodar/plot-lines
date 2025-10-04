@@ -20,16 +20,16 @@ function setupCollaboration(wss) {
         const { documentId, ot_version, steps, userID } = JSON.parse(message);
 
         db.get(
-          "SELECT MAX(version) as latest_version FROM ot_steps WHERE document_id = ?",
+          "SELECT MAX(ot_version) as latest_ot_version FROM ot_steps WHERE document_id = ?",
           [documentId],
           (err, row) => {
             if (err) {
               return ws.send(JSON.stringify({ error: err.message }));
             }
-            const latest_ot_version = row ? row.latest_version || 0 : 0;
+            const latest_ot_version = row ? row.latest_ot_version || 0 : 0;
             if (latest_ot_version !== ot_version) {
               return ws.send(
-                JSON.stringify({ error: "Version mismatch", documentId }),
+                JSON.stringify({ error: "OT Version mismatch", documentId }),
               );
             }
 
@@ -37,15 +37,15 @@ function setupCollaboration(wss) {
               return;
             }
 
-            let newVersion = version;
+            let new_ot_version = ot_version;
             const promises = steps.map((step, i) => {
               return new Promise((resolve, reject) => {
-                const stepVersion = version + i + 1;
+                const step_ot_version = ot_version + i + 1;
                 const sql =
-                  "INSERT INTO ot_steps (document_id, version, step, user_id) VALUES (?, ?, ?, ?)";
+                  "INSERT INTO ot_steps (document_id, ot_version, step, user_id) VALUES (?, ?, ?, ?)";
                 db.run(
                   sql,
-                  [documentId, stepVersion, JSON.stringify(step), userID],
+                  [documentId, step_ot_version, JSON.stringify(step), userID],
                   (err) => {
                     if (err) return reject(err);
                     resolve();
@@ -56,16 +56,16 @@ function setupCollaboration(wss) {
 
             Promise.all(promises)
               .then(() => {
-                newVersion += steps.length;
+                new_ot_version += steps.length;
                 broadcast(wss, documentId, {
                   steps,
                   userID,
-                  version: newVersion,
+                  ot_version: new_ot_version,
                 });
                 ws.send(
                   JSON.stringify({
                     message: "success",
-                    version: newVersion,
+                    ot_version: new_ot_version,
                     documentId,
                   }),
                 );

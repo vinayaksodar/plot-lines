@@ -20,7 +20,7 @@ The editor follows a Model-View-Controller (MVC) pattern, with a dynamic plugin 
 
 ### Key Features
 
-- **Dynamic Real-Time Collaboration**: Collaboration is enabled on-demand for authenticated users on specific cloud-based documents. It uses an Operational Transformation (OT) backend to synchronize changes between multiple users in real-time. Client IDs are stable and tied to user IDs.
+- **Dynamic Real-Time Collaboration**: Collaboration is enabled on-demand for authenticated users on specific cloud-based documents. It uses an Operational Transformation (OT) backend to synchronize changes between multiple users in real-time. User IDs are stable and tied to user IDs.
 - **Hybrid Persistence Model**: Seamlessly supports two types of documents:
   - **Local Documents**: Saved directly to the browser's `localStorage`. The full rich-text screenplay structure and title page data are preserved using JSON.
   - **Cloud Documents**: Saved to a central backend, enabling collaboration and access from anywhere.
@@ -50,7 +50,7 @@ The editor follows a Model-View-Controller (MVC) pattern, with a dynamic plugin 
 
 The backend is a Node.js application built with the Express framework, providing a RESTful API for managing documents, users, and authentication. It uses a SQLite database for persistence and `ws` for real-time collaboration via WebSockets.
 
-- **Database**: The backend uses SQLite for its database, which is stored in the `main.db` file. The database schema includes tables for `documents`, `users`, `snapshots`, and `ot_steps` to manage document content, user data, and operational transformation steps for collaboration.
+- **Database**: The backend uses SQLite for its database, which is stored in the `main.db` file. The database schema includes tables for `documents`, `users`, `document_users`, `snapshots`, and `ot_steps` to manage document content, user data, collaborators, and operational transformation steps for collaboration.
 - **API Routes**: The backend exposes a set of RESTful API endpoints for various functionalities:
   - `POST /api/signup`: Creates a new user account.
   - `POST /api/login`: Authenticates a user and returns their data.
@@ -60,7 +60,10 @@ The backend is a Node.js application built with the Express framework, providing
   - `POST /api/documents/:id/snapshots`: Creates a new snapshot of a document.
   - `GET /api/documents/:id/steps`: Retrieves operational transformation steps for a document since a specified version.
   - `GET /api/users/:userId/documents`: Fetches all documents belonging to a specific user.
-- **WebSockets**: The backend uses the `ws` library to provide real-time collaboration features. When a client sends a message containing the `documentId`, `version`, `steps`, and `clientID`, the backend validates the information, saves the new operational transformation steps to the database, and broadcasts the updates to all connected clients.
+  - `POST /api/documents/:id/collaborators`: Adds a collaborator to a document.
+  - `DELETE /api/documents/:id/collaborators/:userId`: Removes a collaborator from a document.
+  - `GET /api/documents/:id/collaborators`: Retrieves all collaborators for a document.
+- **WebSockets**: The backend uses the `ws` library to provide real-time collaboration features. When a client sends a message containing the `documentId`, `version`, `steps`, and `userID`, the backend validates the information, saves the new operational transformation steps to the database, and broadcasts the updates to all connected clients.
 
 ## File Descriptions
 

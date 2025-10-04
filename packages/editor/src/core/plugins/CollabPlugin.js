@@ -21,7 +21,7 @@ export class CollabPlugin extends Plugin {
     persistenceManager,
     userID,
     userMap,
-    version,
+    ot_version,
   }) {
     super();
     this.serverUrl = serverUrl;
@@ -30,7 +30,7 @@ export class CollabPlugin extends Plugin {
     this.socket = null;
     this.collabState = null;
     this.userID = userID;
-    this.version = version;
+    this.ot_version = ot_version;
     this.pollTimeout = null;
     this.remoteCursors = new Map();
     this.userMap = userMap || new Map();
@@ -58,7 +58,7 @@ export class CollabPlugin extends Plugin {
 
     const initialState = {
       model: this.model,
-      version: this.version || 0,
+      ot_version: this.ot_version || 0,
       userID: this.userID,
     };
     this.plugin = collab(initialState);
@@ -91,11 +91,11 @@ export class CollabPlugin extends Plugin {
           // Fallback to snapshot because we are too far behind
           const unconfirmed = this.sendableSteps()?.steps || [];
           await this.persistenceManager.load(this.editor.documentId);
-          // After loading, the model and its version are updated.
+          // After loading, the model and its ot_version are updated.
           // We need to reset the collab state and re-apply unconfirmed changes.
           this.collabState = {
             ...this.collabState,
-            version: this.editor.getModel().version,
+            ot_version: this.editor.getModel().ot_version,
             unconfirmed: [],
           };
           if (unconfirmed.length > 0) {
@@ -108,7 +108,7 @@ export class CollabPlugin extends Plugin {
             }
           }
         } else if (result.steps && result.steps.length > 0) {
-          this.receive(result.steps, result.clientIDs);
+          this.receive(result.steps, result.userIDs);
         }
         return;
       }
@@ -149,7 +149,7 @@ export class CollabPlugin extends Plugin {
         this.socket.send(
           JSON.stringify({
             documentId: this.editor.documentId.replace("cloud-", ""),
-            version: this.getVersion(),
+            ot_version: this.getVersion(),
             cursor: this.model.cursor,
             userID: this.userID,
           }),
@@ -327,6 +327,7 @@ export class CollabPlugin extends Plugin {
     this.editor.model = newState.model;
     this.editor.view.model = newState.model;
     this.editor.controller.model = newState.model;
+    this.editor.getModel().ot_version = newState.ot_version;
   }
 
   sendableSteps() {

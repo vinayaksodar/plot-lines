@@ -78,8 +78,8 @@ export class BackendManager extends Persistence {
     });
   }
 
-  async getSteps(documentId, version) {
-    return this._fetch(`/documents/${documentId}/steps?since=${version}`);
+  async getSteps(documentId, ot_version) {
+    return this._fetch(`/documents/${documentId}/steps?since=${ot_version}`);
   }
 
   async delete(documentId) {

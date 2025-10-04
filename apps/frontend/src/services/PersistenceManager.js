@@ -86,7 +86,7 @@ export class PersistenceManager extends Persistence {
             this.titlePage.model.update(payload.titlePage);
             this.titlePage.render();
           }
-          this.editor.getModel().version = doc.snapshot_ot_version;
+          this.editor.getModel().ot_version = doc.snapshot_ot_version;
         } else {
           this.editor.getModel().setText("");
         }
@@ -101,12 +101,12 @@ export class PersistenceManager extends Persistence {
         persistenceManager: this,
         userID: user.id,
         userMap: new Map(),
-        version: this.editor.getModel().version,
+        ot_version: this.editor.getModel().ot_version,
       });
       this.editor.registerPlugin(collabPlugin);
       const stepsResult = await this.backendManager.getSteps(
         documentId.replace("cloud-", ""),
-        this.editor.getModel().version,
+        this.editor.getModel().ot_version,
       );
 
       if (stepsResult.steps && stepsResult.steps.length > 0) {

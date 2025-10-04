@@ -17,8 +17,8 @@ export class Rebaseable {
 }
 
 export class CollabState {
-  constructor(version, unconfirmed, config) {
-    this.version = version;
+  constructor(ot_version, unconfirmed, config) {
+    this.ot_version = ot_version;
     this.unconfirmed = unconfirmed;
     this.config = config;
   }
@@ -43,7 +43,7 @@ function unconfirmedFrom(transform) {
 export function collab(config = {}) {
   console.log("[collab.js] collab, config:", config);
   const conf = {
-    version: config.version || 0,
+    ot_version: config.ot_version || 0,
     userID:
       config.userID == null
         ? Math.floor(Math.random() * 0xffffffff)
@@ -53,7 +53,7 @@ export function collab(config = {}) {
   return {
     key: "collab",
     state: {
-      init: () => new CollabState(conf.version, [], conf),
+      init: () => new CollabState(conf.ot_version, [], conf),
       apply(tr, collab) {
         console.log("[collab.js] apply, tr:", tr, "collab:", collab);
         let newState = tr.getMeta("collab");
@@ -63,7 +63,7 @@ export function collab(config = {}) {
         }
         if (tr.docChanged) {
           const newCollabState = new CollabState(
-            collab.version,
+            collab.ot_version,
             collab.unconfirmed.concat(unconfirmedFrom(tr)),
             collab.config,
           );
@@ -88,7 +88,7 @@ export function receiveTransaction(state, steps, userIDs, options = {}) {
     userIDs,
   );
   const collabState = state.collab;
-  const version = collabState.version + steps.length;
+  const ot_version = collabState.ot_version + steps.length;
   const ourUserID = collabState.config.userID;
 
   let ours = 0;
@@ -98,7 +98,7 @@ export function receiveTransaction(state, steps, userIDs, options = {}) {
 
   if (!steps.length) {
     const newCollabState = new CollabState(
-      version,
+      ot_version,
       unconfirmed,
       collabState.config,
     );
@@ -171,7 +171,7 @@ export function receiveTransaction(state, steps, userIDs, options = {}) {
   }
 
   const newCollabState = new CollabState(
-    version,
+    ot_version,
     unconfirmed,
     collabState.config,
   );
@@ -191,7 +191,7 @@ export function sendableSteps(state) {
   const collabState = state.collab;
   if (collabState.unconfirmed.length == 0) return null;
   return {
-    version: collabState.version,
+    ot_version: collabState.ot_version,
     steps: collabState.unconfirmed.map((s) => s.step.toJSON()),
     userID: collabState.config.userID,
     get origins() {
@@ -231,7 +231,7 @@ function stepFromJSON(json) {
 }
 
 export function getVersion(state) {
-  return state.collab.version;
+  return state.collab.ot_version;
 }
 
 class Mapping {

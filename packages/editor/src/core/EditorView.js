@@ -606,9 +606,9 @@ export class EditorView {
 
     const oldCursors = new Set(this.remoteCursors.keys());
 
-    for (const [clientID, cursor] of this.editor.collab.remoteCursors) {
-      oldCursors.delete(clientID);
-      let cursorEl = this.remoteCursors.get(clientID);
+    for (const [userID, cursor] of this.editor.collab.remoteCursors) {
+      oldCursors.delete(userID);
+      let cursorEl = this.remoteCursors.get(userID);
       if (!cursorEl) {
         cursorEl = document.createElement("div");
         cursorEl.className = "remote-cursor";
@@ -616,11 +616,11 @@ export class EditorView {
 
         const nameLabel = document.createElement("div");
         nameLabel.className = "remote-cursor-label";
-        nameLabel.textContent = this.editor.collab.getUserName(clientID);
+        nameLabel.textContent = this.editor.collab.getUserName(userID);
         cursorEl.appendChild(nameLabel);
 
         this.container.appendChild(cursorEl);
-        this.remoteCursors.set(clientID, cursorEl);
+        this.remoteCursors.set(userID, cursorEl);
       }
 
       const { line, ch } = cursor;
@@ -679,11 +679,11 @@ export class EditorView {
       }
     }
 
-    for (const clientID of oldCursors) {
-      const cursorEl = this.remoteCursors.get(clientID);
+    for (const userID of oldCursors) {
+      const cursorEl = this.remoteCursors.get(userID);
       if (cursorEl) {
         cursorEl.remove();
-        this.remoteCursors.delete(clientID);
+        this.remoteCursors.delete(userID);
       }
     }
   }
