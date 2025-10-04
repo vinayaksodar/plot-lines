@@ -204,6 +204,7 @@ export class PersistenceManager extends Persistence {
     modal.innerHTML = `
       <div class="file-manager-content">
         <h3>Manage Files</h3>
+        <p class="beta-version-note" style="font-size: 0.7em;">The product is still in beta there may be data loss backup your files. Local documents are saved in your browser history, clearing it will delete them. </p>
         ${!user ? '<p class="auth-prompt">Log in to create and view cloud documents. ☁️</p>' : ""}
         <div class="file-list"></div>
         <div class="file-manager-actions">
@@ -286,11 +287,9 @@ export class PersistenceManager extends Persistence {
             // If the deleted file is the currently open one, close the editor
             if (this.editor.documentId === fileName) {
               this.closeEditor();
-              document.body.removeChild(modal); // Close the file manager
-            } else {
-              document.body.removeChild(modal);
-              this.showFileManager(); // Re-open to refresh the list
             }
+            document.body.removeChild(modal);
+            this.showFileManager(); // Re-open to refresh the list
           } catch (error) {
             console.error("Failed to delete file:", error);
             this.showToast("Failed to delete file", "error");
@@ -303,14 +302,7 @@ export class PersistenceManager extends Persistence {
   }
 
   closeEditor() {
-    this.editor.destroyPlugin("CollabPlugin");
-    this.editor.documentId = null;
-    this.editor.isCloudDocument = false;
-    this.editor.getModel().setText("");
-    this.titlePage.model.update(this.titlePage.defaultData);
-    this.titlePage.render();
-    this.editor.getView().render();
-    this.editor.focusEditor();
+    this.new();
   }
 
   showToast(message, type = "success") {
