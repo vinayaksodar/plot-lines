@@ -162,6 +162,16 @@ const Document = {
     });
   },
 
+  rename: (id, name) => {
+    return new Promise((resolve, reject) => {
+      const sql = "UPDATE documents SET name = ? WHERE id = ?";
+      db.run(sql, [name, id], function (err) {
+        if (err) return reject(err);
+        resolve({ changes: this.changes });
+      });
+    });
+  },
+
   createSnapshot: (documentId, content, ot_version) => {
     return new Promise((resolve, reject) => {
       db.get(

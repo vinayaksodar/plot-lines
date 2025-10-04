@@ -8,6 +8,7 @@ const {
   addCollaborator,
   removeCollaborator,
   getCollaborators,
+  renameDocument,
 } = require("../controllers/documentController.js");
 const { checkDocumentAccess, checkDocumentOwner } = require("./middleware.js");
 const router = express.Router();
@@ -15,6 +16,8 @@ const router = express.Router();
 router.get("/:id", checkDocumentAccess, getDocument);
 
 router.post("/", createNewDocument);
+
+router.put("/:id", checkDocumentAccess, checkDocumentOwner, renameDocument);
 
 router.delete("/:id", checkDocumentAccess, checkDocumentOwner, deleteDocument);
 

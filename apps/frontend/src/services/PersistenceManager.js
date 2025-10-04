@@ -1,15 +1,29 @@
 import { Persistence, CollabPlugin } from "@plot-lines/editor";
 import { authService } from "./Auth.js";
+import { LocalPersistence } from "./LocalPersistence.js";
+import { CloudPersistence } from "./CloudPersistence.js";
 
 export class PersistenceManager extends Persistence {
-  constructor(editor, fileManager, backendManager, titlePage) {
+  constructor(editor, titlePage) {
     super(editor);
-    this.fileManager = fileManager;
-    this.backendManager = backendManager;
     this.titlePage = titlePage;
+    this.documentName = "Untitled";
+  }
+
+  initialize(editor) {
+    this.editor = editor;
+    this.localPersistence = new LocalPersistence(editor.model, editor.view, this.titlePage);
+    this.cloudPersistence = new CloudPersistence(editor);
+  }
+
+  get activePersistence() {
+    return this.editor.isCloudDocument
+      ? this.cloudPersistence
+      : this.localPersistence;
   }
 
   async new(name = "Untitled", isCloud = false) {
+    this.documentName = name;
     this.editor.destroyPlugin("CollabPlugin");
 
     if (isCloud) {
@@ -19,17 +33,17 @@ export class PersistenceManager extends Persistence {
           user = await authService.showLoginModal();
         } catch (e) {
           console.error("Login failed", e);
-          return false; // User cancelled login, do not proceed
+          return false;
         }
       }
 
       try {
-        const result = await this.backendManager.new(name, user.id);
+        const result = await this.cloudPersistence.new(name, user.id);
         this.editor.documentId = `cloud-${result.id}`;
       } catch (error) {
         console.error("Failed to create new cloud document:", error);
         alert(`Failed to create new cloud document: ${error.message}`);
-        return false; // Do not proceed
+        return false;
       }
 
       this.editor.isCloudDocument = true;
@@ -37,7 +51,7 @@ export class PersistenceManager extends Persistence {
 
       const collabPlugin = new CollabPlugin({
         serverUrl: "ws://localhost:3000",
-        backendManager: this.backendManager,
+        backendManager: this.cloudPersistence,
         persistenceManager: this,
         userID: user.id,
         userMap,
@@ -47,13 +61,16 @@ export class PersistenceManager extends Persistence {
 
       this.editor.getModel().setText("");
       this.editor.focusEditor();
-      return true; // Success
+      return true;
     } else {
-      this.editor.documentId = null;
+      const newId = `local-${Date.now()}`;
+      this.editor.documentId = newId;
+      this.documentName = name;
       this.editor.isCloudDocument = false;
       this.editor.getModel().setText("");
       this.editor.focusEditor();
-      return true; // Success
+      await this.localPersistence.save({ documentId: newId, fileName: name });
+      return true;
     }
   }
 
@@ -67,7 +84,7 @@ export class PersistenceManager extends Persistence {
           user = await authService.showLoginModal();
         } catch (e) {
           console.error("Login failed", e);
-          return; // User cancelled login
+          return;
         }
       }
 
@@ -75,9 +92,10 @@ export class PersistenceManager extends Persistence {
       this.editor.isCloudDocument = true;
 
       try {
-        const doc = await this.backendManager.load(
+        const doc = await this.cloudPersistence.load(
           documentId.replace("cloud-", ""),
         );
+        this.documentName = doc.name;
         if (doc && doc.content) {
           const payload = JSON.parse(doc.content);
           if (payload.lines && payload.lines.length > 0) {
@@ -95,19 +113,19 @@ export class PersistenceManager extends Persistence {
         }
       } catch (error) {
         console.error("Failed to load cloud document:", error);
-        return; // Do not proceed
+        return;
       }
 
       const collabPlugin = new CollabPlugin({
         serverUrl: "ws://localhost:3000",
-        backendManager: this.backendManager,
+        backendManager: this.cloudPersistence,
         persistenceManager: this,
         userID: user.id,
         userMap: new Map(),
         ot_version: this.editor.getModel().ot_version,
       });
       this.editor.registerPlugin(collabPlugin);
-      const stepsResult = await this.backendManager.getSteps(
+      const stepsResult = await this.cloudPersistence.getSteps(
         documentId.replace("cloud-", ""),
         this.editor.getModel().ot_version,
       );
@@ -121,22 +139,17 @@ export class PersistenceManager extends Persistence {
       this.editor.getView().render();
     } else {
       this.editor.isCloudDocument = false;
-      this.fileManager.load(documentId);
+      const fileData = await this.localPersistence.load(documentId);
+      if (fileData) {
+        this.documentName = fileData.fileName;
+        this.editor.documentId = documentId;
+      }
     }
   }
 
-  async save(options) {
+  async save() {
     try {
       if (this.editor.isCloudDocument) {
-        if (!this.editor.documentId) {
-          // This case should ideally not be reached with the new workflow
-          // but as a fallback, we can treat it as a first save.
-          const name = prompt("Enter a name for your cloud document:");
-          if (!name) return;
-          await this.new(name, true);
-          return;
-        }
-        // Save a snapshot for an existing cloud document
         const payload = {
           titlePage: this.titlePage.model.getData(),
           lines: this.editor.getModel().lines,
@@ -146,14 +159,16 @@ export class PersistenceManager extends Persistence {
           ? this.editor.collab.getVersion()
           : 0;
         const documentId = this.editor.documentId.replace("cloud-", "");
-        await this.backendManager.createSnapshot(
+        await this.cloudPersistence.createSnapshot(
           documentId,
           content,
           ot_version,
         );
       } else {
-        // This handles both new and existing local files
-        this.fileManager.save(options);
+        await this.localPersistence.save({
+          documentId: this.editor.documentId,
+          fileName: this.documentName,
+        });
       }
       this.showToast("Saved successfully");
     } catch (e) {
@@ -162,12 +177,39 @@ export class PersistenceManager extends Persistence {
     }
   }
 
+  async rename() {
+    const oldId = this.editor.documentId;
+    if (!oldId) {
+      this.showToast("Cannot rename an unsaved document", "error");
+      return;
+    }
+
+    const currentName = this.documentName;
+    const newName = prompt("Enter a new name for your document:", currentName);
+
+    if (newName && newName !== currentName) {
+      try {
+        if (this.editor.isCloudDocument) {
+          const cloudId = oldId.replace("cloud-", "");
+          await this.cloudPersistence.rename(cloudId, newName);
+        } else {
+          await this.localPersistence.rename(oldId, newName);
+        }
+        this.documentName = newName;
+        this.showToast("Renamed successfully");
+      } catch (e) {
+        console.error("Rename failed:", e);
+        this.showToast("Rename failed", "error");
+      }
+    }
+  }
+
   async list() {
-    const localFiles = await this.fileManager.list();
+    const localFiles = await this.localPersistence.list();
     const user = authService.getCurrentUser();
     if (user) {
       try {
-        const cloudFiles = await this.backendManager.list(user.id);
+        const cloudFiles = await this.cloudPersistence.list(user.id);
         return [
           ...localFiles,
           ...cloudFiles.map((f) => ({
@@ -178,19 +220,10 @@ export class PersistenceManager extends Persistence {
         ];
       } catch (error) {
         console.error("Failed to list cloud files:", error);
-        // Return only local files if cloud files fail to load
         return localFiles;
       }
     }
     return localFiles;
-  }
-
-  async import(format) {
-    return this.fileManager.import(format);
-  }
-
-  async export(format) {
-    return this.fileManager.export(format);
   }
 
   async manage() {
@@ -200,7 +233,6 @@ export class PersistenceManager extends Persistence {
   showFileManager() {
     const user = authService.getCurrentUser();
 
-    // Create a simple file manager modal
     const modal = document.createElement("div");
     modal.className = "file-manager-modal";
     modal.innerHTML = `
@@ -231,7 +263,7 @@ export class PersistenceManager extends Persistence {
           fileItem.className = "file-item";
           const isCloud = fileData.id && fileData.id.startsWith("cloud-");
           const fileName = isCloud ? fileData.name : fileData.fileName;
-          const fileId = isCloud ? fileData.id : fileName;
+          const fileId = fileData.id;
 
           fileItem.innerHTML = `
             <span class="file-name">${fileName} ${isCloud ? "☁️" : ""}</span>
@@ -248,7 +280,7 @@ export class PersistenceManager extends Persistence {
 
     modal.addEventListener("click", async (e) => {
       const action = e.target.dataset.action;
-      const fileName = e.target.dataset.filename;
+      const fileId = e.target.dataset.filename;
 
       if (action === "close") {
         document.body.removeChild(modal);
@@ -257,10 +289,9 @@ export class PersistenceManager extends Persistence {
         try {
           await authService.showLoginModal();
           document.body.removeChild(modal);
-          this.showFileManager(); // Refresh the modal
+          this.showFileManager();
         } catch (e) {
           console.error("Login failed", e);
-          // User cancelled login, do nothing
         }
       } else if (action === "new-local") {
         await this.new(undefined, false);
@@ -268,31 +299,29 @@ export class PersistenceManager extends Persistence {
       } else if (action === "new-cloud") {
         const result = await this.new(undefined, true);
         if (result) {
-          // Only close modal on success
           document.body.removeChild(modal);
         }
       } else if (action === "load") {
-        await this.load(fileName);
+        await this.load(fileId);
         if (this.editor.view) {
           this.editor.view.render();
         }
         this.editor.focusEditor();
         document.body.removeChild(modal);
       } else if (action === "delete") {
-        if (confirm(`Delete file "${fileName}"?`)) {
+        if (confirm(`Delete file?`)) {
           try {
-            if (fileName.startsWith("cloud-")) {
-              await this.backendManager.delete(fileName.replace("cloud-", ""));
+            if (fileId.startsWith("cloud-")) {
+              await this.cloudPersistence.delete(fileId.replace("cloud-", ""));
             } else {
-              this.fileManager.deleteFromLocalStorage(fileName);
+              await this.localPersistence.delete(fileId);
             }
 
-            // If the deleted file is the currently open one, close the editor
-            if (this.editor.documentId === fileName) {
+            if (this.editor.documentId === fileId) {
               this.closeEditor();
             }
             document.body.removeChild(modal);
-            this.showFileManager(); // Re-open to refresh the list
+            this.showFileManager();
           } catch (error) {
             console.error("Failed to delete file:", error);
             this.showToast("Failed to delete file", "error");
@@ -316,13 +345,13 @@ export class PersistenceManager extends Persistence {
 
     setTimeout(() => {
       toast.classList.add("show");
-    }, 100); // Delay to allow for CSS transition
+    }, 100);
 
     setTimeout(() => {
       toast.classList.remove("show");
       setTimeout(() => {
         document.body.removeChild(toast);
-      }, 500); // Wait for fade out transition
-    }, 3000); // Display for 3 seconds
+      }, 500);
+    }, 3000);
   }
 }

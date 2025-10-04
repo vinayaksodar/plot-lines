@@ -1,7 +1,8 @@
+
 import { Persistence } from "@plot-lines/editor";
 import { authService } from "./Auth";
 
-export class BackendManager extends Persistence {
+export class CloudPersistence extends Persistence {
   constructor(editor) {
     super(editor);
     this.baseUrl = "http://localhost:3000/api";
@@ -30,11 +31,9 @@ export class BackendManager extends Persistence {
     if (response.status === 401 && !isRetry) {
       try {
         await authService.reauthenticate();
-        // Retry the request with the new token
         return this._fetch(url, options, true);
       } catch (err) {
         console.error("Re-authentication failed", err);
-        // Re-authentication failed (e.g., user cancelled)
         throw new Error("Authentication required.");
       }
     }
@@ -71,6 +70,13 @@ export class BackendManager extends Persistence {
       this.editor.getModel().lines = JSON.parse(result.data.content);
     }
     return result.data;
+  }
+
+  async rename(documentId, newName) {
+    return this._fetch(`/documents/${documentId}`, {
+      method: "PUT",
+      body: JSON.stringify({ name: newName }),
+    });
   }
 
   async createSnapshot(documentId, content, ot_version) {
@@ -111,10 +117,5 @@ export class BackendManager extends Persistence {
     return this._fetch(`/documents/${documentId}/collaborators/${userId}`, {
       method: "DELETE",
     });
-  }
-
-  async manage() {
-    console.log("Managing documents on the backend.");
-    // Implement backend call to manage documents
   }
 }

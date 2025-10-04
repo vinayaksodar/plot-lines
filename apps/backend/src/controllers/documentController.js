@@ -127,10 +127,25 @@ const removeCollaborator = async (req, res) => {
   }
 };
 
+const renameDocument = async (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: "New name is required." });
+  }
+
+  try {
+    await Document.rename(req.params.id, name);
+    res.json({ message: "success" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to rename document." });
+  }
+};
+
 module.exports = {
   getDocument,
   createNewDocument,
   deleteDocument,
+  renameDocument,
   createSnapshot,
   getSteps,
   addCollaborator,

@@ -8,6 +8,7 @@ export function createMenuBar(persistence, editorController) {
     File: {
       // 'Open File': () => persistence.import(),
       "Save File": () => persistence.save(),
+      "Rename": () => persistence.rename(),
       // 'Export File': () => persistence.export(),
       hr1: "hr",
       "Import Fountain": () => persistence.import("fountain"),

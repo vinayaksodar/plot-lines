@@ -10,8 +10,6 @@ import {
   createEditorContainer,
 } from "@plot-lines/editor";
 import { TitlePage } from "./components/TitlePage/TitlePage.js";
-import { FileManager } from "./services/FileManager.js";
-import { BackendManager } from "./services/BackendManager.js";
 import { PersistenceManager } from "./services/PersistenceManager.js";
 import { createSideMenu } from "./components/SideMenu/SideMenu.js";
 import { createMenuBar } from "./components/MenuBar/MenuBar.js";
@@ -39,14 +37,7 @@ const model = new EditorModel();
 const view = new EditorView(model, editorContainer, widgetLayer);
 const controller = new EditorController();
 const undoManager = new UndoManager();
-const fileManager = new FileManager(model, view, titlePage);
-const backendManager = new BackendManager(null);
-const persistenceManager = new PersistenceManager(
-  null,
-  fileManager,
-  backendManager,
-  titlePage,
-);
+const persistenceManager = new PersistenceManager(null, titlePage);
 
 // --- Editor Instantiation ---
 const editor = new Editor({
@@ -57,8 +48,9 @@ const editor = new Editor({
   persistence: persistenceManager,
 });
 
-backendManager.editor = editor;
+
 persistenceManager.editor = editor;
+persistenceManager.initialize(editor);
 
 // --- Initialize Components that need the Editor instance ---
 controller.initialize(editor, toolbar, hiddenInput);
