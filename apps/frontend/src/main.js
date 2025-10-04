@@ -8,7 +8,6 @@ import {
   createWidgetLayer,
   createToolbar,
   createEditorContainer,
-  CollabPlugin,
 } from "@plot-lines/editor";
 import { TitlePage } from "./components/TitlePage/TitlePage.js";
 import { FileManager } from "./services/FileManager.js";
@@ -16,7 +15,6 @@ import { BackendManager } from "./services/BackendManager.js";
 import { PersistenceManager } from "./services/PersistenceManager.js";
 import { createSideMenu } from "./components/SideMenu/SideMenu.js";
 import { createMenuBar } from "./components/MenuBar/MenuBar.js";
-import { authService } from "./services/Auth.js";
 import { createStatisticsView } from "./components/StatisticsView/StatisticsView.js";
 
 const app = document.querySelector("#app");
@@ -88,7 +86,7 @@ app.appendChild(menuBar);
 app.appendChild(mainArea);
 
 // --- Final Setup ---
-editorArea.addEventListener("click", (e) => {
+editorArea.addEventListener("click", () => {
   hiddenInput.focus();
 });
 

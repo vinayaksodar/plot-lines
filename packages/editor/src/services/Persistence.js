@@ -19,7 +19,7 @@ export class Persistence {
    * @param {object} options - Save options, e.g., { fileName: 'new-name.txt' }.
    * @returns {Promise<void>}
    */
-  async save(options) {
+  async save() {
     throw new Error("Method 'save()' must be implemented.");
   }
 
@@ -28,7 +28,7 @@ export class Persistence {
    * @param {string} documentId - The identifier for the document to load.
    * @returns {Promise<object>} - The loaded document data.
    */
-  async load(documentId) {
+  async load() {
     throw new Error("Method 'load()' must be implemented.");
   }
 
@@ -45,7 +45,7 @@ export class Persistence {
    * @param {string} format - The format to export to (e.g., 'fountain', 'text').
    * @returns {Promise<void>}
    */
-  async export(format) {
+  async export() {
     throw new Error("Method 'export()' must be implemented.");
   }
 
@@ -54,7 +54,7 @@ export class Persistence {
    * @param {string} format - The format of the file being imported.
    * @returns {Promise<void>}
    */
-  async import(format) {
+  async import() {
     throw new Error("Method 'import()' must be implemented.");
   }
 

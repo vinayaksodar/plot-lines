@@ -32,7 +32,8 @@ export class BackendManager extends Persistence {
         await authService.reauthenticate();
         // Retry the request with the new token
         return this._fetch(url, options, true);
-      } catch (error) {
+      } catch (err) {
+        console.error("Re-authentication failed", err);
         // Re-authentication failed (e.g., user cancelled)
         throw new Error("Authentication required.");
       }
@@ -50,6 +51,7 @@ export class BackendManager extends Persistence {
         const text = await response.text();
         error = new Error(text || `HTTP error! status: ${response.status}`);
       }
+      console.error(error);
       throw error;
     }
 

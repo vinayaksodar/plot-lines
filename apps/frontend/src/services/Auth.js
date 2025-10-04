@@ -5,6 +5,7 @@ class AuthService {
     try {
       this.currentUser = JSON.parse(localStorage.getItem("currentUser"));
     } catch (e) {
+      console.error("Failed to parse currentUser from localStorage", e);
       this.currentUser = null;
     }
   }

@@ -18,6 +18,7 @@ export class PersistenceManager extends Persistence {
         try {
           user = await authService.showLoginModal();
         } catch (e) {
+          console.error("Login failed", e);
           return false; // User cancelled login, do not proceed
         }
       }
@@ -65,6 +66,7 @@ export class PersistenceManager extends Persistence {
         try {
           user = await authService.showLoginModal();
         } catch (e) {
+          console.error("Login failed", e);
           return; // User cancelled login
         }
       }
@@ -257,6 +259,7 @@ export class PersistenceManager extends Persistence {
           document.body.removeChild(modal);
           this.showFileManager(); // Refresh the modal
         } catch (e) {
+          console.error("Login failed", e);
           // User cancelled login, do nothing
         }
       } else if (action === "new-local") {

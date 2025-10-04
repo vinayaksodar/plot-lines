@@ -3,7 +3,7 @@ export class Plugin {
     this.editor = editor;
   }
 
-  onEvent(eventName, data) {
+  onEvent() {
     // Plugins should override this method to handle events
   }
 

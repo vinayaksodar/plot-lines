@@ -163,6 +163,7 @@ export class PointerHandler {
       try {
         this.container.releasePointerCapture(this.activePointerId);
       } catch (err) {
+        console.error("Failed to release pointer capture", err);
         /* empty */
       }
     }

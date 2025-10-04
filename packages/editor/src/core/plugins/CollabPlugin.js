@@ -4,7 +4,6 @@ import {
   receiveTransaction,
   sendableSteps,
   getVersion,
-  CollabState,
   Rebaseable,
 } from "../collab.js";
 import {

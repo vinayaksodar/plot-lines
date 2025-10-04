@@ -76,7 +76,6 @@ export class FileManager extends Persistence {
     const saveData = {
       content,
       titlePage,
-      content,
       fileName: this.currentFileName,
       timestamp: Date.now(),
       cursor: { ...this.model.cursor },
@@ -97,6 +96,7 @@ export class FileManager extends Persistence {
           // Handle new rich-text format
           this.model.lines = JSON.parse(saveData.content);
         } catch (e) {
+          console.error("Failed to parse content from auto-save", e);
           // Fallback for old plain-text format
           this.model.setText(saveData.content);
         }
@@ -127,7 +127,7 @@ export class FileManager extends Persistence {
   }
 
   // Manual save to localStorage with custom name
-  saveToLocalStorage(fileName = null) {
+  saveToLocalStorage() {
     const content = JSON.stringify(this.model.lines);
     const titlePage = this.titlePage.model.getData();
     const saveData = {
@@ -169,6 +169,7 @@ export class FileManager extends Persistence {
           // Handle new rich-text format
           this.model.lines = JSON.parse(fileData.content);
         } catch (e) {
+          console.error("Failed to parse content from saved file", e);
           // Fallback for old plain-text format
           this.model.setText(fileData.content);
         }
@@ -378,6 +379,7 @@ export class FileManager extends Persistence {
       const saveData = JSON.parse(saved);
       return saveData.content !== currentContent;
     } catch (error) {
+      console.error("Failed to parse auto-save data", error);
       return true;
     }
   }
