@@ -42,6 +42,7 @@ export class PersistenceManager extends Persistence {
         userMap,
       });
       this.editor.registerPlugin(collabPlugin);
+      collabPlugin.connect();
 
       this.editor.getModel().setText("");
       this.editor.focusEditor();
@@ -110,7 +111,7 @@ export class PersistenceManager extends Persistence {
       );
 
       if (stepsResult.steps && stepsResult.steps.length > 0) {
-        collabPlugin.receive(stepsResult.steps, stepsResult.userIDs);
+        collabPlugin.receive(stepsResult.steps, stepsResult.userIDs, true);
       }
 
       collabPlugin.connect();
@@ -281,8 +282,15 @@ export class PersistenceManager extends Persistence {
             } else {
               this.fileManager.deleteFromLocalStorage(fileName);
             }
-            document.body.removeChild(modal);
-            this.showFileManager(); // Refresh the modal
+
+            // If the deleted file is the currently open one, close the editor
+            if (this.editor.documentId === fileName) {
+              this.closeEditor();
+              document.body.removeChild(modal); // Close the file manager
+            } else {
+              document.body.removeChild(modal);
+              this.showFileManager(); // Re-open to refresh the list
+            }
           } catch (error) {
             console.error("Failed to delete file:", error);
             this.showToast("Failed to delete file", "error");
@@ -292,6 +300,17 @@ export class PersistenceManager extends Persistence {
     });
 
     document.body.appendChild(modal);
+  }
+
+  closeEditor() {
+    this.editor.destroyPlugin("CollabPlugin");
+    this.editor.documentId = null;
+    this.editor.isCloudDocument = false;
+    this.editor.getModel().setText("");
+    this.titlePage.model.update(this.titlePage.defaultData);
+    this.titlePage.render();
+    this.editor.getView().render();
+    this.editor.focusEditor();
   }
 
   showToast(message, type = "success") {

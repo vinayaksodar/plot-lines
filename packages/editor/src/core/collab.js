@@ -89,12 +89,15 @@ export function receiveTransaction(state, steps, userIDs, options = {}) {
   );
   const collabState = state.collab;
   const ot_version = collabState.ot_version + steps.length;
-  const ourUserID = collabState.config.userID;
+  let unconfirmed = collabState.unconfirmed;
 
-  let ours = 0;
-  while (ours < userIDs.length && userIDs[ours] == ourUserID) ++ours;
-  let unconfirmed = collabState.unconfirmed.slice(ours);
-  steps = ours ? steps.slice(ours) : steps;
+  if (!options.isHistory) {
+    const ourUserID = collabState.config.userID;
+    let ours = 0;
+    while (ours < userIDs.length && userIDs[ours] == ourUserID) ++ours;
+    unconfirmed = collabState.unconfirmed.slice(ours);
+    steps = ours ? steps.slice(ours) : steps;
+  }
 
   if (!steps.length) {
     const newCollabState = new CollabState(

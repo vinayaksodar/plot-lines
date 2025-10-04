@@ -57,7 +57,13 @@ function createTitlePageView(model) {
 
 export class TitlePage {
   constructor() {
-    this.model = new TitlePageModel();
+    this.defaultData = {
+      title: "Untitled",
+      author: "Author Name",
+      contact: "Contact Info",
+      quote: "",
+    };
+    this.model = new TitlePageModel(this.defaultData);
     this.view = createTitlePageView(this.model);
   }
 

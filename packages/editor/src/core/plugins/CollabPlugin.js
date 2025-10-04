@@ -321,8 +321,8 @@ export class CollabPlugin extends Plugin {
     };
   }
 
-  receive(steps, userIDs) {
-    const newState = receiveTransaction(this.collabState, steps, userIDs);
+  receive(steps, userIDs, isHistory = false) {
+    const newState = receiveTransaction(this.collabState, steps, userIDs, { isHistory });
     this.collabState = newState;
     this.editor.model = newState.model;
     this.editor.view.model = newState.model;
