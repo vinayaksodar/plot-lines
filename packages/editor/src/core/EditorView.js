@@ -174,6 +174,9 @@ export class EditorView {
     this.container = container;
     this.widgetLayer = widgetLayer;
 
+    this.linesContainer = document.createElement("div");
+    this.container.appendChild(this.linesContainer);
+
     this.ELEMENT_CHARS_PER_ROW = {
       "scene-heading": 60,
       action: 60,
@@ -396,16 +399,12 @@ export class EditorView {
     ); //300px buffer
 
     // 3. Render
-    Array.from(this.container.childNodes).forEach((child) => {
-      if (child !== this.widgetLayer) {
-        this.container.removeChild(child);
-      }
-    });
+    this.linesContainer.innerHTML = "";
 
     const topSpacerHeight = visiblePages.length > 0 ? visiblePages[0].top : 0;
     const topSpacer = document.createElement("div");
     topSpacer.style.height = `${topSpacerHeight}px`;
-    this.container.appendChild(topSpacer);
+    this.linesContainer.appendChild(topSpacer);
 
     for (const p of visiblePages) {
       const pageContainer = document.createElement("div");
@@ -432,7 +431,7 @@ export class EditorView {
         breakEl.style.height = `${pageBreakHeight}px`;
         pageContainer.appendChild(breakEl);
       }
-      this.container.appendChild(pageContainer);
+      this.linesContainer.appendChild(pageContainer);
     }
 
     const lastVisiblePage = visiblePages[visiblePages.length - 1];
@@ -441,7 +440,7 @@ export class EditorView {
       : totalHeight;
     const bottomSpacer = document.createElement("div");
     bottomSpacer.style.height = `${Math.max(0, bottomSpacerHeight)}px`;
-    this.container.appendChild(bottomSpacer);
+    this.linesContainer.appendChild(bottomSpacer);
 
     this.updateCursor();
     this._renderSelection();
@@ -550,7 +549,9 @@ export class EditorView {
       lineIndex <= selection.end.line;
       lineIndex++
     ) {
-      const lineEl = this.container.querySelector(`[data-line="${lineIndex}"]`);
+      const lineEl = this.linesContainer.querySelector(
+        `[data-line="${lineIndex}"]`,
+      );
       if (!lineEl) continue;
 
       const lineText = this._getLineText(lineIndex);
@@ -624,7 +625,7 @@ export class EditorView {
 
   updateCursor() {
     const { line, ch } = this.model.cursor;
-    const lineEl = this.container.querySelector(`[data-line="${line}"]`);
+    const lineEl = this.linesContainer.querySelector(`[data-line="${line}"]`);
 
     if (!lineEl) {
       this.cursorEl.style.display = "none";
