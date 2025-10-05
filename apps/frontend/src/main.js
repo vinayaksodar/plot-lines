@@ -48,7 +48,6 @@ const editor = new Editor({
   persistence: persistenceManager,
 });
 
-
 persistenceManager.editor = editor;
 persistenceManager.initialize(editor);
 

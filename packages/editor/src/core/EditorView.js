@@ -184,8 +184,7 @@ export class EditorView {
       shot: 60,
     };
     const computedStyle = getComputedStyle(this.container);
-    const BASE_LINE_HEIGHT =
-      parseInt(computedStyle.lineHeight, 10) || 16;
+    const BASE_LINE_HEIGHT = parseInt(computedStyle.lineHeight, 10) || 16;
     this.BASE_LINE_HEIGHT = BASE_LINE_HEIGHT;
     this.PADDING_LEFT = parseInt(computedStyle.paddingLeft, 10) || 0;
     this.PADDING_TOP = parseInt(computedStyle.paddingTop, 10) || 0;
@@ -546,18 +545,29 @@ export class EditorView {
     const selection = this.model.normalizeSelection();
     const containerRect = this.container.getBoundingClientRect();
 
-    for (let lineIndex = selection.start.line; lineIndex <= selection.end.line; lineIndex++) {
+    for (
+      let lineIndex = selection.start.line;
+      lineIndex <= selection.end.line;
+      lineIndex++
+    ) {
       const lineEl = this.container.querySelector(`[data-line="${lineIndex}"]`);
       if (!lineEl) continue;
 
       const lineText = this._getLineText(lineIndex);
-      const selStart = (lineIndex === selection.start.line) ? selection.start.ch : 0;
-      const selEnd = (lineIndex === selection.end.line) ? selection.end.ch : lineText.length;
+      const selStart =
+        lineIndex === selection.start.line ? selection.start.ch : 0;
+      const selEnd =
+        lineIndex === selection.end.line ? selection.end.ch : lineText.length;
 
       if (selStart === selEnd) continue;
 
       const range = document.createRange();
-      const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT, null, false);
+      const walker = document.createTreeWalker(
+        lineEl,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false,
+      );
       let chCount = 0;
       let startNode, startOffset, endNode, endOffset;
 
@@ -575,20 +585,25 @@ export class EditorView {
         if (startNode !== undefined && endNode !== undefined) break;
         chCount += nodeLen;
       }
-      
-      if (!startNode) { // selection starts after all text
-          const lastText = Array.from(lineEl.childNodes).filter(n => n.nodeType === 3).pop();
-          if (!lastText) continue;
-          startNode = endNode = lastText;
-          startOffset = endOffset = lastText.length;
-      }
-      if (!endNode) { // selection ends after all text
-          const lastText = Array.from(lineEl.childNodes).filter(n => n.nodeType === 3).pop();
-          if (!lastText) continue;
-          endNode = lastText;
-          endOffset = lastText.length;
-      }
 
+      if (!startNode) {
+        // selection starts after all text
+        const lastText = Array.from(lineEl.childNodes)
+          .filter((n) => n.nodeType === 3)
+          .pop();
+        if (!lastText) continue;
+        startNode = endNode = lastText;
+        startOffset = endOffset = lastText.length;
+      }
+      if (!endNode) {
+        // selection ends after all text
+        const lastText = Array.from(lineEl.childNodes)
+          .filter((n) => n.nodeType === 3)
+          .pop();
+        if (!lastText) continue;
+        endNode = lastText;
+        endOffset = lastText.length;
+      }
 
       range.setStart(startNode, startOffset);
       range.setEnd(endNode, endOffset);
@@ -655,7 +670,10 @@ export class EditorView {
       const rect = rects[rects.length - 1];
       const containerRect = this.container.getBoundingClientRect();
       this.cursorEl.style.top = `${
-        rect.top - containerRect.top + this.container.scrollTop - this.PADDING_TOP
+        rect.top -
+        containerRect.top +
+        this.container.scrollTop -
+        this.PADDING_TOP
       }px`;
       this.cursorEl.style.left = `${
         rect.left - containerRect.left - this.PADDING_LEFT
@@ -735,7 +753,10 @@ export class EditorView {
         const rect = rects[rects.length - 1];
         const containerRect = this.container.getBoundingClientRect();
         cursorEl.style.top = `${
-          rect.top - containerRect.top + this.container.scrollTop - this.PADDING_TOP
+          rect.top -
+          containerRect.top +
+          this.container.scrollTop -
+          this.PADDING_TOP
         }px`;
         cursorEl.style.left = `${
           rect.left - containerRect.left - this.PADDING_LEFT

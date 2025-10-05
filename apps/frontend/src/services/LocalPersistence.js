@@ -1,4 +1,3 @@
-
 import { Persistence } from "@plot-lines/editor";
 
 export class LocalPersistence extends Persistence {

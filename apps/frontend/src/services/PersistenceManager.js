@@ -12,7 +12,11 @@ export class PersistenceManager extends Persistence {
 
   initialize(editor) {
     this.editor = editor;
-    this.localPersistence = new LocalPersistence(editor.model, editor.view, this.titlePage);
+    this.localPersistence = new LocalPersistence(
+      editor.model,
+      editor.view,
+      this.titlePage,
+    );
     this.cloudPersistence = new CloudPersistence(editor);
   }
 
@@ -69,7 +73,11 @@ export class PersistenceManager extends Persistence {
       this.editor.isCloudDocument = false;
       this.editor.getModel().setText("");
       this.editor.focusEditor();
-      await this.localPersistence.save({ documentId: newId, fileName: name, content: "[]" });
+      await this.localPersistence.save({
+        documentId: newId,
+        fileName: name,
+        content: "[]",
+      });
       return true;
     }
   }
@@ -297,7 +305,7 @@ export class PersistenceManager extends Persistence {
               ? '<button class="btn" data-action="new-cloud">New Cloud Document</button>'
               : '<button class="btn" data-action="login">Login / Signup</button>'
           }
-          ${showCloseButton ? '<button class="btn" data-action="close">Close</button>' : ''}
+          ${showCloseButton ? '<button class="btn" data-action="close">Close</button>' : ""}
         </div>
       </div>
     `;

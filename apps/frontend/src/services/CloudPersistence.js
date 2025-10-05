@@ -1,4 +1,3 @@
-
 import { Persistence } from "@plot-lines/editor";
 import { authService } from "./Auth";
 
