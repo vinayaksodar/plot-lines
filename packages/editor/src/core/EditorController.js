@@ -32,31 +32,35 @@ export class EditorController {
 
     this.container = this.view.container;
     this.toolbar = toolbar;
+
     this.hiddenInput = hiddenInput;
 
+    this._initializeHandlers();
+    this._initializeEventListeners();
+  }
+
+  _initializeHandlers() {
     // Setup handlers
     this.pointerHandler = new PointerHandler(this.editor);
     this.keyBoardHandler = new KeyboardHandler(this.editor, this.hiddenInput);
-    this.searchHandler = new SearchHandler(
-      this.editor,
-      this.searchWidget,
-      this,
-    );
+    this.searchHandler = new SearchHandler(this.editor, this.searchWidget);
     this.toolbarHandler = new ToolbarHandler(
       this.editor,
       this.toolbar,
-      editor.persistence,
+      this.editor.persistence,
       this.hiddenInput,
     );
+  }
 
-    // Add event listeners
+  _initializeEventListeners() {
+    this.searchHandler.on("close", () => this.hideSearchWidget());
+
     this.container.addEventListener("click", (e) => {
-      if (this.view.searchWidget.contains(e.target)) {
+      if (this.searchWidget.contains(e.target)) {
         return;
       }
       this.hiddenInput.focus();
     });
-    this.hiddenInput.focus();
     window.addEventListener("keydown", this.onGlobalKeyDown);
   }
 

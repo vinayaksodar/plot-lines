@@ -1,17 +1,31 @@
 export class SearchHandler {
-  constructor(editor, searchWidget, controller) {
+  constructor(editor, searchWidget) {
     this.editor = editor;
     this.view = editor.getView();
     this.model = editor.getModel();
-    this.controller = controller;
 
     this.widget = searchWidget;
     this.input = this.widget.querySelector(".search-input");
+
+    this.events = {};
 
     this.currentMatches = [];
     this.currentMatchIndex = -1;
 
     this._bindEvents();
+  }
+
+  on(event, callback) {
+    if (!this.events[event]) {
+      this.events[event] = [];
+    }
+    this.events[event].push(callback);
+  }
+
+  emit(event, data) {
+    if (this.events[event]) {
+      this.events[event].forEach((callback) => callback(data));
+    }
   }
 
   _bindEvents() {
@@ -97,6 +111,6 @@ export class SearchHandler {
     this.input.value = "";
 
     // Hide the widget
-    this.controller.hideSearchWidget();
+    this.emit("close");
   }
 }
