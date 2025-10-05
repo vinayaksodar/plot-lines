@@ -183,9 +183,12 @@ export class EditorView {
       transition: 15,
       shot: 60,
     };
+    const computedStyle = getComputedStyle(this.container);
     const BASE_LINE_HEIGHT =
-      parseInt(getComputedStyle(this.container).lineHeight, 10) || 16;
+      parseInt(computedStyle.lineHeight, 10) || 16;
     this.BASE_LINE_HEIGHT = BASE_LINE_HEIGHT;
+    this.PADDING_LEFT = parseInt(computedStyle.paddingLeft, 10) || 0;
+    this.PADDING_TOP = parseInt(computedStyle.paddingTop, 10) || 0;
 
     this._getLineText = (lineIndex) => {
       if (lineIndex < 0 || lineIndex >= this.model.lines.length) return "";
@@ -252,6 +255,7 @@ export class EditorView {
     this.cursorEl.className = "cursor";
     this.cursorEl.style.position = "absolute";
     this.cursorEl.style.zIndex = "1";
+    this.widgetLayer.appendChild(this.cursorEl);
 
     this.cursorBlinkInterval = null;
     this.cursorBlinkTimeout = null;
@@ -360,7 +364,6 @@ export class EditorView {
     const pageLineRanges = this.layoutManager.getPageLineRanges();
     if (pageLineRanges.length === 0) {
       this.container.innerHTML = "";
-      this.container.appendChild(this.cursorEl);
       this.updateCursor();
       return;
     }
@@ -394,8 +397,11 @@ export class EditorView {
     ); //300px buffer
 
     // 3. Render
-    this.container.innerHTML = "";
-    this.container.appendChild(this.cursorEl);
+    Array.from(this.container.childNodes).forEach((child) => {
+      if (child !== this.widgetLayer) {
+        this.container.removeChild(child);
+      }
+    });
 
     const topSpacerHeight = visiblePages.length > 0 ? visiblePages[0].top : 0;
     const topSpacer = document.createElement("div");
@@ -439,6 +445,7 @@ export class EditorView {
     this.container.appendChild(bottomSpacer);
 
     this.updateCursor();
+    this._renderSelection();
     this._renderRemoteCursors();
   }
 
@@ -463,9 +470,6 @@ export class EditorView {
       return lineEl;
     }
 
-    const selection = this.model.hasSelection()
-      ? this.model.normalizeSelection()
-      : null;
     const lineMatches = this.matchesByLine?.get(lineIndex) || [];
 
     const events = [];
@@ -489,21 +493,6 @@ export class EditorView {
           { pos: segStart, type: "underline", open: true },
           { pos: segEnd, type: "underline", open: false },
         );
-    }
-
-    if (
-      selection &&
-      lineIndex >= selection.start.line &&
-      lineIndex <= selection.end.line
-    ) {
-      const selStart =
-        lineIndex === selection.start.line ? selection.start.ch : 0;
-      const selEnd =
-        lineIndex === selection.end.line ? selection.end.ch : lineText.length;
-      events.push(
-        { pos: selStart, type: "selection", open: true },
-        { pos: selEnd, type: "selection", open: false },
-      );
     }
 
     for (const match of lineMatches) {
@@ -540,6 +529,82 @@ export class EditorView {
     flush(lastPos, lineText.length);
 
     return lineEl;
+  }
+
+  _renderSelection() {
+    if (!this.selectionLayer) {
+      this.selectionLayer = document.createElement("div");
+      this.selectionLayer.className = "selection-layer";
+      this.widgetLayer.appendChild(this.selectionLayer);
+    }
+    this.selectionLayer.innerHTML = "";
+
+    if (!this.model.hasSelection()) {
+      return;
+    }
+
+    const selection = this.model.normalizeSelection();
+    const containerRect = this.container.getBoundingClientRect();
+
+    for (let lineIndex = selection.start.line; lineIndex <= selection.end.line; lineIndex++) {
+      const lineEl = this.container.querySelector(`[data-line="${lineIndex}"]`);
+      if (!lineEl) continue;
+
+      const lineText = this._getLineText(lineIndex);
+      const selStart = (lineIndex === selection.start.line) ? selection.start.ch : 0;
+      const selEnd = (lineIndex === selection.end.line) ? selection.end.ch : lineText.length;
+
+      if (selStart === selEnd) continue;
+
+      const range = document.createRange();
+      const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT, null, false);
+      let chCount = 0;
+      let startNode, startOffset, endNode, endOffset;
+
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const nodeLen = node.textContent.length;
+        if (startNode === undefined && chCount + nodeLen >= selStart) {
+          startNode = node;
+          startOffset = selStart - chCount;
+        }
+        if (endNode === undefined && chCount + nodeLen >= selEnd) {
+          endNode = node;
+          endOffset = selEnd - chCount;
+        }
+        if (startNode !== undefined && endNode !== undefined) break;
+        chCount += nodeLen;
+      }
+      
+      if (!startNode) { // selection starts after all text
+          const lastText = Array.from(lineEl.childNodes).filter(n => n.nodeType === 3).pop();
+          if (!lastText) continue;
+          startNode = endNode = lastText;
+          startOffset = endOffset = lastText.length;
+      }
+      if (!endNode) { // selection ends after all text
+          const lastText = Array.from(lineEl.childNodes).filter(n => n.nodeType === 3).pop();
+          if (!lastText) continue;
+          endNode = lastText;
+          endOffset = lastText.length;
+      }
+
+
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+
+      const rects = range.getClientRects();
+      for (const rect of rects) {
+        const selectionEl = document.createElement("div");
+        selectionEl.className = "selection";
+        selectionEl.style.position = "absolute";
+        selectionEl.style.top = `${rect.top - containerRect.top + this.container.scrollTop - this.PADDING_TOP}px`;
+        selectionEl.style.left = `${rect.left - containerRect.left - this.PADDING_LEFT}px`;
+        selectionEl.style.width = `${rect.width}px`;
+        selectionEl.style.height = `${rect.height}px`;
+        this.selectionLayer.appendChild(selectionEl);
+      }
+    }
   }
 
   updateCursor() {
@@ -590,10 +655,10 @@ export class EditorView {
       const rect = rects[rects.length - 1];
       const containerRect = this.container.getBoundingClientRect();
       this.cursorEl.style.top = `${
-        rect.top - containerRect.top + this.container.scrollTop
+        rect.top - containerRect.top + this.container.scrollTop - this.PADDING_TOP
       }px`;
       this.cursorEl.style.left = `${
-        rect.left - containerRect.left + this.container.scrollLeft
+        rect.left - containerRect.left - this.PADDING_LEFT
       }px`;
       this.cursorEl.style.height = `${rect.height}px`;
     }
@@ -619,7 +684,7 @@ export class EditorView {
         nameLabel.textContent = this.editor.collab.getUserName(userID);
         cursorEl.appendChild(nameLabel);
 
-        this.container.appendChild(cursorEl);
+        this.widgetLayer.appendChild(cursorEl);
         this.remoteCursors.set(userID, cursorEl);
       }
 
@@ -670,10 +735,10 @@ export class EditorView {
         const rect = rects[rects.length - 1];
         const containerRect = this.container.getBoundingClientRect();
         cursorEl.style.top = `${
-          rect.top - containerRect.top + this.container.scrollTop
+          rect.top - containerRect.top + this.container.scrollTop - this.PADDING_TOP
         }px`;
         cursorEl.style.left = `${
-          rect.left - containerRect.left + this.container.scrollLeft
+          rect.left - containerRect.left - this.PADDING_LEFT
         }px`;
         cursorEl.style.height = `${rect.height}px`;
       }

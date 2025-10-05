@@ -25,11 +25,11 @@ const widgetLayer = createWidgetLayer();
 const editorArea = document.createElement("div");
 editorArea.className = "editor-area";
 const { container: editorContainer, hiddenInput } = createEditorContainer();
+editorContainer.appendChild(widgetLayer);
 editorArea.appendChild(editorContainer);
-editorArea.appendChild(hiddenInput);
 editorWrapper.appendChild(toolbar);
-editorWrapper.appendChild(widgetLayer);
 editorWrapper.appendChild(editorArea);
+editorWrapper.appendChild(hiddenInput);
 const titlePage = new TitlePage();
 
 // --- Editor Component Instantiation ---
