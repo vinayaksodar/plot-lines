@@ -1,4 +1,4 @@
-import { Persistence, CollabPlugin } from "@plot-lines/editor";
+import { Persistence, CollabPlugin, FountainParser } from "@plot-lines/editor";
 import { authService } from "./Auth.js";
 import { LocalPersistence } from "./LocalPersistence.js";
 import { CloudPersistence } from "./CloudPersistence.js";
@@ -69,7 +69,7 @@ export class PersistenceManager extends Persistence {
       this.editor.isCloudDocument = false;
       this.editor.getModel().setText("");
       this.editor.focusEditor();
-      await this.localPersistence.save({ documentId: newId, fileName: name });
+      await this.localPersistence.save({ documentId: newId, fileName: name, content: "[]" });
       return true;
     }
   }
@@ -139,6 +139,7 @@ export class PersistenceManager extends Persistence {
       this.editor.getView().render();
     } else {
       this.editor.isCloudDocument = false;
+      this.editor.getModel().setText("");
       const fileData = await this.localPersistence.load(documentId);
       if (fileData) {
         this.documentName = fileData.fileName;
@@ -168,6 +169,7 @@ export class PersistenceManager extends Persistence {
         await this.localPersistence.save({
           documentId: this.editor.documentId,
           fileName: this.documentName,
+          content: JSON.stringify(this.editor.getModel().lines),
         });
       }
       this.showToast("Saved successfully");
@@ -201,6 +203,53 @@ export class PersistenceManager extends Persistence {
         console.error("Rename failed:", e);
         this.showToast("Rename failed", "error");
       }
+    }
+  }
+
+  async export(format) {
+    if (format === "fountain") {
+      const parser = new FountainParser();
+      const fountainText = parser.export({
+        titlePage: this.titlePage.model.getData(),
+        lines: this.editor.getModel().lines,
+      });
+      const blob = new Blob([fountainText], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${this.documentName}.fountain`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      throw new Error(`Export for format ${format} is not supported.`);
+    }
+  }
+
+  async import(format) {
+    if (format === "fountain") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".fountain";
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) {
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const parser = new FountainParser();
+          const { titlePage, lines } = parser.parse(text);
+          this.titlePage.model.update(titlePage);
+          this.titlePage.render();
+          this.editor.getModel().lines = lines;
+          this.editor.getView().render();
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    } else {
+      throw new Error(`Import for format ${format} is not supported.`);
     }
   }
 
@@ -281,25 +330,26 @@ export class PersistenceManager extends Persistence {
     modal.addEventListener("click", async (e) => {
       const action = e.target.dataset.action;
       const fileId = e.target.dataset.filename;
+      let shouldClose = false;
 
       if (action === "close") {
-        document.body.removeChild(modal);
+        shouldClose = true;
         this.editor.focusEditor();
       } else if (action === "login") {
         try {
           await authService.showLoginModal();
-          document.body.removeChild(modal);
+          shouldClose = true;
           this.showFileManager();
         } catch (e) {
           console.error("Login failed", e);
         }
       } else if (action === "new-local") {
         await this.new(undefined, false);
-        document.body.removeChild(modal);
+        shouldClose = true;
       } else if (action === "new-cloud") {
         const result = await this.new(undefined, true);
         if (result) {
-          document.body.removeChild(modal);
+          shouldClose = true;
         }
       } else if (action === "load") {
         await this.load(fileId);
@@ -307,7 +357,7 @@ export class PersistenceManager extends Persistence {
           this.editor.view.render();
         }
         this.editor.focusEditor();
-        document.body.removeChild(modal);
+        shouldClose = true;
       } else if (action === "delete") {
         if (confirm(`Delete file?`)) {
           try {
@@ -320,13 +370,17 @@ export class PersistenceManager extends Persistence {
             if (this.editor.documentId === fileId) {
               this.closeEditor();
             }
-            document.body.removeChild(modal);
+            shouldClose = true;
             this.showFileManager(this.editor.documentId !== null);
           } catch (error) {
             console.error("Failed to delete file:", error);
             this.showToast("Failed to delete file", "error");
           }
         }
+      }
+
+      if (shouldClose) {
+        document.body.removeChild(modal);
       }
     });
 

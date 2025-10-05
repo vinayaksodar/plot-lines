@@ -34,6 +34,7 @@ export class CollabPlugin extends Plugin {
     this.remoteCursors = new Map();
     this.userMap = userMap || new Map();
     this.isReady = false; // Don't send steps until initial snapshot is created
+    this.destroyed = false;
   }
 
   setReady() {
@@ -70,6 +71,7 @@ export class CollabPlugin extends Plugin {
   }
 
   connect() {
+    if (this.destroyed) return;
     this.socket = new WebSocket(this.serverUrl);
 
     this.socket.onopen = () => {
@@ -77,6 +79,7 @@ export class CollabPlugin extends Plugin {
     };
 
     this.socket.onmessage = async (event) => {
+      if (this.destroyed) return;
       const message = JSON.parse(event.data);
       console.log("Received message:", message);
 
@@ -132,6 +135,7 @@ export class CollabPlugin extends Plugin {
   }
 
   poll() {
+    if (this.destroyed) return;
     if (this.socket.readyState === WebSocket.OPEN && this.editor.documentId) {
       this._combineUnconfirmedSteps();
 
@@ -340,6 +344,7 @@ export class CollabPlugin extends Plugin {
   }
 
   destroy() {
+    this.destroyed = true;
     clearTimeout(this.pollTimeout);
     if (this.socket) {
       this.socket.close();

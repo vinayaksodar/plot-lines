@@ -20,18 +20,17 @@ export class LocalPersistence extends Persistence {
   }
 
   async save(options) {
-    const { documentId, fileName } = options;
+    const { documentId, fileName, content } = options;
 
     if (!documentId) {
       throw new Error("documentId is required for saving.");
     }
 
-    const content = JSON.stringify(this.model.lines);
     const titlePage = this.titlePage.model.getData();
     const saveData = {
       id: documentId,
       titlePage,
-      content,
+      content: content || JSON.stringify(this.model.lines),
       fileName: fileName,
       timestamp: Date.now(),
     };
