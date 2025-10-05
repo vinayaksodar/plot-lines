@@ -1,10 +1,11 @@
 export class SearchHandler {
-  constructor(editor) {
+  constructor(editor, searchWidget, controller) {
     this.editor = editor;
     this.view = editor.getView();
     this.model = editor.getModel();
+    this.controller = controller;
 
-    this.widget = this.view.searchWidget;
+    this.widget = searchWidget;
     this.input = this.widget.querySelector(".search-input");
 
     this.currentMatches = [];
@@ -96,6 +97,6 @@ export class SearchHandler {
     this.input.value = "";
 
     // Hide the widget
-    this.view.hideSearchWidget();
+    this.controller.hideSearchWidget();
   }
 }

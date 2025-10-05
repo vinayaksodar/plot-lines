@@ -24,10 +24,11 @@ export class EditorController {
     this.toolbarHandler = null;
   }
 
-  initialize(editor, toolbar, hiddenInput) {
+  initialize(editor, toolbar, hiddenInput, searchWidget) {
     this.editor = editor;
     this.model = editor.getModel();
     this.view = editor.getView();
+    this.searchWidget = searchWidget;
 
     this.container = this.view.container;
     this.toolbar = toolbar;
@@ -36,7 +37,11 @@ export class EditorController {
     // Setup handlers
     this.pointerHandler = new PointerHandler(this.editor);
     this.keyBoardHandler = new KeyboardHandler(this.editor, this.hiddenInput);
-    this.searchHandler = new SearchHandler(this.editor);
+    this.searchHandler = new SearchHandler(
+      this.editor,
+      this.searchWidget,
+      this,
+    );
     this.toolbarHandler = new ToolbarHandler(
       this.editor,
       this.toolbar,
@@ -45,7 +50,12 @@ export class EditorController {
     );
 
     // Add event listeners
-    this.container.addEventListener("click", () => this.hiddenInput.focus());
+    this.container.addEventListener("click", (e) => {
+      if (this.view.searchWidget.contains(e.target)) {
+        return;
+      }
+      this.hiddenInput.focus();
+    });
     this.hiddenInput.focus();
     window.addEventListener("keydown", this.onGlobalKeyDown);
   }
@@ -55,8 +65,7 @@ export class EditorController {
 
     if (isCtrlOrCmd && e.key === "f") {
       e.preventDefault();
-      this.view.showSearchWidget();
-      this.view.searchWidget.querySelector(".search-input").focus();
+      this.showSearchWidget();
       return;
     }
 
@@ -73,8 +82,7 @@ export class EditorController {
     }
 
     if (e.key === "Escape") {
-      this.searchHandler.closeSearch();
-      this.hiddenInput.focus();
+      this.hideSearchWidget();
     }
   };
 
@@ -126,8 +134,17 @@ export class EditorController {
   }
 
   handleSearch() {
-    this.view.showSearchWidget();
-    this.view.searchWidget.querySelector(".search-input").focus();
+    this.showSearchWidget();
+  }
+
+  showSearchWidget() {
+    this.searchWidget.classList.remove("hidden");
+    this.searchWidget.querySelector(".search-input").focus();
+  }
+
+  hideSearchWidget() {
+    this.searchWidget.classList.add("hidden");
+    this.focusEditor();
   }
 
   focusEditor() {

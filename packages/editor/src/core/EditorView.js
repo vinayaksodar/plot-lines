@@ -245,11 +245,13 @@ export class EditorView {
       (lineIndex) => this.model.lines[lineIndex].type,
     );
 
-    this.searchWidget = createSearchWidget();
-    this.widgetLayer.appendChild(this.searchWidget);
     this.searchMatches = [];
     this.currentMatchIndex = -1;
     this.matchesByLine = new Map();
+
+    this.searchMatchesLayer = document.createElement("div");
+    this.searchMatchesLayer.className = "search-matches-layer";
+    this.widgetLayer.appendChild(this.searchMatchesLayer);
 
     this.remoteCursors = new Map();
 
@@ -444,6 +446,7 @@ export class EditorView {
 
     this.updateCursor();
     this._renderSelection();
+    this._renderSearchMatches();
     this._renderRemoteCursors();
   }
 
@@ -468,8 +471,6 @@ export class EditorView {
       return lineEl;
     }
 
-    const lineMatches = this.matchesByLine?.get(lineIndex) || [];
-
     const events = [];
     let chCount = 0;
     for (const segment of lineObj.segments) {
@@ -491,18 +492,6 @@ export class EditorView {
           { pos: segStart, type: "underline", open: true },
           { pos: segEnd, type: "underline", open: false },
         );
-    }
-
-    for (const match of lineMatches) {
-      const type =
-        this.currentMatchIndex >= 0 &&
-        this.searchMatches[this.currentMatchIndex] === match
-          ? "search-match-current"
-          : "search-match";
-      events.push(
-        { pos: match.start, type, open: true },
-        { pos: match.end, type, open: false },
-      );
     }
 
     events.sort((a, b) => a.pos - b.pos || (a.open ? 1 : -1));
@@ -794,17 +783,6 @@ export class EditorView {
     this.cursorBlinkTimeout = setTimeout(() => this.startBlink(), 530);
   }
 
-  showSearchWidget() {
-    this.searchWidget.classList.remove("hidden");
-    const input = this.searchWidget.querySelector(".search-input");
-    input.focus();
-    input.select();
-  }
-
-  hideSearchWidget() {
-    this.searchWidget.classList.add("hidden");
-  }
-
   highlightMatches(matches, currentIndex) {
     this.searchMatches = matches;
     this.currentMatchIndex = currentIndex;
@@ -969,5 +947,76 @@ export class EditorView {
     }
 
     return { line: modelLineIndex, ch: closestCh };
+  }
+
+  _renderSearchMatches() {
+    this.searchMatchesLayer.innerHTML = "";
+
+    if (this.searchMatches.length === 0) {
+      return;
+    }
+
+    const containerRect = this.container.getBoundingClientRect();
+
+    for (let i = 0; i < this.searchMatches.length; i++) {
+      const match = this.searchMatches[i];
+      const lineEl = this.linesContainer.querySelector(
+        `[data-line="${match.line}"]`,
+      );
+      if (!lineEl) continue;
+
+      const range = document.createRange();
+      const walker = document.createTreeWalker(
+        lineEl,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false,
+      );
+      let chCount = 0;
+      let startNode, startOffset, endNode, endOffset;
+
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const nodeLen = node.textContent.length;
+        if (startNode === undefined && chCount + nodeLen >= match.start) {
+          startNode = node;
+          startOffset = match.start - chCount;
+        }
+        if (endNode === undefined && chCount + nodeLen >= match.end) {
+          endNode = node;
+          endOffset = match.end - chCount;
+        }
+        if (startNode !== undefined && endNode !== undefined) break;
+        chCount += nodeLen;
+      }
+
+      if (!startNode) continue;
+      if (!endNode) {
+        const lastText = Array.from(lineEl.childNodes)
+          .filter((n) => n.nodeType === 3)
+          .pop();
+        if (!lastText) continue;
+        endNode = lastText;
+        endOffset = lastText.length;
+      }
+
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+
+      const rects = range.getClientRects();
+      for (const rect of rects) {
+        const matchEl = document.createElement("div");
+        matchEl.className = "search-match";
+        if (i === this.currentMatchIndex) {
+          matchEl.classList.add("search-match-current");
+        }
+        matchEl.style.position = "absolute";
+        matchEl.style.top = `${rect.top - containerRect.top + this.container.scrollTop - this.PADDING_TOP}px`;
+        matchEl.style.left = `${rect.left - containerRect.left - this.PADDING_LEFT}px`;
+        matchEl.style.width = `${rect.width}px`;
+        matchEl.style.height = `${rect.height}px`;
+        this.searchMatchesLayer.appendChild(matchEl);
+      }
+    }
   }
 }

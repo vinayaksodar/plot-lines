@@ -5,6 +5,7 @@ import "./searchwidget.css";
 export function createSearchWidget() {
   const wrapper = document.createElement("div");
   wrapper.className = "search-widget hidden"; // hidden by default
+  wrapper.style.pointerEvents = "auto";
 
   wrapper.innerHTML = `
     <input 
@@ -16,6 +17,10 @@ export function createSearchWidget() {
     <button class="search-btn" data-action="prev">Prev</button>
     <button class="search-btn" data-action="close">✕</button>
   `;
+
+  wrapper.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
 
   return wrapper;
 }

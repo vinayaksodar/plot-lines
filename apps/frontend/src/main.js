@@ -8,6 +8,7 @@ import {
   createWidgetLayer,
   createToolbar,
   createEditorContainer,
+  createSearchWidget,
 } from "@plot-lines/editor";
 import { TitlePage } from "./components/TitlePage/TitlePage.js";
 import { PersistenceManager } from "./services/PersistenceManager.js";
@@ -22,12 +23,14 @@ const editorWrapper = document.createElement("div");
 editorWrapper.className = "editor-wrapper";
 const toolbar = createToolbar();
 const widgetLayer = createWidgetLayer();
+const searchWidget = createSearchWidget();
 const editorArea = document.createElement("div");
 editorArea.className = "editor-area";
 const { container: editorContainer, hiddenInput } = createEditorContainer();
 editorContainer.appendChild(widgetLayer);
 editorArea.appendChild(editorContainer);
 editorWrapper.appendChild(toolbar);
+editorWrapper.appendChild(searchWidget);
 editorWrapper.appendChild(editorArea);
 editorWrapper.appendChild(hiddenInput);
 const titlePage = new TitlePage();
@@ -52,7 +55,7 @@ persistenceManager.editor = editor;
 persistenceManager.initialize(editor);
 
 // --- Initialize Components that need the Editor instance ---
-controller.initialize(editor, toolbar, hiddenInput);
+controller.initialize(editor, toolbar, hiddenInput, searchWidget);
 
 const statisticsView = createStatisticsView(editor);
 
