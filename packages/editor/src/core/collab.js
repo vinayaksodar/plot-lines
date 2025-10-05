@@ -112,10 +112,12 @@ export function receiveTransaction(state, steps, userIDs, options = {}) {
     return {
       ...state,
       collab: newCollabState,
+      ot_version,
     };
   }
 
   const newModel = state.model.clone();
+  newModel.ot_version = ot_version;
   const originalCursor = newModel.cursor; // Save the original cursor
   console.log("[collab.js] receiveTransaction, newModel:", newModel.getText());
 
@@ -151,7 +153,9 @@ export function receiveTransaction(state, steps, userIDs, options = {}) {
     newModel.getText(),
   );
 
-  newModel.updateCursor(originalCursor); // Restore the original cursor
+  const remoteMapping = new Mapping(steps);
+  const cursorAfterRemote = remoteMapping.map(originalCursor);
+  newModel.updateCursor(cursorAfterRemote);
 
   if (unconfirmed.length) {
     const rebased = rebaseSteps(unconfirmed, deserializedSteps);
@@ -186,6 +190,7 @@ export function receiveTransaction(state, steps, userIDs, options = {}) {
     ...state,
     model: newModel,
     collab: newCollabState,
+    ot_version,
   };
 }
 

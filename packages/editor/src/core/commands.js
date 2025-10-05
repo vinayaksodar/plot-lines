@@ -28,7 +28,7 @@ export class InsertCharCommand {
       "this.pos:",
       this.pos,
     );
-    if (pos.line === this.pos.line && pos.ch > this.pos.ch) {
+    if (pos.line === this.pos.line && pos.ch >= this.pos.ch) {
       return { line: pos.line, ch: pos.ch + 1 };
     }
     return pos;
@@ -318,7 +318,7 @@ export class InsertTextCommand {
     if (pos.line < this.pos.line) {
       return pos;
     }
-    if (pos.line === this.pos.line && pos.ch <= this.pos.ch) {
+    if (pos.line === this.pos.line && pos.ch < this.pos.ch) {
       return pos;
     }
 

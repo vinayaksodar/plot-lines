@@ -19,62 +19,64 @@ function setupCollaboration(wss) {
       try {
         const { documentId, ot_version, steps, userID } = JSON.parse(message);
 
-        db.get(
-          "SELECT MAX(ot_version) as latest_ot_version FROM ot_steps WHERE document_id = ?",
-          [documentId],
-          (err, row) => {
-            if (err) {
-              return ws.send(JSON.stringify({ error: err.message }));
-            }
-            const latest_ot_version = row ? row.latest_ot_version || 0 : 0;
-            if (latest_ot_version !== ot_version) {
-              return ws.send(
-                JSON.stringify({ error: "OT Version mismatch", documentId }),
-              );
-            }
-
-            if (!Array.isArray(steps)) {
-              return;
-            }
-
-            let new_ot_version = ot_version;
-            const promises = steps.map((step, i) => {
-              return new Promise((resolve, reject) => {
-                const step_ot_version = ot_version + i + 1;
-                const sql =
-                  "INSERT INTO ot_steps (document_id, ot_version, step, user_id) VALUES (?, ?, ?, ?)";
-                db.run(
-                  sql,
-                  [documentId, step_ot_version, JSON.stringify(step), userID],
-                  (err) => {
-                    if (err) return reject(err);
-                    resolve();
-                  },
+        db.serialize(() => {
+          db.get(
+            "SELECT MAX(ot_version) as latest_ot_version FROM ot_steps WHERE document_id = ?",
+            [documentId],
+            (err, row) => {
+              if (err) {
+                return ws.send(JSON.stringify({ error: err.message }));
+              }
+              const latest_ot_version = row ? row.latest_ot_version || 0 : 0;
+              if (latest_ot_version !== ot_version) {
+                return ws.send(
+                  JSON.stringify({ error: "OT Version mismatch", documentId }),
                 );
-              });
-            });
+              }
 
-            Promise.all(promises)
-              .then(() => {
-                new_ot_version += steps.length;
-                broadcast(wss, documentId, {
-                  steps,
-                  userID,
-                  ot_version: new_ot_version,
+              if (!Array.isArray(steps)) {
+                return;
+              }
+
+              let new_ot_version = ot_version;
+              const promises = steps.map((step, i) => {
+                return new Promise((resolve, reject) => {
+                  const step_ot_version = ot_version + i + 1;
+                  const sql =
+                    "INSERT INTO ot_steps (document_id, ot_version, step, user_id) VALUES (?, ?, ?, ?)";
+                  db.run(
+                    sql,
+                    [documentId, step_ot_version, JSON.stringify(step), userID],
+                    (err) => {
+                      if (err) return reject(err);
+                      resolve();
+                    },
+                  );
                 });
-                ws.send(
-                  JSON.stringify({
-                    message: "success",
-                    ot_version: new_ot_version,
-                    documentId,
-                  }),
-                );
-              })
-              .catch((err) => {
-                ws.send(JSON.stringify({ error: err.message }));
               });
-          },
-        );
+
+              Promise.all(promises)
+                .then(() => {
+                  new_ot_version += steps.length;
+                  broadcast(wss, documentId, {
+                    steps,
+                    userID,
+                    ot_version: new_ot_version,
+                  });
+                  ws.send(
+                    JSON.stringify({
+                      message: "success",
+                      ot_version: new_ot_version,
+                      documentId,
+                    }),
+                  );
+                })
+                .catch((err) => {
+                  ws.send(JSON.stringify({ error: err.message }));
+                });
+            },
+          );
+        });
       } catch (e) {
         console.error("Failed to parse incoming message:", e);
         ws.send(JSON.stringify({ error: "Invalid message format" }));
