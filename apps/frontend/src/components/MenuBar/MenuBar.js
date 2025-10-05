@@ -1,4 +1,6 @@
 import "./menubar.css";
+import { createShareModal } from "../ShareModal/ShareModal";
+import { CloudPersistence } from "../../services/CloudPersistence.js";
 
 export function createMenuBar(persistence, editorController) {
   const menuBar = document.createElement("div");
@@ -33,7 +35,20 @@ export function createMenuBar(persistence, editorController) {
       },
     },
     Share: {
-      "Manage access": () => {},
+      "Manage access": () => {
+        if (persistence.editor.isCloudDocument) {
+          const modal = createShareModal(
+            persistence.editor,
+            new CloudPersistence(persistence.editor),
+          );
+          document.body.appendChild(modal);
+        } else {
+          persistence.showToast(
+            "Manage access is only for cloud documents",
+            "error",
+          );
+        }
+      },
     },
   };
 
