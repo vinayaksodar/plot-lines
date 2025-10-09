@@ -9,7 +9,10 @@
       "request": "launch",
       "name": "Launch Frontend",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/apps/frontend"
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "trace": true,
+      "skipFiles": ["<node_internals>/**"]
     },
     {
       "type": "node",

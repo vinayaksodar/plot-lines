@@ -16,8 +16,13 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    sourcemapIgnoreList: false, // 👈 ensures Vite doesn’t skip deps in DevTools
+  },
+  build: {
+    sourcemap: true, // 👈 generate sourcemaps
   },
   resolve: {
+    preserveSymlinks: true, // 👈 important for Turborepo + local packages
     alias: {
       "@plot-lines/editor": path.resolve(
         __dirname,
