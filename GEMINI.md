@@ -42,8 +42,7 @@ The editor follows a Model-View-Controller (MVC) pattern, with a dynamic plugin 
 - `apps/frontend/src/services/Auth.js`: Manages user authentication state and provides the login UI.
 - `packages/editor/src/core/Editor.js`: The main editor class. Now includes methods (`destroyPlugin`) to manage the plugin lifecycle.
 - `packages/editor/src/core/EditorModel.js`: The data model for the editor, holding the screenplay lines and title page data.
-- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the WebSocket connection and all real-time collaboration logic. It is created and destroyed on-demand by the `PersistenceManager`.
-- `packages/editor/src/core/collab.js`: Contains the core Operational Transformation (OT) logic for rebasing and transforming commands.
+- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the WebSocket connection and all real-time collaboration logic, including Operational Transformation (OT). It is created and destroyed on-demand by the `PersistenceManager`.
 - `GEMINI.md`: This file, containing an overview of the project for the Gemini agent.
 
 ### Backend Architecture
@@ -81,7 +80,7 @@ The backend is a Node.js application built with the Express framework, providing
 - `apps/frontend/src/services/Auth.js`: Manages user authentication state and provides the login UI.
 - `packages/editor/src/core/Editor.js`: The main editor class. Now includes methods (`destroyPlugin`) to manage the plugin lifecycle.
 - `packages/editor/src/core/EditorModel.js`: The data model for the editor, holding the screenplay lines and title page data.
-- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the WebSocket connection and all real-time collaboration logic. It is created and destroyed on-demand by the `PersistenceManager`.
+- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the WebSocket connection and all real-time collaboration logic, including Operational Transformation (OT). It is created and destroyed on-demand by the `PersistenceManager`.
 - `packages/editor/src/core/collab.js`: Contains the core Operational Transformation (OT) logic for rebasing and transforming commands.
 - `GEMINI.md`: This file, containing an overview of the project for the Gemini agent.
 

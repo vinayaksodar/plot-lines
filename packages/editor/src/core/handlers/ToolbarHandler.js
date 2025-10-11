@@ -1,12 +1,10 @@
 import { SetLineTypeCommand } from "../commands.js";
 
 export class ToolbarHandler {
-  constructor(editor, toolbar, persistence, hiddenInput) {
+  constructor(editor, toolbar, hiddenInput) {
     this.editor = editor;
     this.toolbar = toolbar;
-    this.persistence = persistence;
     this.hiddenInput = hiddenInput;
-
     if (this.toolbar) {
       this.toolbar.addEventListener("click", this.handleToolbarClick);
     }
@@ -25,27 +23,6 @@ export class ToolbarHandler {
     const { editor } = this;
     try {
       switch (action) {
-        case "new":
-          this.persistence.new();
-          break;
-        case "open":
-          await this.persistence.import();
-          break;
-        case "save":
-          this.persistence.save();
-          break;
-        case "export":
-          this.persistence.export();
-          break;
-        case "import-fountain":
-          await this.persistence.import("fountain");
-          break;
-        case "export-fountain":
-          this.persistence.export("fountain");
-          break;
-        case "files":
-          this.persistence.manage();
-          break;
         case "undo":
           editor.undo();
           this.hiddenInput.focus();
@@ -70,7 +47,7 @@ export class ToolbarHandler {
           editor.controller.handleSearch();
           break;
         case "set-line-type":
-          editor.executeCommand(new SetLineTypeCommand(value));
+          editor.executeCommands([new SetLineTypeCommand(value)]);
           this.hiddenInput.focus();
           break;
         case "toggle-inline-style":

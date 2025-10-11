@@ -530,7 +530,7 @@ export class EditorView {
       return;
     }
 
-    const selection = this.model.normalizeSelection();
+    const selection = this.model.normalizeSelection(this.model.selection);
     const containerRect = this.container.getBoundingClientRect();
 
     for (
@@ -613,7 +613,7 @@ export class EditorView {
   }
 
   updateCursor() {
-    const { line, ch } = this.model.cursor;
+    const { line, ch } = this.model.getCursorPos();
     const lineEl = this.linesContainer.querySelector(`[data-line="${line}"]`);
 
     if (!lineEl) {

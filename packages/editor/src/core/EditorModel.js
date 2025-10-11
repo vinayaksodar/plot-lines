@@ -6,6 +6,17 @@ export class EditorModel {
     this.selection = null; // {start:{line,ch}, end:{line,ch}}
   }
 
+  getCursorPos() {
+    return { ...this.cursor };
+  }
+
+  getSelectionRange() {
+    if (this.selection) {
+      return this.normalizeRange(this.selection);
+    }
+    return null;
+  }
+
   // Find the segment and offset within it for a given character position in a line
   _findSegmentAt(lineIndex, ch) {
     const line = this.lines[lineIndex];
@@ -62,15 +73,15 @@ export class EditorModel {
     );
   }
 
-  insertChar(char) {
-    console.log("[EditorModel] insertChar", char, "at", this.cursor);
-    if (this.hasSelection()) {
-      this.deleteSelection();
+  insertChar(char, pos) {
+    console.log("[EditorModel] insertChar", char, "at", pos);
+
+    const { line, ch } = pos;
+
+    if (line < 0 || line >= this.lines.length) {
+      console.warn(`Attempted to insert character at invalid line: ${line}`);
+      return;
     }
-
-    const { line, ch } = this.cursor;
-
-    // Ensure the line has at least one segment
     if (this.lines[line].segments.length === 0) {
       this.lines[line].segments.push({
         text: "",
@@ -85,18 +96,11 @@ export class EditorModel {
     // Insert character into the segment's text
     segment.text =
       segment.text.slice(0, offset) + char + segment.text.slice(offset);
-
-    this.cursor.ch++;
   }
 
-  deleteChar() {
-    console.log("[EditorModel] deleteChar at", this.cursor);
-    if (this.hasSelection()) {
-      this.deleteSelection();
-      return null; // Indicate that a selection was deleted
-    }
-
-    const { line, ch } = this.cursor;
+  deleteChar(pos) {
+    console.log("[EditorModel] deleteChar at", pos);
+    const { line, ch } = pos;
 
     if (ch === 0 && line > 0) {
       // Merging with the previous line
@@ -109,28 +113,21 @@ export class EditorModel {
 
       this._mergeSegments(line - 1); // Merge segments after joining lines
 
-      this.cursor.line--;
-      this.cursor.ch = prevLineLength;
       return "\n"; // Return newline to indicate a line merge
     } else if (ch > 0) {
       const { segment, offset } = this._findSegmentAt(line, ch);
       const deletedChar = segment.text[offset - 1];
       segment.text =
         segment.text.slice(0, offset - 1) + segment.text.slice(offset);
-      this.cursor.ch--;
       this._mergeSegments(line);
       return deletedChar;
     }
     return null; // Nothing was deleted
   }
 
-  insertNewLine() {
-    console.log("[EditorModel] insertNewLine at", this.cursor);
-    if (this.hasSelection()) {
-      this.deleteSelection();
-    }
-
-    const { line, ch } = this.cursor;
+  insertNewLine(pos) {
+    console.log("[EditorModel] insertNewLine at", pos);
+    const { line, ch } = pos;
     const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
 
     const currentLine = this.lines[line];
@@ -152,9 +149,6 @@ export class EditorModel {
     };
 
     this.lines.splice(line + 1, 0, newLine);
-
-    this.cursor.line++;
-    this.cursor.ch = 0;
   }
 
   setSelection(start, end) {
@@ -176,9 +170,13 @@ export class EditorModel {
     );
   }
 
-  getSelectedText() {
-    if (!this.hasSelection()) return "";
-    const { start, end } = this.normalizeSelection();
+  getSelectedText(selectionRange) {
+    let text = this.getTextInRange(selectionRange);
+    return text;
+  }
+
+  getTextInRange(range) {
+    const { start, end } = this.normalizeRange(range);
     let text = "";
 
     for (let i = start.line; i <= end.line; i++) {
@@ -202,16 +200,19 @@ export class EditorModel {
     return text;
   }
 
-  getTextInRange(start, end) {
-    const oldSelection = this.selection;
-    this.selection = { start, end };
-    const text = this.getSelectedText();
-    this.selection = oldSelection;
-    return text;
+  normalizeSelection(selection) {
+    const { start, end } = selection;
+    if (
+      start.line < end.line ||
+      (start.line === end.line && start.ch <= end.ch)
+    ) {
+      return { start: { ...start }, end: { ...end } };
+    }
+    return { start: { ...end }, end: { ...start } };
   }
+  normalizeRange(range) {
+    const { start, end } = range;
 
-  normalizeSelection() {
-    const { start, end } = this.selection;
     if (
       start.line < end.line ||
       (start.line === end.line && start.ch <= end.ch)
@@ -221,13 +222,9 @@ export class EditorModel {
     return { start: { ...end }, end: { ...start } };
   }
 
-  insertText(text) {
-    if (this.hasSelection()) {
-      this.deleteSelection();
-    }
-
+  insertText(text, pos) {
     const linesToInsert = text.split("\n");
-    const { line, ch } = this.cursor;
+    const { line, ch } = pos;
 
     // Create new segments for the inserted text
     const newSegments = linesToInsert.map((lineText) => ({
@@ -284,10 +281,9 @@ export class EditorModel {
     }
   }
 
-  deleteSelection() {
-    if (!this.hasSelection()) return;
-
-    const { start, end } = this.normalizeSelection();
+  deleteText(range) {
+    if (!range) return;
+    const { start, end } = this.normalizeRange(range);
 
     const {
       segment: startSegment,
@@ -338,9 +334,6 @@ export class EditorModel {
     }
 
     this._mergeSegments(start.line);
-
-    this.cursor = { ...start };
-    this.clearSelection();
   }
 
   moveCursor(dir) {
@@ -368,7 +361,7 @@ export class EditorModel {
 
   moveCursorToSelectionStart() {
     if (this.hasSelection()) {
-      const { start } = this.normalizeSelection();
+      const { start } = this.normalizeSelection(this.selection);
       this.updateCursor({ line: start.line, ch: start.ch });
       this.clearSelection();
     }
@@ -376,7 +369,7 @@ export class EditorModel {
 
   moveCursorToSelectionEnd() {
     if (this.hasSelection()) {
-      const { end } = this.normalizeSelection();
+      const { end } = this.normalizeSelection(this.selection);
       this.updateCursor({ line: end.line, ch: end.ch });
       this.clearSelection();
     }
@@ -422,24 +415,11 @@ export class EditorModel {
     }
   }
 
-  setSelectionLineType(type) {
-    if (!this.hasSelection()) {
-      this.setLineType(this.cursor.line, type);
-      return;
-    }
+  toggleInlineStyle(style, range) {
+    range = this.normalizeRange(range);
+    if (!range) return;
 
-    const { start, end } = this.normalizeSelection();
-    for (let i = start.line; i <= end.line; i++) {
-      this.setLineType(i, type);
-    }
-  }
-
-  toggleInlineStyle(style, selection) {
-    const sel =
-      selection || (this.hasSelection() ? this.normalizeSelection() : null);
-    if (!sel) return;
-
-    const { start, end } = sel;
+    const { start, end } = range;
 
     for (let i = start.line; i <= end.line; i++) {
       const line = this.lines[i];
@@ -487,17 +467,5 @@ export class EditorModel {
       line.segments = newSegments;
       this._mergeSegments(i);
     }
-  }
-
-  clone() {
-    const newModel = new EditorModel();
-    newModel.lines = JSON.parse(JSON.stringify(this.lines));
-    newModel.cursor = { ...this.cursor };
-    newModel.selection = this.selection ? { ...this.selection } : null;
-    return newModel;
-  }
-
-  applyCommand(command) {
-    command.execute(this);
   }
 }

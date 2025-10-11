@@ -1,3 +1,5 @@
+import { calculateFinalCursorPosition } from "./cursor.js";
+
 export class Editor {
   constructor({
     model,
@@ -46,7 +48,7 @@ export class Editor {
     this.plugins.splice(pluginIndex, 1);
   }
 
-  dispatch(eventName, data) {
+  dispatchEventToPlugins(eventName, data) {
     for (const plugin of this.plugins) {
       if (plugin.onEvent) {
         plugin.onEvent(eventName, data);
@@ -55,41 +57,40 @@ export class Editor {
   }
 
   // Public API for local user actions
-  executeCommand(command) {
-    command.execute(this.model);
-    this.undoManager.add(command);
-    this.dispatch("command", command);
+  executeCommands(commands) {
+    const initialCursor = this.model.cursor;
+    for (const command of commands) {
+      command.execute(this.model);
+      this.undoManager.add(command);
+      this.dispatchEventToPlugins("command", command);
+    }
+    const finalCursor = calculateFinalCursorPosition(initialCursor, commands);
+    this.model.updateCursor(finalCursor);
     this.view.render();
   }
 
   // For applying changes from remote sources
-  applyRemoteCommand(command) {
-    command.execute(this.model);
-    // For now, we clear the undo history on remote changes for simplicity.
-    // A more advanced implementation would rebase the undo stack.
-    this.undoManager.clear();
+  executeCommandsBypassUndo(commands) {
+    const initialCursor = this.model.cursor;
+    for (const command of commands) {
+      command.execute(this.model);
+    }
+    const finalCursor = calculateFinalCursorPosition(initialCursor, commands);
+    this.model.updateCursor(finalCursor);
     this.view.render();
   }
 
   undo() {
     const commands = this.undoManager.getInvertedCommandsForUndo();
     if (commands) {
-      commands.forEach((cmd) => {
-        cmd.execute(this.model);
-        this.dispatch("command", cmd);
-      });
-      this.view.render();
+      this.executeCommands(commands);
     }
   }
 
   redo() {
     const commands = this.undoManager.getCommandsForRedo();
     if (commands) {
-      commands.forEach((cmd) => {
-        cmd.execute(this.model);
-        this.dispatch("command", cmd);
-      });
-      this.view.render();
+      this.executeCommands(commands);
     }
   }
 

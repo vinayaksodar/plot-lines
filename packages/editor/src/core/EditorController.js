@@ -4,7 +4,7 @@ import { SearchHandler } from "./handlers/SearchHandler.js";
 import { ToolbarHandler } from "./handlers/ToolbarHandler.js";
 import {
   ToggleInlineStyleCommand,
-  DeleteSelectionCommand,
+  DeleteTextCommand,
   InsertTextCommand,
 } from "./commands.js";
 
@@ -99,25 +99,40 @@ export class EditorController {
   }
 
   handleToggleInlineStyle(style) {
-    this.editor.executeCommand(new ToggleInlineStyleCommand(style));
+    let range;
+    if (this.model.hasSelection()) {
+      range = this.model.getSelectionRange();
+    } else if (this.model.getCursorPos()) {
+      range = {
+        start: this.model.getCursorPos(),
+        end: this.model.getCursorPos(),
+      };
+    } else {
+      return;
+    }
+    this.editor.executeCommands([new ToggleInlineStyleCommand(style, range)]);
   }
 
   async handleCut() {
     if (this.model.hasSelection()) {
-      const text = this.model.getSelectedText();
+      const range = this.model.getSelectionRange();
+      const text = this.model.getTextInRange(range);
       try {
         await navigator.clipboard.writeText(text);
-        this.editor.executeCommand(new DeleteSelectionCommand());
+        this.model.clearSelection();
+        this.editor.executeCommands([new DeleteTextCommand(range)]);
       } catch (error) {
         console.error("Cut failed:", error);
-        this.editor.executeCommand(new DeleteSelectionCommand());
+        // this.model.clearSelection();
+        // this.editor.executeCommands([new DeleteTextCommand(range)]);
       }
     }
   }
 
   async handleCopy() {
     if (this.model.hasSelection()) {
-      const text = this.model.getSelectedText();
+      const range = this.model.getSelectionRange();
+      const text = this.model.getTextInRange(range);
       try {
         await navigator.clipboard.writeText(text);
       } catch (error) {
@@ -130,7 +145,14 @@ export class EditorController {
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        this.editor.executeCommand(new InsertTextCommand(text));
+        const tr = [];
+        if (this.model.hasSelection()) {
+          const range = this.model.getSelectionRange();
+          tr.push(new DeleteTextCommand(range));
+        }
+        tr.push(new InsertTextCommand(text, this.model.getCursorPos()));
+        this.model.clearSelection();
+        this.editor.executeCommands(tr);
       }
     } catch (error) {
       console.error("Paste failed:", error);

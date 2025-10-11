@@ -1,17 +1,14 @@
 import { Plugin } from "./Plugin.js";
 import {
-  collab,
-  receiveTransaction,
-  sendableSteps,
-  getVersion,
-  Rebaseable,
-} from "../collab.js";
-import {
   InsertCharCommand,
-  InsertTextCommand,
+  InsertNewLineCommand,
   DeleteCharCommand,
-  DeleteSelectionCommand,
+  DeleteTextCommand,
+  InsertTextCommand,
+  SetLineTypeCommand,
+  ToggleInlineStyleCommand,
 } from "../commands.js";
+import { calculateFinalCursorPosition } from "../cursor.js";
 
 export class CollabPlugin extends Plugin {
   constructor({
@@ -23,18 +20,24 @@ export class CollabPlugin extends Plugin {
     ot_version,
   }) {
     super();
+    console.log(
+      `[CollabPlugin] Constructor called with ot_version: ${ot_version}`,
+    );
     this.serverUrl = serverUrl;
     this.backendManager = backendManager;
     this.persistenceManager = persistenceManager;
     this.socket = null;
-    this.collabState = null;
     this.userID = userID;
-    this.ot_version = ot_version;
     this.pollTimeout = null;
     this.remoteCursors = new Map();
     this.userMap = userMap || new Map();
     this.isReady = false; // Don't send steps until initial snapshot is created
     this.destroyed = false;
+    this.ot_version = ot_version || 0;
+    console.log(
+      `[CollabPlugin] Initialized with ot_version: ${this.ot_version}`,
+    );
+    this.unconfirmed = [];
   }
 
   setReady() {
@@ -55,18 +58,6 @@ export class CollabPlugin extends Plugin {
   onRegister(editor) {
     this.editor = editor;
     this.model = editor.getModel();
-
-    const initialState = {
-      model: this.model,
-      ot_version: this.ot_version || 0,
-      userID: this.userID,
-    };
-    this.plugin = collab(initialState);
-    this.collabState = {
-      ...initialState,
-      collab: this.plugin.state.init(),
-    };
-    this.collabState.collab.config = this.plugin.config;
     this.editor.collab = this;
   }
 
@@ -91,24 +82,11 @@ export class CollabPlugin extends Plugin {
 
         if (result.error === "HISTORY_TOO_OLD") {
           // Fallback to snapshot because we are too far behind
-          const unconfirmed = this.sendableSteps()?.steps || [];
+          const unconfirmedCommands = this.unconfirmed;
           await this.persistenceManager.load(this.editor.documentId);
           // After loading, the model and its ot_version are updated.
           // We need to reset the collab state and re-apply unconfirmed changes.
-          this.collabState = {
-            ...this.collabState,
-            ot_version: this.editor.getModel().ot_version,
-            unconfirmed: [],
-          };
-          if (unconfirmed.length > 0) {
-            for (const step of unconfirmed) {
-              this.applyTransaction({
-                steps: [step],
-                docChanged: true,
-                getMeta: (key) => (key === "collab" ? null : undefined),
-              });
-            }
-          }
+          this.unconfirmed = unconfirmedCommands;
         } else if (result.steps && result.steps.length > 0) {
           this.receive(result.steps, result.userIDs);
         }
@@ -118,13 +96,13 @@ export class CollabPlugin extends Plugin {
       if (message.steps) {
         const userIDs = message.steps.map(() => message.userID);
         this.receive(message.steps, userIDs);
-        if (message.userID !== this.collabState.collab.config.userID) {
+        if (message.userID !== this.userID) {
           this.editor.getView().render();
         }
       }
 
       if (message.cursor) {
-        if (message.userID !== this.collabState.collab.config.userID) {
+        if (message.userID !== this.userID) {
           this.remoteCursors.set(message.userID, message.cursor);
           this.editor.getView().render();
         }
@@ -139,7 +117,7 @@ export class CollabPlugin extends Plugin {
     if (this.socket.readyState === WebSocket.OPEN && this.editor.documentId) {
       this._combineUnconfirmedSteps();
 
-      const sendable = this.sendableSteps();
+      const sendable = this.sendableCommands();
       if (sendable && sendable.steps.length > 0) {
         console.log("Sending local changes:", sendable);
         this.socket.send(
@@ -149,29 +127,26 @@ export class CollabPlugin extends Plugin {
           }),
         );
       } else {
-        this.socket.send(
-          JSON.stringify({
-            documentId: this.editor.documentId.replace("cloud-", ""),
-            ot_version: this.getVersion(),
-            cursor: this.model.cursor,
-            userID: this.userID,
-          }),
-        );
+        const payload = {
+          documentId: this.editor.documentId.replace("cloud-", ""),
+          ot_version: this.getVersion(),
+          cursor: this.model.getCursorPos(),
+          userID: this.userID,
+        };
+        console.log("[CollabPlugin] Sending poll message:", payload);
+        this.socket.send(JSON.stringify(payload));
       }
     }
     this.pollTimeout = setTimeout(() => this.poll(), 1000);
   }
 
   _combineUnconfirmedSteps() {
-    let unconfirmed = this.collabState.collab.unconfirmed;
-    if (unconfirmed.length < 2) {
+    if (this.unconfirmed.length < 2) {
       return;
     }
 
-    unconfirmed = this._combineInsertCharsInUnconfirmed(unconfirmed);
-    unconfirmed = this._combineDeleteCharsInUnconfirmed(unconfirmed);
-
-    this.collabState.collab.unconfirmed = unconfirmed;
+    this.unconfirmed = this._combineInsertCharsInUnconfirmed(this.unconfirmed);
+    this.unconfirmed = this._combineDeleteCharsInUnconfirmed(this.unconfirmed);
   }
 
   _combineInsertCharsInUnconfirmed(unconfirmed) {
@@ -182,35 +157,32 @@ export class CollabPlugin extends Plugin {
     const newUnconfirmed = [];
     let i = 0;
     while (i < unconfirmed.length) {
-      const currentRebaseable = unconfirmed[i];
-      const currentStep = currentRebaseable.step;
+      const currentCommand = unconfirmed[i];
 
       if (
-        currentStep instanceof InsertCharCommand ||
-        currentStep instanceof InsertTextCommand
+        currentCommand instanceof InsertCharCommand ||
+        currentCommand instanceof InsertTextCommand
       ) {
         let combinedText =
-          currentStep instanceof InsertCharCommand
-            ? currentStep.char
-            : currentStep.text;
-        let startPos = currentStep.pos;
-        let origin = currentRebaseable.origin;
+          currentCommand instanceof InsertCharCommand
+            ? currentCommand.char
+            : currentCommand.text;
+        let startPos = currentCommand.pos;
         let lastIndex = i;
 
         for (let j = i + 1; j < unconfirmed.length; j++) {
-          const nextRebaseable = unconfirmed[j];
-          const nextStep = nextRebaseable.step;
+          const nextCommand = unconfirmed[j];
 
           if (
-            (nextStep instanceof InsertCharCommand ||
-              nextStep instanceof InsertTextCommand) &&
-            nextStep.pos.line === startPos.line &&
-            nextStep.pos.ch === startPos.ch + combinedText.length
+            (nextCommand instanceof InsertCharCommand ||
+              nextCommand instanceof InsertTextCommand) &&
+            nextCommand.pos.line === startPos.line &&
+            nextCommand.pos.ch === startPos.ch + combinedText.length
           ) {
             const nextText =
-              nextStep instanceof InsertCharCommand
-                ? nextStep.char
-                : nextStep.text;
+              nextCommand instanceof InsertCharCommand
+                ? nextCommand.char
+                : nextCommand.text;
             combinedText += nextText;
             lastIndex = j;
           } else {
@@ -221,19 +193,16 @@ export class CollabPlugin extends Plugin {
         if (lastIndex > i) {
           // Combination happened
           const combinedCommand = new InsertTextCommand(combinedText, startPos);
-          const inverted = combinedCommand.invert();
-          newUnconfirmed.push(
-            new Rebaseable(combinedCommand, inverted, origin),
-          );
+          newUnconfirmed.push(combinedCommand);
           i = lastIndex + 1;
         } else {
           // No combination
-          newUnconfirmed.push(currentRebaseable);
+          newUnconfirmed.push(unconfirmed[i]);
           i++;
         }
       } else {
         // Not an insert command
-        newUnconfirmed.push(currentRebaseable);
+        newUnconfirmed.push(unconfirmed[i]);
         i++;
       }
     }
@@ -248,29 +217,29 @@ export class CollabPlugin extends Plugin {
     const newUnconfirmed = [];
     let i = 0;
     while (i < unconfirmed.length) {
-      const currentRebaseable = unconfirmed[i];
-      const currentStep = currentRebaseable.step;
+      const currentCommand = unconfirmed[i];
 
       // Combine backward deletions
-      if (currentStep instanceof DeleteCharCommand && currentStep.pos.ch > 0) {
-        let selectionStart = {
-          line: currentStep.pos.line,
-          ch: currentStep.pos.ch - 1,
+      if (
+        currentCommand instanceof DeleteCharCommand &&
+        currentCommand.pos.ch > 0
+      ) {
+        let rangeStart = {
+          line: currentCommand.pos.line,
+          ch: currentCommand.pos.ch - 1,
         };
-        let selectionEnd = { ...currentStep.pos };
-        let origin = currentRebaseable.origin;
+        let rangeEnd = { ...currentCommand.pos };
         let lastIndex = i;
 
         for (let j = i + 1; j < unconfirmed.length; j++) {
-          const nextRebaseable = unconfirmed[j];
-          const nextStep = nextRebaseable.step;
+          const nextCommand = unconfirmed[j];
 
           if (
-            nextStep instanceof DeleteCharCommand &&
-            nextStep.pos.line === selectionStart.line &&
-            nextStep.pos.ch === selectionStart.ch
+            nextCommand instanceof DeleteCharCommand &&
+            nextCommand.pos.line === rangeStart.line &&
+            nextCommand.pos.ch === rangeStart.ch
           ) {
-            selectionStart.ch--;
+            rangeStart.ch--;
             lastIndex = j;
           } else {
             break; // Sequence broken
@@ -279,26 +248,20 @@ export class CollabPlugin extends Plugin {
 
         if (lastIndex > i) {
           // Combination happened
-          const combinedCommand = new DeleteSelectionCommand({
-            start: selectionStart,
-            end: selectionEnd,
+          const combinedCommand = new DeleteTextCommand({
+            start: rangeStart,
+            end: rangeEnd,
           });
-          combinedCommand.text = this.editor
-            .getModel()
-            .getTextInRange(selectionStart, selectionEnd);
-          const inverted = combinedCommand.invert();
-          newUnconfirmed.push(
-            new Rebaseable(combinedCommand, inverted, origin),
-          );
+          newUnconfirmed.push(combinedCommand);
           i = lastIndex + 1;
         } else {
           // No combination
-          newUnconfirmed.push(currentRebaseable);
+          newUnconfirmed.push(unconfirmed[i]);
           i++;
         }
       } else {
         // Not a backward delete command
-        newUnconfirmed.push(currentRebaseable);
+        newUnconfirmed.push(unconfirmed[i]);
         i++;
       }
     }
@@ -307,40 +270,72 @@ export class CollabPlugin extends Plugin {
 
   onEvent(eventName, data) {
     if (eventName === "command") {
-      const tr = {
-        steps: [data],
-        docChanged: true,
-        getMeta: (key) => (key === "collab" ? null : undefined),
-      };
-      this.applyTransaction(tr);
+      this.unconfirmed.push(data);
     }
   }
 
-  applyTransaction(tr) {
-    this.collabState = {
-      ...this.collabState,
-      ...tr,
-      collab: this.plugin.state.apply(tr, this.collabState.collab),
+  receive(commands, userIDs) {
+    console.log(
+      `[CollabPlugin] receive: current version: ${this.ot_version}, receiving ${commands.length} commands.`,
+    );
+    this.ot_version += commands.length;
+    console.log(`[CollabPlugin] receive: new version: ${this.ot_version}`);
+
+    // Filter out our own confirmed steps
+    let ours = 0;
+    while (ours < userIDs.length && userIDs[ours] == this.userID) ++ours;
+    this.unconfirmed = this.unconfirmed.slice(ours);
+    commands = ours ? commands.slice(ours) : commands;
+
+    if (!commands.length) {
+      return;
+    }
+
+    const model = this.editor.getModel();
+    const originalCursor = model.getCursorPos();
+    const remoteCommands = commands.map((command) => commandFromJSON(command));
+    const unconfirmedCommands = this.unconfirmed;
+
+    // 1. Apply inverse of unconfirmed commands
+    const invertedUnconfirmed = unconfirmedCommands
+      .map((cmd) => cmd.invert())
+      .reverse();
+    this.editor.executeCommandsBypassUndo(invertedUnconfirmed);
+
+    // 2. Apply remote commands
+    this.editor.executeCommandsBypassUndo(remoteCommands);
+
+    // 3. Rebase and apply unconfirmed commands
+    const rebaser = new Rebaser(remoteCommands);
+    const rebasedUnconfirmed = rebaser.rebaseCommands(unconfirmedCommands);
+    this.editor.executeCommandsBypassUndo(rebasedUnconfirmed);
+
+    // 4. Rebase undo/redo stacks
+    rebaser.rebaseUndoStack(this.editor.undoManager);
+
+    // 5. Rebase cursor
+    const newCursor = calculateFinalCursorPosition(originalCursor, [
+      ...remoteCommands,
+      ...rebasedUnconfirmed,
+    ]);
+    model.updateCursor(newCursor);
+
+    this.unconfirmed = rebasedUnconfirmed;
+  }
+
+  sendableCommands() {
+    if (this.unconfirmed.length == 0) return null;
+    const payload = {
+      ot_version: this.ot_version,
+      steps: this.unconfirmed.map((s) => s.toJSON()),
+      userID: this.userID,
     };
-  }
-
-  receive(steps, userIDs, isHistory = false) {
-    const newState = receiveTransaction(this.collabState, steps, userIDs, {
-      isHistory,
-    });
-    this.collabState = newState;
-    this.editor.model = newState.model;
-    this.editor.view.model = newState.model;
-    this.editor.controller.model = newState.model;
-    this.editor.getModel().ot_version = newState.ot_version;
-  }
-
-  sendableSteps() {
-    return sendableSteps(this.collabState);
+    console.log("[CollabPlugin] sendableCommands:", payload);
+    return payload;
   }
 
   getVersion() {
-    return getVersion(this.collabState);
+    return this.ot_version;
   }
 
   destroy() {
@@ -351,5 +346,214 @@ export class CollabPlugin extends Plugin {
     }
     this.remoteCursors.clear();
     console.log("CollabPlugin destroyed");
+  }
+}
+
+function commandFromJSON(json) {
+  if (!json || !json.type) return null;
+  switch (json.type) {
+    case "InsertCharCommand":
+      return new InsertCharCommand(json.pos, json.char);
+    case "DeleteCharCommand":
+      return new DeleteCharCommand(json.pos);
+    case "DeleteTextCommand":
+      return new DeleteTextCommand(json.range);
+    case "InsertNewLineCommand":
+      return new InsertNewLineCommand(json.pos);
+    case "InsertTextCommand":
+      return new InsertTextCommand(json.text, json.pos);
+    case "SetLineTypeCommand":
+      return new SetLineTypeCommand(json.newType, json.pos);
+    case "ToggleInlineStyleCommand":
+      return new ToggleInlineStyleCommand(json.style, json.range);
+    default:
+      console.error("Unknown step type:", json.type);
+      return null;
+  }
+}
+
+class Rebaser {
+  constructor(commands) {
+    this.commands = commands || [];
+  }
+
+  rebaseCommands(commands) {
+    let rebasedCommands = [...commands];
+    for (const remoteCmd of this.commands) {
+      rebasedCommands = rebasedCommands
+        .map((localCmd) => this.rebase(localCmd, remoteCmd))
+        .filter(Boolean);
+    }
+    return rebasedCommands;
+  }
+
+  rebase(localCmd, remoteCmd) {
+    // Text vs Text
+    if (
+      localCmd instanceof InsertCharCommand &&
+      remoteCmd instanceof InsertCharCommand
+    ) {
+      if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch >= remoteCmd.pos.ch
+      ) {
+        return new InsertCharCommand(
+          { line: localCmd.pos.line, ch: localCmd.pos.ch + 1 },
+          localCmd.char,
+        );
+      }
+    } else if (
+      localCmd instanceof InsertCharCommand &&
+      remoteCmd instanceof DeleteCharCommand
+    ) {
+      if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch > remoteCmd.pos.ch
+      ) {
+        return new InsertCharCommand(
+          { line: localCmd.pos.line, ch: localCmd.pos.ch - 1 },
+          localCmd.char,
+        );
+      }
+    } else if (
+      localCmd instanceof DeleteCharCommand &&
+      remoteCmd instanceof InsertCharCommand
+    ) {
+      if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch >= remoteCmd.pos.ch
+      ) {
+        return new DeleteCharCommand({
+          line: localCmd.pos.line,
+          ch: localCmd.pos.ch + 1,
+        });
+      }
+    } else if (
+      localCmd instanceof DeleteCharCommand &&
+      remoteCmd instanceof DeleteCharCommand
+    ) {
+      if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch > remoteCmd.pos.ch
+      ) {
+        return new DeleteCharCommand({
+          line: localCmd.pos.line,
+          ch: localCmd.pos.ch - 1,
+        });
+      } else if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch === remoteCmd.pos.ch
+      ) {
+        return null; // The exact same character was deleted.
+      }
+    } else if (
+      localCmd instanceof InsertTextCommand &&
+      remoteCmd instanceof InsertCharCommand
+    ) {
+      if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch >= remoteCmd.pos.ch
+      ) {
+        return new InsertTextCommand(localCmd.text, {
+          line: localCmd.pos.line,
+          ch: localCmd.pos.ch + 1,
+        });
+      }
+    } else if (
+      localCmd instanceof InsertTextCommand &&
+      remoteCmd instanceof DeleteCharCommand
+    ) {
+      if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch > remoteCmd.pos.ch
+      ) {
+        return new InsertTextCommand(localCmd.text, {
+          line: localCmd.pos.line,
+          ch: localCmd.pos.ch - 1,
+        });
+      }
+    } else if (
+      localCmd instanceof DeleteTextCommand &&
+      remoteCmd instanceof InsertCharCommand
+    ) {
+      const { start, end } = localCmd.range;
+      if (remoteCmd.pos.line >= start.line && remoteCmd.pos.line <= end.line) {
+        // Complex case: remote change is within the deleted range. For simplicity, we can drop the local command.
+        return null;
+      }
+    } else if (
+      localCmd instanceof InsertNewLineCommand &&
+      remoteCmd instanceof InsertCharCommand
+    ) {
+      if (
+        localCmd.pos.line === remoteCmd.pos.line &&
+        localCmd.pos.ch >= remoteCmd.pos.ch
+      ) {
+        return new InsertNewLineCommand({
+          line: localCmd.pos.line,
+          ch: localCmd.pos.ch + 1,
+        });
+      }
+    }
+
+    // LineType vs Text
+    if (
+      localCmd instanceof SetLineTypeCommand &&
+      (remoteCmd instanceof InsertNewLineCommand ||
+        (remoteCmd instanceof InsertTextCommand &&
+          remoteCmd.text &&
+          remoteCmd.text.includes("\n")))
+    ) {
+      if (localCmd.lineNumber >= remoteCmd.pos.line) {
+        const lineCount =
+          remoteCmd instanceof InsertTextCommand && remoteCmd.text
+            ? remoteCmd.text.split("\n").length - 1
+            : 1;
+        return new SetLineTypeCommand(
+          localCmd.newType,
+          localCmd.lineNumber + lineCount,
+        );
+      }
+    } else if (
+      localCmd instanceof SetLineTypeCommand &&
+      remoteCmd instanceof DeleteCharCommand &&
+      remoteCmd.char === "\n"
+    ) {
+      if (localCmd.lineNumber > remoteCmd.pos.line) {
+        return new SetLineTypeCommand(
+          localCmd.newType,
+          localCmd.lineNumber - 1,
+        );
+      } else if (localCmd.lineNumber === remoteCmd.pos.line) {
+        return null; // Line was deleted
+      }
+    }
+
+    // InlineStyle vs Text
+    if (
+      localCmd instanceof ToggleInlineStyleCommand &&
+      remoteCmd instanceof InsertCharCommand
+    ) {
+      // This is complex. For now, we'll just assume the local command is still valid.
+      // A more robust solution would be to adjust the range.
+    }
+
+    return localCmd; // Default to no-op
+  }
+
+  rebaseUndoStack(undoManager) {
+    const rebaseStack = (stack) => {
+      let newStack = [];
+      for (const command of stack) {
+        const rebased = this.rebaseCommands([command]);
+        if (rebased.length > 0) {
+          newStack.push(rebased[0]);
+        }
+      }
+      return newStack;
+    };
+
+    undoManager.undoStack = rebaseStack(undoManager.undoStack);
+    undoManager.redoStack = rebaseStack(undoManager.redoStack);
   }
 }

@@ -2,7 +2,7 @@ import {
   DeleteCharCommand,
   InsertCharCommand,
   InsertNewLineCommand,
-  DeleteSelectionCommand,
+  DeleteTextCommand,
   SetLineTypeCommand,
 } from "../commands.js";
 
@@ -57,7 +57,7 @@ export class KeyboardHandler {
     const direction = e.key.replace("Arrow", "").toLowerCase();
 
     if (!model.hasSelection()) {
-      model.setSelection({ ...model.cursor }, { ...model.cursor });
+      model.setSelection(model.getCursorPos(), model.getCursorPos());
     }
 
     const newEnd = this.calculateNewPosition(model.selection.end, direction);
@@ -69,7 +69,8 @@ export class KeyboardHandler {
     let cmd = null;
 
     if (e.key === "Backspace" || e.key === "Delete") {
-      cmd = new DeleteSelectionCommand(model.selection);
+      cmd = new DeleteTextCommand(model.selection);
+      model.clearSelection();
     } else if (e.key === "Escape") {
       model.clearSelection();
     } else if (e.key === "ArrowLeft") {
@@ -79,14 +80,14 @@ export class KeyboardHandler {
     }
 
     if (cmd) {
-      this.editor.executeCommand(cmd);
+      this.editor.executeCommands([cmd]);
     }
   }
 
   handleArrowMovement(e) {
     const model = this.editor.getModel();
     const direction = e.key.replace("Arrow", "").toLowerCase();
-    const newPos = this.calculateNewPosition(model.cursor, direction);
+    const newPos = this.calculateNewPosition(model.getCursorPos(), direction);
     model.updateCursor(newPos);
   }
 
@@ -95,15 +96,20 @@ export class KeyboardHandler {
     let cmd = null;
 
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      cmd = new InsertCharCommand(model.cursor, e.key);
+      const pos = model.getCursorPos();
+      cmd = new InsertCharCommand(pos, e.key);
+      this.editor.executeCommands([cmd]);
     } else if (e.key === "Enter") {
-      cmd = new InsertNewLineCommand(model.cursor);
+      const pos = model.getCursorPos();
+      cmd = new InsertNewLineCommand(pos);
+      this.editor.executeCommands([cmd]);
     } else if (e.key === "Backspace") {
-      cmd = new DeleteCharCommand(model.cursor);
+      const pos = model.getCursorPos();
+      cmd = new DeleteCharCommand(pos, e.key);
+      this.editor.executeCommands([cmd]);
     }
 
     if (cmd) {
-      this.editor.executeCommand(cmd);
       this._handleAutoFormatting(e.key);
     }
   }
@@ -160,7 +166,7 @@ export class KeyboardHandler {
 
   _handleAutoFormatting(key) {
     const model = this.editor.getModel();
-    const { line } = model.cursor;
+    const { line } = model.getCursorPos();
 
     // Auto-switch to Dialogue or Action after Enter
     if (key === "Enter" && line > 0) {
@@ -176,8 +182,8 @@ export class KeyboardHandler {
       }[prevLineType];
 
       if (newType) {
-        const cmd = new SetLineTypeCommand(newType);
-        this.editor.executeCommand(cmd);
+        const cmd = new SetLineTypeCommand(newType, line);
+        this.editor.executeCommands([cmd]);
       }
     }
 
@@ -194,7 +200,7 @@ export class KeyboardHandler {
 
     if (typeToSet && currentLine.type !== typeToSet) {
       const cmd = new SetLineTypeCommand(typeToSet);
-      this.editor.executeCommand(cmd);
+      this.editor.executeCommands([cmd]);
     }
   }
 }
