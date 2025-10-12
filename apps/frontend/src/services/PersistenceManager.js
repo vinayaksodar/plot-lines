@@ -1,4 +1,5 @@
-import { Persistence, CollabPlugin, FountainParser } from "@plot-lines/editor";
+import { Persistence, CollabPlugin } from "@plot-lines/editor";
+import { FountainParser } from "./FountainParser.js";
 import { authService } from "./Auth.js";
 import { LocalPersistence } from "./LocalPersistence.js";
 import { CloudPersistence } from "./CloudPersistence.js";

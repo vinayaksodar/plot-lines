@@ -1,4 +1,4 @@
-import { Statistics } from "@plot-lines/editor";
+import { Statistics } from "../../services/Statistics.js";
 import "./statisticsview.css";
 
 export function createStatisticsView(editor) {
