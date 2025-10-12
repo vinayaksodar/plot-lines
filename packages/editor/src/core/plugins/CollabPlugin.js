@@ -473,10 +473,10 @@ class Rebaser {
   rebaseUndoStack(undoManager) {
     const rebaseStack = (stack) => {
       let newStack = [];
-      for (const command of stack) {
-        const rebased = this.rebaseCommands([command]);
-        if (rebased.length > 0) {
-          newStack.push(rebased[0]);
+      for (const batch of stack) {
+        const rebasedBatch = this.rebaseCommands(batch);
+        if (rebasedBatch.length > 0) {
+          newStack.push(rebasedBatch);
         }
       }
       return newStack;
