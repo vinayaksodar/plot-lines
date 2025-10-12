@@ -265,5 +265,4 @@ export class EditorController {
       this.executeCommandsBypassUndo(commands);
     }
   }
-
 }

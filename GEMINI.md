@@ -15,8 +15,8 @@ The editor follows a Model-View-Controller (MVC) pattern, with a dynamic plugin 
 - **`EditorModel`**: Manages the editor's state, including the screenplay content (as an array of lines with segments for rich text) and the Title Page data. It provides a clean API for manipulating the document.
 - **`EditorView`**: Renders the editor's content to the DOM. It features a virtual scrolling engine to handle large documents efficiently.
 - **`EditorController`**: Orchestrates the application, handling user input (keyboard, pointer events) and executing commands to modify the model.
-- **`PersistenceManager`**: The central hub for persistence. It dynamically manages the collaboration plugin and routes save/load operations to the correct manager (`FileManager` for local, `BackendManager` for cloud) based on the document type.
-- **`CollabPlugin`**: A dynamically-loaded plugin that manages real-time collaboration. It communicates with the backend via WebSockets, sending and receiving Operational Transformation (OT) commands to keep all clients in sync.
+- **`PersistenceManager`**: The central hub for persistence. It dynamically manages the collaboration plugin and routes save/load operations to the correct manager (`LocalPersistence` for local, `CloudPersistence` for cloud) based on the document type.
+- **`CollabPlugin`**: A dynamically-loaded plugin that manages the Operational Transformation (OT) logic for real-time collaboration. It receives and processes commands from the `CollabService`.
 
 ### Key Features
 
@@ -36,13 +36,14 @@ The editor follows a Model-View-Controller (MVC) pattern, with a dynamic plugin 
 - `turbo.json`: The configuration file for Turborepo.
 - `package.json`: Defines the project dependencies and scripts for the monorepo.
 - `apps/frontend/src/main.js`: Initializes the core editor components and UI. Does not initialize collaboration.
-- `apps/frontend/src/services/PersistenceManager.js`: The primary orchestrator for persistence. It dynamically loads/unloads the `CollabPlugin` and routes save/load requests to either `FileManager` or `BackendManager`.
-- `apps/frontend/src/services/FileManager.js`: Handles saving and loading documents to the browser's `localStorage`. It correctly serializes the rich text model to JSON.
-- `apps/frontend/src/services/BackendManager.js`: Handles communication with the backend for cloud documents and user authentication.
+- `apps/frontend/src/services/PersistenceManager.js`: The primary orchestrator for persistence. It dynamically loads/unloads the `CollabPlugin` and routes save/load requests to either `LocalPersistence` or `CloudPersistence`.
+- `apps/frontend/src/services/LocalPersistence.js`: Handles saving and loading documents to the browser's `localStorage`. It correctly serializes the rich text model to JSON.
+- `apps/frontend/src/services/CloudPersistence.js`: Handles communication with the backend for cloud documents and user authentication.
 - `apps/frontend/src/services/Auth.js`: Manages user authentication state and provides the login UI.
-- `packages/editor/src/core/Editor.js`: The main editor class. Now includes methods (`destroyPlugin`) to manage the plugin lifecycle.
+- `apps/frontend/src/services/CollabService.js`: Manages the WebSocket connection for real-time collaboration.
+- `packages/editor/src/core/EditorController.js`: The main editor class. It orchestrates the editor, handling user input and executing commands.
 - `packages/editor/src/core/EditorModel.js`: The data model for the editor, holding the screenplay lines and title page data.
-- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the WebSocket connection and all real-time collaboration logic, including Operational Transformation (OT). It is created and destroyed on-demand by the `PersistenceManager`.
+- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the real-time collaboration logic, including Operational Transformation (OT). It is created and destroyed on-demand by the `PersistenceManager`. It contains the `Rebaser` class for OT.
 - `GEMINI.md`: This file, containing an overview of the project for the Gemini agent.
 
 ### Backend Architecture
@@ -74,14 +75,14 @@ The backend is a Node.js application built with the Express framework, providing
 - `apps/backend/src/database.js`: Initializes the SQLite database and sets up the schema, including tables for documents, users, and collaboration steps.
 - `apps/backend/src/routes/`: This directory contains the route handlers for the Express application, with separate files for authentication, documents, and users.
 - `apps/backend/src/websockets/collaboration.js`: This file contains the logic for handling real-time collaboration via WebSockets, including processing and broadcasting operational transformation steps.
-- `apps/frontend/src/services/PersistenceManager.js`: The primary orchestrator for persistence. It dynamically loads/unloads the `CollabPlugin` and routes save/load requests to either `FileManager` or `BackendManager`.
-- `apps/frontend/src/services/FileManager.js`: Handles saving and loading documents to the browser's `localStorage`. It correctly serializes the rich text model to JSON.
-- `apps/frontend/src/services/BackendManager.js`: Handles communication with the backend for cloud documents and user authentication.
+- `apps/frontend/src/services/PersistenceManager.js`: The primary orchestrator for persistence. It dynamically loads/unloads the `CollabPlugin` and routes save/load requests to either `LocalPersistence` or `CloudPersistence`.
+- `apps/frontend/src/services/LocalPersistence.js`: Handles saving and loading documents to the browser's `localStorage`. It correctly serializes the rich text model to JSON.
+- `apps/frontend/src/services/CloudPersistence.js`: Handles communication with the backend for cloud documents and user authentication.
 - `apps/frontend/src/services/Auth.js`: Manages user authentication state and provides the login UI.
-- `packages/editor/src/core/Editor.js`: The main editor class. Now includes methods (`destroyPlugin`) to manage the plugin lifecycle.
+- `apps/frontend/src/services/CollabService.js`: Manages the WebSocket connection for real-time collaboration.
+- `packages/editor/src/core/EditorController.js`: The main editor class. It orchestrates the editor, handling user input and executing commands.
 - `packages/editor/src/core/EditorModel.js`: The data model for the editor, holding the screenplay lines and title page data.
-- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the WebSocket connection and all real-time collaboration logic, including Operational Transformation (OT). It is created and destroyed on-demand by the `PersistenceManager`.
-- `packages/editor/src/core/collab.js`: Contains the core Operational Transformation (OT) logic for rebasing and transforming commands.
+- `packages/editor/src/core/plugins/CollabPlugin.js`: Manages the real-time collaboration logic, including Operational Transformation (OT). It is created and destroyed on-demand by the `PersistenceManager`. It contains the `Rebaser` class for OT.
 - `GEMINI.md`: This file, containing an overview of the project for the Gemini agent.
 
 It is assumed that `npm run lint` and `npm run format` have been run before any changes.
