@@ -1,11 +1,8 @@
 import { Persistence } from "@plot-lines/editor";
 
 export class LocalPersistence extends Persistence {
-  constructor(model, view, titlePage) {
-    super(null); // The editor instance will be injected by the Editor.
-    this.model = model;
-    this.view = view;
-    this.titlePage = titlePage;
+  constructor() {
+    super(null);
   }
 
   getSavedFiles() {
@@ -19,17 +16,16 @@ export class LocalPersistence extends Persistence {
   }
 
   async save(options) {
-    const { documentId, fileName, content } = options;
+    const { documentId, fileName, content, titlePage } = options;
 
     if (!documentId) {
       throw new Error("documentId is required for saving.");
     }
 
-    const titlePage = this.titlePage.model.getData();
     const saveData = {
       id: documentId,
       titlePage,
-      content: content || JSON.stringify(this.model.lines),
+      content: content,
       fileName: fileName,
       timestamp: Date.now(),
     };
@@ -47,16 +43,6 @@ export class LocalPersistence extends Persistence {
       const fileData = savedFiles[documentId];
 
       if (fileData) {
-        try {
-          this.model.lines = JSON.parse(fileData.content);
-        } catch (e) {
-          console.error("Failed to parse content from saved file", e);
-          this.model.setText(fileData.content);
-        }
-        if (fileData.titlePage) {
-          this.titlePage.model.update(fileData.titlePage);
-          this.titlePage.render();
-        }
         return fileData;
       }
     } catch (error) {

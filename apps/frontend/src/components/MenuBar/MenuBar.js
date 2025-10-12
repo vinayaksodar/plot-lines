@@ -2,57 +2,11 @@ import "./menubar.css";
 import { createShareModal } from "../ShareModal/ShareModal";
 import { CloudPersistence } from "../../services/CloudPersistence.js";
 
-export function createMenuBar(persistence, editorController) {
+export function createMenuBar(menuConfig) {
   const menuBar = document.createElement("div");
   menuBar.className = "menu-bar";
 
-  const menus = {
-    File: {
-      // 'Open File': () => persistence.import(),
-      "Save File": () => persistence.save(),
-      Rename: () => persistence.rename(),
-      // 'Export File': () => persistence.export(),
-      hr1: "hr",
-      "Import Fountain": () => persistence.import("fountain"),
-      "Export Fountain": () => persistence.export("fountain"),
-      hr2: "hr",
-      "Manage Files": () => persistence.manage(),
-    },
-    Edit: {
-      Undo: () => editorController.handleUndo(),
-      Redo: () => editorController.handleRedo(),
-      hr1: "hr",
-      Cut: () => editorController.handleCut(),
-      Copy: () => editorController.handleCopy(),
-      Paste: () => editorController.handlePaste(),
-    },
-    View: {
-      "Toggle Toolbar": () => {
-        const toolbar = document.querySelector(".iconbar");
-        if (toolbar) {
-          toolbar.classList.toggle("hidden");
-        }
-      },
-    },
-    Share: {
-      "Manage access": () => {
-        if (persistence.editor.isCloudDocument) {
-          const modal = createShareModal(
-            persistence.editor,
-            new CloudPersistence(persistence.editor),
-          );
-          document.body.appendChild(modal);
-        } else {
-          persistence.showToast(
-            "Manage access is only for cloud documents",
-            "error",
-          );
-        }
-      },
-    },
-  };
-
-  for (const menuTitle in menus) {
+  for (const menuTitle in menuConfig) {
     const menuContainer = document.createElement("div");
     menuContainer.className = "menu";
 
@@ -64,8 +18,8 @@ export function createMenuBar(persistence, editorController) {
     dropdown.className = "menu-dropdown";
     menuContainer.appendChild(dropdown);
 
-    for (const itemTitle in menus[menuTitle]) {
-      if (menus[menuTitle][itemTitle] === "hr") {
+    for (const itemTitle in menuConfig[menuTitle]) {
+      if (menuConfig[menuTitle][itemTitle] === "hr") {
         const hr = document.createElement("hr");
         dropdown.appendChild(hr);
         continue;
@@ -75,7 +29,7 @@ export function createMenuBar(persistence, editorController) {
       item.textContent = itemTitle;
       item.addEventListener("click", (e) => {
         e.preventDefault();
-        menus[menuTitle][itemTitle]();
+        menuConfig[menuTitle][itemTitle]();
         dropdown.classList.remove("visible");
       });
       dropdown.appendChild(item);

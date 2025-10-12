@@ -1,7 +1,7 @@
 export class PointerHandler {
-  constructor(editor) {
-    this.editor = editor;
-    this.container = editor.getView().container;
+  constructor(controller) {
+    this.controller = controller;
+    this.container = controller.view.container;
 
     // --- Unified State ---
     this.activePointerId = null;
@@ -51,9 +51,9 @@ export class PointerHandler {
     this.drag = false;
     this.selectionMode = false;
     this.pointerDownPos = { clientX: e.clientX, clientY: e.clientY };
-    this.dragStartModelPos = this.editor
-      .getView()
-      .viewToModelPos(this.pointerDownPos);
+    this.dragStartModelPos = this.controller.view.viewToModelPos(
+      this.pointerDownPos,
+    );
 
     this.interactionTimeout = setTimeout(() => {
       if (this.activePointerId !== null) {
@@ -105,13 +105,13 @@ export class PointerHandler {
 
     if (e.pointerType === "touch" && !this.selectionMode) {
       this.clearLongPressTimer();
-      const { line, ch } = this.editor
-        .getView()
-        .viewToModelPos(this.pointerDownPos);
-      this.editor.getModel().clearSelection();
-      this.editor.getModel().updateCursor({ line, ch });
-      this.editor.getView().render();
-      this.editor.focusEditor();
+      const { line, ch } = this.controller.view.viewToModelPos(
+        this.pointerDownPos,
+      );
+      this.controller.model.clearSelection();
+      this.controller.model.updateCursor({ line, ch });
+      this.controller.view.render();
+      this.controller.focusEditor();
       this.cancelInteraction();
       return;
     }
@@ -145,17 +145,18 @@ export class PointerHandler {
     const wasDragging = this.drag;
 
     if (!wasDragging && e.pointerType !== "touch") {
-      const { line, ch } = this.editor
-        .getView()
-        .viewToModelPos({ clientX: e.clientX, clientY: e.clientY });
-      this.editor.getModel().clearSelection();
-      this.editor.getModel().updateCursor({ line, ch });
-      this.editor.getView().render();
+      const { line, ch } = this.controller.view.viewToModelPos({
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
+      this.controller.model.clearSelection();
+      this.controller.model.updateCursor({ line, ch });
+      this.controller.view.render();
     }
 
     this.cancelInteraction();
 
-    this.editor.focusEditor();
+    this.controller.focusEditor();
   }
 
   cancelInteraction() {
@@ -218,21 +219,12 @@ export class PointerHandler {
       if (!this.pendingSelection) return;
 
       const { startModelPos, endClientPos } = this.pendingSelection;
-      const endModelPos = this.editor.getView().viewToModelPos(endClientPos);
+      const endModelPos = this.controller.view.viewToModelPos(endClientPos);
 
-      const model = this.editor.getModel();
+      const model = this.controller.model;
       model.setSelection(startModelPos, endModelPos);
       model.updateCursor(endModelPos);
-      this.editor.getView().render();
+      this.controller.view.render();
     });
-  }
-
-  destroy() {
-    this.container.removeEventListener("pointerdown", this.onPointerDown);
-    this.container.removeEventListener("pointermove", this.onPointerMove);
-    this.container.removeEventListener("pointerup", this.onPointerUp);
-    this.container.removeEventListener("pointercancel", this.onPointerCancel);
-
-    this.cancelInteraction();
   }
 }

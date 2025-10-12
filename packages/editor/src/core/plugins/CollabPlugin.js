@@ -11,24 +11,12 @@ import {
 import { calculateFinalCursorPosition } from "../cursor.js";
 
 export class CollabPlugin extends Plugin {
-  constructor({
-    serverUrl,
-    backendManager,
-    persistenceManager,
-    userID,
-    userMap,
-    ot_version,
-  }) {
+  constructor({ userID, userMap, ot_version }) {
     super();
     console.log(
       `[CollabPlugin] Constructor called with ot_version: ${ot_version}`,
     );
-    this.serverUrl = serverUrl;
-    this.backendManager = backendManager;
-    this.persistenceManager = persistenceManager;
-    this.socket = null;
     this.userID = userID;
-    this.pollTimeout = null;
     this.remoteCursors = new Map();
     this.userMap = userMap || new Map();
     this.isReady = false; // Don't send steps until initial snapshot is created
@@ -55,89 +43,100 @@ export class CollabPlugin extends Plugin {
     }
   }
 
-  onRegister(editor) {
-    this.editor = editor;
-    this.model = editor.getModel();
-    this.editor.collab = this;
+  onRegister(controller) {
+    this.controller = controller;
+    this.model = controller.model;
   }
 
-  connect() {
-    if (this.destroyed) return;
-    this.socket = new WebSocket(this.serverUrl);
-
-    this.socket.onopen = () => {
-      console.log("WebSocket connection established");
-    };
-
-    this.socket.onmessage = async (event) => {
-      if (this.destroyed) return;
-      const message = JSON.parse(event.data);
-      console.log("Received message:", message);
-
-      if (message.error === "Version mismatch") {
-        const result = await this.backendManager.getSteps(
-          message.documentId.replace("cloud-", ""),
-          this.getVersion(),
-        );
-
-        if (result.error === "HISTORY_TOO_OLD") {
-          // Fallback to snapshot because we are too far behind
-          const unconfirmedCommands = this.unconfirmed;
-          await this.persistenceManager.load(this.editor.documentId);
-          // After loading, the model and its ot_version are updated.
-          // We need to reset the collab state and re-apply unconfirmed changes.
-          this.unconfirmed = unconfirmedCommands;
-        } else if (result.steps && result.steps.length > 0) {
-          this.receive(result.steps, result.userIDs);
-        }
-        return;
-      }
-
-      if (message.steps) {
-        const userIDs = message.steps.map(() => message.userID);
-        this.receive(message.steps, userIDs);
-        if (message.userID !== this.userID) {
-          this.editor.getView().render();
-        }
-      }
-
-      if (message.cursor) {
-        if (message.userID !== this.userID) {
-          this.remoteCursors.set(message.userID, message.cursor);
-          this.editor.getView().render();
-        }
-      }
-    };
-
-    this.poll();
+  onEvent(eventName, data) {
+    if (eventName === "command") {
+      this.unconfirmed.push(data);
+    }
   }
 
-  poll() {
+  receive(message, ignoreOwnCommands = true) {
     if (this.destroyed) return;
-    if (this.socket.readyState === WebSocket.OPEN && this.editor.documentId) {
-      this._combineUnconfirmedSteps();
 
-      const sendable = this.sendableCommands();
-      if (sendable && sendable.steps.length > 0) {
-        console.log("Sending local changes:", sendable);
-        this.socket.send(
-          JSON.stringify({
-            documentId: this.editor.documentId.replace("cloud-", ""),
-            ...sendable,
-          }),
-        );
-      } else {
-        const payload = {
-          documentId: this.editor.documentId.replace("cloud-", ""),
-          ot_version: this.getVersion(),
-          cursor: this.model.getCursorPos(),
-          userID: this.userID,
-        };
-        console.log("[CollabPlugin] Sending poll message:", payload);
-        this.socket.send(JSON.stringify(payload));
+    if (message.steps) {
+      const userIDs = message.steps.map(() => message.userID);
+      this._receiveSteps(message.steps, userIDs, ignoreOwnCommands);
+      if (message.userID !== this.userID) {
+        this.controller.view.render();
       }
     }
-    this.pollTimeout = setTimeout(() => this.poll(), 1000);
+
+    if (message.cursor) {
+      if (message.userID !== this.userID) {
+        this.remoteCursors.set(message.userID, {
+          cursor: message.cursor,
+          userName: this.getUserName(message.userID),
+        });
+        this.controller.updateRemoteCursors(this.remoteCursors);
+      }
+    }
+  }
+
+  _receiveSteps(commands, userIDs, ignoreOwnCommands = true) {
+    console.log(
+      `[CollabPlugin] receive: current version: ${this.ot_version}, receiving ${commands.length} commands.`,
+    );
+    this.ot_version += commands.length;
+    console.log(`[CollabPlugin] receive: new version: ${this.ot_version}`);
+
+    // Filter out our own confirmed steps
+    if (ignoreOwnCommands) {
+      let ours = 0;
+      while (ours < userIDs.length && userIDs[ours] == this.userID) ++ours;
+      this.unconfirmed = this.unconfirmed.slice(ours);
+      commands = ours ? commands.slice(ours) : commands;
+    }
+
+    if (!commands.length) {
+      return;
+    }
+
+    const model = this.model;
+    const originalCursor = model.getCursorPos();
+    const remoteCommands = commands.map((command) => commandFromJSON(command));
+    const unconfirmedCommands = this.unconfirmed;
+
+    // 1. Apply inverse of unconfirmed commands
+    const invertedUnconfirmed = unconfirmedCommands
+      .map((cmd) => cmd.invert())
+      .reverse();
+    this.controller.executeCommandsBypassUndo(invertedUnconfirmed);
+
+    // 2. Apply remote commands
+    this.controller.executeCommandsBypassUndo(remoteCommands);
+
+    // 3. Rebase and apply unconfirmed commands
+    const rebaser = new Rebaser(remoteCommands);
+    const rebasedUnconfirmed = rebaser.rebaseCommands(unconfirmedCommands);
+    this.controller.executeCommandsBypassUndo(rebasedUnconfirmed);
+
+    // 4. Rebase undo/redo stacks
+    rebaser.rebaseUndoStack(this.controller.undoManager);
+
+    // 5. Rebase cursor
+    const newCursor = calculateFinalCursorPosition(originalCursor, [
+      ...remoteCommands,
+      ...rebasedUnconfirmed,
+    ]);
+    model.updateCursor(newCursor);
+
+    this.unconfirmed = rebasedUnconfirmed;
+  }
+
+  sendableCommands() {
+    if (this.unconfirmed.length == 0) return null;
+    this._combineUnconfirmedSteps();
+    const payload = {
+      ot_version: this.ot_version,
+      steps: this.unconfirmed.map((s) => s.toJSON()),
+      userID: this.userID,
+    };
+    console.log("[CollabPlugin] sendableCommands:", payload);
+    return payload;
   }
 
   _combineUnconfirmedSteps() {
@@ -268,82 +267,12 @@ export class CollabPlugin extends Plugin {
     return newUnconfirmed;
   }
 
-  onEvent(eventName, data) {
-    if (eventName === "command") {
-      this.unconfirmed.push(data);
-    }
-  }
-
-  receive(commands, userIDs) {
-    console.log(
-      `[CollabPlugin] receive: current version: ${this.ot_version}, receiving ${commands.length} commands.`,
-    );
-    this.ot_version += commands.length;
-    console.log(`[CollabPlugin] receive: new version: ${this.ot_version}`);
-
-    // Filter out our own confirmed steps
-    let ours = 0;
-    while (ours < userIDs.length && userIDs[ours] == this.userID) ++ours;
-    this.unconfirmed = this.unconfirmed.slice(ours);
-    commands = ours ? commands.slice(ours) : commands;
-
-    if (!commands.length) {
-      return;
-    }
-
-    const model = this.editor.getModel();
-    const originalCursor = model.getCursorPos();
-    const remoteCommands = commands.map((command) => commandFromJSON(command));
-    const unconfirmedCommands = this.unconfirmed;
-
-    // 1. Apply inverse of unconfirmed commands
-    const invertedUnconfirmed = unconfirmedCommands
-      .map((cmd) => cmd.invert())
-      .reverse();
-    this.editor.executeCommandsBypassUndo(invertedUnconfirmed);
-
-    // 2. Apply remote commands
-    this.editor.executeCommandsBypassUndo(remoteCommands);
-
-    // 3. Rebase and apply unconfirmed commands
-    const rebaser = new Rebaser(remoteCommands);
-    const rebasedUnconfirmed = rebaser.rebaseCommands(unconfirmedCommands);
-    this.editor.executeCommandsBypassUndo(rebasedUnconfirmed);
-
-    // 4. Rebase undo/redo stacks
-    rebaser.rebaseUndoStack(this.editor.undoManager);
-
-    // 5. Rebase cursor
-    const newCursor = calculateFinalCursorPosition(originalCursor, [
-      ...remoteCommands,
-      ...rebasedUnconfirmed,
-    ]);
-    model.updateCursor(newCursor);
-
-    this.unconfirmed = rebasedUnconfirmed;
-  }
-
-  sendableCommands() {
-    if (this.unconfirmed.length == 0) return null;
-    const payload = {
-      ot_version: this.ot_version,
-      steps: this.unconfirmed.map((s) => s.toJSON()),
-      userID: this.userID,
-    };
-    console.log("[CollabPlugin] sendableCommands:", payload);
-    return payload;
-  }
-
   getVersion() {
     return this.ot_version;
   }
 
   destroy() {
     this.destroyed = true;
-    clearTimeout(this.pollTimeout);
-    if (this.socket) {
-      this.socket.close();
-    }
     this.remoteCursors.clear();
     console.log("CollabPlugin destroyed");
   }

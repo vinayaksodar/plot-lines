@@ -2,8 +2,8 @@ import { Persistence } from "@plot-lines/editor";
 import { authService } from "./Auth";
 
 export class CloudPersistence extends Persistence {
-  constructor(editor) {
-    super(editor);
+  constructor() {
+    super(null);
     this.baseUrl = "http://localhost:3000/api";
   }
 
@@ -65,10 +65,20 @@ export class CloudPersistence extends Persistence {
 
   async load(documentId) {
     const result = await this._fetch(`/documents/${documentId}`);
-    if (result.data && result.data.content) {
-      this.editor.getModel().lines = JSON.parse(result.data.content);
-    }
     return result.data;
+  }
+
+  async loadWithSteps(documentId) {
+    const doc = await this.load(documentId);
+    const stepsResult = await this.getSteps(
+      documentId,
+      doc.snapshot_ot_version || 0,
+    );
+    return {
+      doc,
+      steps: stepsResult.steps,
+      userIDs: stepsResult.userIDs,
+    };
   }
 
   async rename(documentId, newName) {

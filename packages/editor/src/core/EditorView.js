@@ -253,7 +253,8 @@ export class EditorView {
     this.searchMatchesLayer.className = "search-matches-layer";
     this.widgetLayer.appendChild(this.searchMatchesLayer);
 
-    this.remoteCursors = new Map();
+    this.remoteCursorData = new Map();
+    this.remoteCursorElements = new Map();
 
     this.cursorEl = document.createElement("div");
     this.cursorEl.className = "cursor";
@@ -361,7 +362,7 @@ export class EditorView {
     }
     return 0;
   }
-  render() {
+  render(renderContext = {}) {
     const scrollTop = this.container.scrollTop;
     const clientHeight = this.container.clientHeight;
 
@@ -447,7 +448,7 @@ export class EditorView {
     this.updateCursor();
     this._renderSelection();
     this._renderSearchMatches();
-    this._renderRemoteCursors();
+    this._renderRemoteCursors(renderContext.remoteCursors);
   }
 
   _createPageBreak() {
@@ -674,14 +675,17 @@ export class EditorView {
     this.pauseBlinkAndRestart();
   }
 
+  updateRemoteCursors(remoteCursors) {
+    this.remoteCursorData = remoteCursors;
+    this.render();
+  }
+
   _renderRemoteCursors() {
-    if (!this.editor.collab) return;
+    const oldCursors = new Set(this.remoteCursorElements.keys());
 
-    const oldCursors = new Set(this.remoteCursors.keys());
-
-    for (const [userID, cursor] of this.editor.collab.remoteCursors) {
+    for (const [userID, cursorData] of this.remoteCursorData.entries()) {
       oldCursors.delete(userID);
-      let cursorEl = this.remoteCursors.get(userID);
+      let cursorEl = this.remoteCursorElements.get(userID);
       if (!cursorEl) {
         cursorEl = document.createElement("div");
         cursorEl.className = "remote-cursor";
@@ -689,14 +693,14 @@ export class EditorView {
 
         const nameLabel = document.createElement("div");
         nameLabel.className = "remote-cursor-label";
-        nameLabel.textContent = this.editor.collab.getUserName(userID);
+        nameLabel.textContent = cursorData.userName;
         cursorEl.appendChild(nameLabel);
 
         this.widgetLayer.appendChild(cursorEl);
-        this.remoteCursors.set(userID, cursorEl);
+        this.remoteCursorElements.set(userID, cursorEl);
       }
 
-      const { line, ch } = cursor;
+      const { line, ch } = cursorData.cursor;
       const lineEl = this.container.querySelector(`[data-line="${line}"]`);
 
       if (!lineEl) {
@@ -756,10 +760,10 @@ export class EditorView {
     }
 
     for (const userID of oldCursors) {
-      const cursorEl = this.remoteCursors.get(userID);
+      const cursorEl = this.remoteCursorElements.get(userID);
       if (cursorEl) {
         cursorEl.remove();
-        this.remoteCursors.delete(userID);
+        this.remoteCursorElements.delete(userID);
       }
     }
   }
@@ -780,7 +784,7 @@ export class EditorView {
     }
     this.cursorEl.style.visibility = "visible";
     if (this.cursorBlinkTimeout) clearTimeout(this.cursorBlinkTimeout);
-    this.cursorBlinkTimeout = setTimeout(() => this.startBlink(), 530);
+    this.startBlink();
   }
 
   highlightMatches(matches, currentIndex) {

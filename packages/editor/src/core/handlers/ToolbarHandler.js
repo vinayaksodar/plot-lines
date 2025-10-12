@@ -1,8 +1,6 @@
-import { SetLineTypeCommand } from "../commands.js";
-
 export class ToolbarHandler {
-  constructor(editor, toolbar, hiddenInput) {
-    this.editor = editor;
+  constructor(controller, toolbar, hiddenInput) {
+    this.controller = controller;
     this.toolbar = toolbar;
     this.hiddenInput = hiddenInput;
     if (this.toolbar) {
@@ -20,38 +18,37 @@ export class ToolbarHandler {
   };
 
   async handleToolbarAction(action, value) {
-    const { editor } = this;
     try {
       switch (action) {
         case "undo":
-          editor.undo();
+          this.controller.undo();
           this.hiddenInput.focus();
           break;
         case "redo":
-          editor.redo();
+          this.controller.redo();
           this.hiddenInput.focus();
           break;
         case "cut":
-          await editor.controller.handleCut();
+          await this.controller.handleCut();
           this.hiddenInput.focus();
           break;
         case "copy":
-          await editor.controller.handleCopy();
+          await this.controller.handleCopy();
           this.hiddenInput.focus();
           break;
         case "paste":
-          await editor.controller.handlePaste();
+          await this.controller.handlePaste();
           this.hiddenInput.focus();
           break;
         case "search":
-          editor.controller.handleSearch();
+          this.controller.handleSearch();
           break;
         case "set-line-type":
-          editor.executeCommands([new SetLineTypeCommand(value)]);
+          this.controller.handleSetLineType(value);
           this.hiddenInput.focus();
           break;
         case "toggle-inline-style":
-          editor.controller.handleToggleInlineStyle(value);
+          this.controller.handleToggleInlineStyle(value);
           this.hiddenInput.focus();
           break;
       }

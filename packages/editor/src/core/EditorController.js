@@ -1,20 +1,21 @@
-import { PointerHandler } from "./handlers/PointerHandler.js";
-import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
-import { SearchHandler } from "./handlers/SearchHandler.js";
-import { ToolbarHandler } from "./handlers/ToolbarHandler.js";
+import { calculateFinalCursorPosition } from "./cursor.js";
 import {
-  ToggleInlineStyleCommand,
   DeleteTextCommand,
   InsertTextCommand,
+  SetLineTypeCommand,
+  ToggleInlineStyleCommand,
 } from "./commands.js";
+import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
+import { PointerHandler } from "./handlers/PointerHandler.js";
+import { SearchHandler } from "./handlers/SearchHandler.js";
+import { ToolbarHandler } from "./handlers/ToolbarHandler.js";
 
 export class EditorController {
-  constructor() {
-    this.editor = null;
-    this.model = null;
-    this.view = null;
+  constructor({ model, view, undoManager }) {
+    this.model = model;
+    this.view = view;
+    this.undoManager = undoManager;
 
-    this.container = null;
     this.hiddenInput = null;
     this.toolbar = null;
 
@@ -22,18 +23,14 @@ export class EditorController {
     this.keyBoardHandler = null;
     this.searchHandler = null;
     this.toolbarHandler = null;
+
+    this.plugins = [];
   }
 
-  initialize(editor, toolbar, hiddenInput, searchWidget) {
-    this.editor = editor;
-    this.model = editor.getModel();
-    this.view = editor.getView();
-    this.searchWidget = searchWidget;
-
-    this.container = this.view.container;
+  initialize(toolbar, hiddenInput, searchWidget) {
     this.toolbar = toolbar;
-
     this.hiddenInput = hiddenInput;
+    this.searchWidget = searchWidget;
 
     this._initializeHandlers();
     this._initializeEventListeners();
@@ -41,13 +38,12 @@ export class EditorController {
 
   _initializeHandlers() {
     // Setup handlers
-    this.pointerHandler = new PointerHandler(this.editor);
-    this.keyBoardHandler = new KeyboardHandler(this.editor, this.hiddenInput);
-    this.searchHandler = new SearchHandler(this.editor, this.searchWidget);
+    this.pointerHandler = new PointerHandler(this);
+    this.keyBoardHandler = new KeyboardHandler(this, this.hiddenInput);
+    this.searchHandler = new SearchHandler(this, this.searchWidget);
     this.toolbarHandler = new ToolbarHandler(
-      this.editor,
+      this,
       this.toolbar,
-      this.editor.persistence,
       this.hiddenInput,
     );
   }
@@ -55,7 +51,7 @@ export class EditorController {
   _initializeEventListeners() {
     this.searchHandler.on("close", () => this.hideSearchWidget());
 
-    this.container.addEventListener("click", (e) => {
+    this.view.container.addEventListener("click", (e) => {
       if (this.searchWidget.contains(e.target)) {
         return;
       }
@@ -75,13 +71,13 @@ export class EditorController {
 
     if (isCtrlOrCmd && e.key === "z" && !e.shiftKey) {
       e.preventDefault();
-      this.editor.undo();
+      this.undo();
       return;
     }
 
     if (isCtrlOrCmd && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
       e.preventDefault();
-      this.editor.redo();
+      this.redo();
       return;
     }
 
@@ -98,6 +94,12 @@ export class EditorController {
     this.hiddenInput.focus();
   }
 
+  handleSetLineType(newtype) {
+    this.executeCommands([
+      new SetLineTypeCommand(newtype, this.model.getCursorPos()),
+    ]);
+  }
+
   handleToggleInlineStyle(style) {
     let range;
     if (this.model.hasSelection()) {
@@ -110,7 +112,7 @@ export class EditorController {
     } else {
       return;
     }
-    this.editor.executeCommands([new ToggleInlineStyleCommand(style, range)]);
+    this.executeCommands([new ToggleInlineStyleCommand(style, range)]);
   }
 
   async handleCut() {
@@ -120,7 +122,7 @@ export class EditorController {
       try {
         await navigator.clipboard.writeText(text);
         this.model.clearSelection();
-        this.editor.executeCommands([new DeleteTextCommand(range)]);
+        this.executeCommands([new DeleteTextCommand(range)]);
       } catch (error) {
         console.error("Cut failed:", error);
         // this.model.clearSelection();
@@ -152,7 +154,7 @@ export class EditorController {
         }
         tr.push(new InsertTextCommand(text, this.model.getCursorPos()));
         this.model.clearSelection();
-        this.editor.executeCommands(tr);
+        this.executeCommands(tr);
       }
     } catch (error) {
       console.error("Paste failed:", error);
@@ -176,5 +178,99 @@ export class EditorController {
   focusEditor() {
     this.hiddenInput.focus();
     this.view.render();
+  }
+
+  // ===================================================================
+  //  Plugin Management
+  // ===================================================================
+  registerPlugin(plugin) {
+    this.plugins.push(plugin);
+    if (plugin.onRegister) {
+      plugin.onRegister(this);
+    }
+  }
+
+  updateRemoteCursors(remoteCursors) {
+    this.view.updateRemoteCursors(remoteCursors);
+  }
+
+  destroyPlugin(pluginName) {
+    const pluginIndex = this.plugins.findIndex(
+      (p) => p.constructor.name === pluginName,
+    );
+    if (pluginIndex === -1) return;
+
+    const plugin = this.plugins[pluginIndex];
+    if (plugin.destroy) {
+      plugin.destroy();
+    }
+
+    this.plugins.splice(pluginIndex, 1);
+  }
+
+  dispatchEventToPlugins(eventName, data) {
+    for (const plugin of this.plugins) {
+      if (plugin.onEvent) {
+        plugin.onEvent(eventName, data);
+      }
+    }
+  }
+
+  // ===================================================================
+  //  Command Execution
+  // ===================================================================
+
+  // Public API for local user actions
+  executeCommands(commands) {
+    const initialCursor = this.model.cursor;
+    for (const command of commands) {
+      command.execute(this.model);
+      this.undoManager.add(command);
+      this.dispatchEventToPlugins("command", command);
+    }
+    const finalCursor = calculateFinalCursorPosition(initialCursor, commands);
+    this.model.updateCursor(finalCursor);
+    this.view.render();
+  }
+
+  // For applying changes from remote sources
+  executeCommandsBypassUndo(commands) {
+    const initialCursor = this.model.cursor;
+    for (const command of commands) {
+      command.execute(this.model);
+    }
+    const finalCursor = calculateFinalCursorPosition(initialCursor, commands);
+    this.model.updateCursor(finalCursor);
+    this.view.render();
+  }
+
+  undo() {
+    const commands = this.undoManager.getInvertedCommandsForUndo();
+    if (commands) {
+      this.executeCommands(commands);
+    }
+  }
+
+  redo() {
+    const commands = this.undoManager.getCommandsForRedo();
+    if (commands) {
+      this.executeCommands(commands);
+    }
+  }
+
+  // ===================================================================
+  //  Save Handling
+  // ===================================================================
+  _saveRequestCallbacks = [];
+
+  onSaveRequest(callback) {
+    this._saveRequestCallbacks.push(callback);
+  }
+
+  triggerSave() {
+    const data = { lines: this.model.lines };
+    for (const callback of this._saveRequestCallbacks) {
+      callback(data);
+    }
   }
 }
