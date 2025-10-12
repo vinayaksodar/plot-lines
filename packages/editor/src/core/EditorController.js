@@ -63,6 +63,14 @@ export class EditorController {
   onGlobalKeyDown = (e) => {
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
+    if (isCtrlOrCmd && e.key === "s") {
+      e.preventDefault();
+      this.view.container.dispatchEvent(
+        new CustomEvent("plotlines:save-request", { bubbles: true }),
+      );
+      return;
+    }
+
     if (isCtrlOrCmd && e.key === "f") {
       e.preventDefault();
       this.showSearchWidget();
@@ -258,19 +266,4 @@ export class EditorController {
     }
   }
 
-  // ===================================================================
-  //  Save Handling
-  // ===================================================================
-  _saveRequestCallbacks = [];
-
-  onSaveRequest(callback) {
-    this._saveRequestCallbacks.push(callback);
-  }
-
-  triggerSave() {
-    const data = { lines: this.model.lines };
-    for (const callback of this._saveRequestCallbacks) {
-      callback(data);
-    }
-  }
 }

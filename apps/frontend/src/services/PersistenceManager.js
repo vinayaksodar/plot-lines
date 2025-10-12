@@ -1,13 +1,12 @@
-import { Persistence, CollabPlugin } from "@plot-lines/editor";
+import { CollabPlugin } from "@plot-lines/editor";
 import { FountainParser } from "./FountainParser.js";
 import { authService } from "./Auth.js";
 import { LocalPersistence } from "./LocalPersistence.js";
 import { CloudPersistence } from "./CloudPersistence.js";
 import { CollabService } from "./CollabService.js";
 
-export class PersistenceManager extends Persistence {
+export class PersistenceManager {
   constructor(getTitlePageData) {
-    super(null);
     this.getTitlePageData = getTitlePageData;
 
     this.documentName = "Untitled";

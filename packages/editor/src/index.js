@@ -1,5 +1,4 @@
 // Core Editor
-export { Editor } from "./core/Editor.js";
 export { EditorController } from "./core/EditorController.js";
 export { EditorModel } from "./core/EditorModel.js";
 export { EditorView } from "./core/EditorView.js";
@@ -19,9 +18,6 @@ export { createToolbar } from "./components/Toolbar/Toolbar.js";
 export { createWidgetLayer } from "./components/WidgetLayer/WidgetLayer.js";
 
 export { createSearchWidget } from "./components/SearchWidget/SearchWidget.js";
-
-// Services
-export { Persistence } from "./services/Persistence.js";
 
 // Plugins
 export { CollabPlugin } from "./core/plugins/CollabPlugin.js";

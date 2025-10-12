@@ -1,6 +1,5 @@
 import "./style.css";
 import {
-  Editor,
   EditorModel,
   EditorView,
   EditorController,
@@ -53,15 +52,6 @@ persistenceManager.setEditorAccessors({
   getCursorPos: () => controller.model.getCursorPos(),
 });
 
-// --- Main Editor Object (as a container) ---
-// This is now primarily a namespace to hold the core modules.
-const editor = new Editor({
-  model,
-  view,
-  controller,
-  persistence: persistenceManager,
-});
-
 // --- Statistics View ---
 // It needs a way to access model data, so we provide getters.
 const statsViewAdapter = {
@@ -69,10 +59,16 @@ const statsViewAdapter = {
 };
 const statisticsView = createStatisticsView(statsViewAdapter);
 
+// --- Centralized Save Handler ---
+const handleSave = () => {
+  const data = { lines: model.lines, titlePage: titlePage.model.getData() };
+  persistenceManager.handleSaveRequest(data);
+};
+
 // --- Event and Callback Wiring ---
 
-// 1. Connect Save action from Controller to PersistenceManager
-controller.onSaveRequest((data) => persistenceManager.handleSaveRequest(data));
+// 1. Listen for save requests from the editor (e.g., Ctrl+S)
+editorArea.addEventListener("plotlines:save-request", handleSave);
 
 // 2. Connect PersistenceManager events back to the Editor components
 persistenceManager.on("beforeLoad", () => {
@@ -130,7 +126,7 @@ persistenceManager.on("focusEditor", () => controller.focusEditor());
 // 1. Create MenuBar configuration
 const menuConfig = {
   File: {
-    "Save File": () => controller.triggerSave(),
+    "Save File": handleSave,
     Rename: () => persistenceManager.rename(),
     hr1: "hr",
     "Import Fountain": () => persistenceManager.import("fountain"),

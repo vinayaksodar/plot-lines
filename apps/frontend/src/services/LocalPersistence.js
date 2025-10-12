@@ -1,9 +1,5 @@
-import { Persistence } from "@plot-lines/editor";
-
-export class LocalPersistence extends Persistence {
-  constructor() {
-    super(null);
-  }
+export class LocalPersistence {
+  constructor() {}
 
   getSavedFiles() {
     try {

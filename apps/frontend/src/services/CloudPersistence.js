@@ -1,9 +1,7 @@
-import { Persistence } from "@plot-lines/editor";
 import { authService } from "./Auth";
 
-export class CloudPersistence extends Persistence {
+export class CloudPersistence {
   constructor() {
-    super(null);
     this.baseUrl = "http://localhost:3000/api";
   }
 
