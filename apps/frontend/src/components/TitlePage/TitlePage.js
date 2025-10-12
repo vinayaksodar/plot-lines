@@ -1,5 +1,5 @@
 import "./titlepage.css";
-import { TitlePageModel } from "@plot-lines/editor";
+import { TitlePageModel } from "./TitlePageModel.js";
 
 function createTitlePageView(model) {
   const container = document.createElement("div");

@@ -19,7 +19,7 @@ export { createToolbar } from "./components/Toolbar/Toolbar.js";
 export { createWidgetLayer } from "./components/WidgetLayer/WidgetLayer.js";
 
 export { createSearchWidget } from "./components/SearchWidget/SearchWidget.js";
-export { TitlePageModel } from "./components/TitlePage/TitlePageModel.js";
+
 
 // Services
 export { Persistence } from "./services/Persistence.js";
