@@ -56,12 +56,41 @@ export class KeyboardHandler {
     const model = this.controller.model;
     const direction = e.key.replace("Arrow", "").toLowerCase();
 
+    const cursorPos = model.getCursorPos();
     if (!model.hasSelection()) {
-      model.setSelection(model.getCursorPos(), model.getCursorPos());
+      if (!cursorPos) {
+        return;
+      }
+      model.setSelection(cursorPos, cursorPos);
     }
-
-    const newEnd = this.calculateNewPosition(model.selection.end, direction);
-    model.setSelection(model.selection.start, newEnd);
+    const { start, end } = model.getSelectionRange();
+    if (
+      start.ch == cursorPos.ch &&
+      start.line == cursorPos.line &&
+      end.ch == cursorPos.ch &&
+      end.line == cursorPos.line
+    ) {
+      if (direction == "right" || direction == "down") {
+        const newEnd = this.calculateNewPosition(start, direction);
+        model.setSelection(start, newEnd);
+        model.updateCursor(newEnd);
+      }
+      if (direction == "left" || direction == "up") {
+        const newStart = this.calculateNewPosition(start, direction);
+        model.setSelection(newStart, end);
+        model.updateCursor(newStart);
+      }
+    }
+    if (start.ch == cursorPos.ch && start.line == cursorPos.line) {
+      const newStart = this.calculateNewPosition(start, direction);
+      model.setSelection(newStart, end);
+      model.updateCursor(newStart);
+    }
+    if (end.ch == cursorPos.ch && end.line == cursorPos.line) {
+      const newEnd = this.calculateNewPosition(end, direction);
+      model.setSelection(start, newEnd);
+      model.updateCursor(newEnd);
+    }
   }
 
   handleSelectionKeyDown(e) {
@@ -69,7 +98,7 @@ export class KeyboardHandler {
     let cmd = null;
 
     if (e.key === "Backspace" || e.key === "Delete") {
-      cmd = new DeleteTextCommand(model.selection);
+      cmd = new DeleteTextCommand(model.getSelectionRange());
       model.clearSelection();
     } else if (e.key === "Escape") {
       model.clearSelection();
