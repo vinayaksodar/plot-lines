@@ -123,7 +123,9 @@ export class FountainParser {
 
       const marker = match[1];
       const content = match[2];
-      let bold = false, italic = false, underline = false;
+      let bold = false,
+        italic = false,
+        underline = false;
 
       if (marker === "***") {
         bold = true;

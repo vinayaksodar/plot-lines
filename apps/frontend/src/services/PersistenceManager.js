@@ -37,14 +37,12 @@ export class PersistenceManager extends Persistence {
 
   emit(event, data) {
     if (this._events[event]) {
-      this._events[event].forEach(callback => callback(data));
+      this._events[event].forEach((callback) => callback(data));
     }
   }
 
   get activePersistence() {
-    return this.isCloudDocument
-      ? this.cloudPersistence
-      : this.localPersistence;
+    return this.isCloudDocument ? this.cloudPersistence : this.localPersistence;
   }
 
   async handleSaveRequest(data) {
@@ -138,15 +136,21 @@ export class PersistenceManager extends Persistence {
       this.isCloudDocument = true;
 
       try {
-        const { doc, steps, userIDs } = await this.cloudPersistence.loadWithSteps(
-          documentId.replace("cloud-", ""),
-        );
+        const { doc, steps, userIDs } =
+          await this.cloudPersistence.loadWithSteps(
+            documentId.replace("cloud-", ""),
+          );
 
         this.documentName = doc.name;
         const payload = doc.content ? JSON.parse(doc.content) : {};
 
         // Emit document loaded with initial snapshot content
-        this.emit("documentLoaded", { ...payload, ot_version: doc.snapshot_ot_version, isCloud: true, user });
+        this.emit("documentLoaded", {
+          ...payload,
+          ot_version: doc.snapshot_ot_version,
+          isCloud: true,
+          user,
+        });
 
         // Get the collab plugin instance (it's created after documentLoaded)
         const collabPlugin = this.getCollabPlugin();
@@ -168,14 +172,21 @@ export class PersistenceManager extends Persistence {
         this.documentName = fileData.fileName;
         this.documentId = documentId;
         const content = fileData.content ? JSON.parse(fileData.content) : {};
-        this.emit("documentLoaded", { lines: content, titlePage: fileData.titlePage, isCloud: false });
+        this.emit("documentLoaded", {
+          lines: content,
+          titlePage: fileData.titlePage,
+          isCloud: false,
+        });
       }
     }
   }
 
   setupCollabService() {
     const collabPlugin = this.getCollabPlugin();
-    console.log("[PersistenceManager] getCollabPlugin() returned:", collabPlugin);
+    console.log(
+      "[PersistenceManager] getCollabPlugin() returned:",
+      collabPlugin,
+    );
     if (!collabPlugin) return;
 
     this.collabService = new CollabService({

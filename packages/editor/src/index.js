@@ -20,11 +20,8 @@ export { createWidgetLayer } from "./components/WidgetLayer/WidgetLayer.js";
 
 export { createSearchWidget } from "./components/SearchWidget/SearchWidget.js";
 
-
 // Services
 export { Persistence } from "./services/Persistence.js";
-
-
 
 // Plugins
 export { CollabPlugin } from "./core/plugins/CollabPlugin.js";

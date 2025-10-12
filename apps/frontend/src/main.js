@@ -43,10 +43,13 @@ const model = new EditorModel();
 const view = new EditorView(model, editorContainer, widgetLayer);
 const undoManager = new UndoManager();
 const controller = new EditorController({ model, view, undoManager });
-const persistenceManager = new PersistenceManager(() => titlePage.model.getData());
+const persistenceManager = new PersistenceManager(() =>
+  titlePage.model.getData(),
+);
 
 persistenceManager.setEditorAccessors({
-  getCollabPlugin: () => controller.plugins.find(p => p.constructor.name === "CollabPlugin"),
+  getCollabPlugin: () =>
+    controller.plugins.find((p) => p.constructor.name === "CollabPlugin"),
   getCursorPos: () => controller.model.getCursorPos(),
 });
 
@@ -65,7 +68,6 @@ const statsViewAdapter = {
   getModel: () => model,
 };
 const statisticsView = createStatisticsView(statsViewAdapter);
-
 
 // --- Event and Callback Wiring ---
 
@@ -92,7 +94,6 @@ persistenceManager.on("documentLoaded", (data) => {
     titlePage.render();
   }
 
-
   if (data.isCloud) {
     const collabPlugin = new CollabPlugin({
       userID: data.user.id,
@@ -100,7 +101,6 @@ persistenceManager.on("documentLoaded", (data) => {
       ot_version: data.ot_version || 0,
     });
     controller.registerPlugin(collabPlugin);
-
   }
 
   view.render();
@@ -112,20 +112,18 @@ persistenceManager.on("documentCreated", (data) => {
   titlePage.model.update({});
   titlePage.render();
   if (data.isCloud) {
-      const collabPlugin = new CollabPlugin({
-        userID: data.user.id,
-        userMap: new Map([[data.user.id, data.user.email]]),
-        ot_version: 0,
-      });
-      controller.registerPlugin(collabPlugin);
-
+    const collabPlugin = new CollabPlugin({
+      userID: data.user.id,
+      userMap: new Map([[data.user.id, data.user.email]]),
+      ot_version: 0,
+    });
+    controller.registerPlugin(collabPlugin);
   }
   view.render();
   controller.focusEditor();
 });
 
 persistenceManager.on("focusEditor", () => controller.focusEditor());
-
 
 // --- UI Assembly ---
 
@@ -169,10 +167,7 @@ const menuConfig = {
           documentId: persistenceManager.documentId,
           collab: collabPlugin,
         };
-        const modal = createShareModal(
-          editorStub,
-          new CloudPersistence(),
-        );
+        const modal = createShareModal(editorStub, new CloudPersistence());
         document.body.appendChild(modal);
       } else {
         persistenceManager.showToast(
