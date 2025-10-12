@@ -247,14 +247,14 @@ export class EditorController {
   undo() {
     const commands = this.undoManager.getInvertedCommandsForUndo();
     if (commands) {
-      this.executeCommands(commands);
+      this.executeCommandsBypassUndo(commands);
     }
   }
 
   redo() {
     const commands = this.undoManager.getCommandsForRedo();
     if (commands) {
-      this.executeCommands(commands);
+      this.executeCommandsBypassUndo(commands);
     }
   }
 
