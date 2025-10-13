@@ -1,4 +1,3 @@
-
 export function createWelcomeModal(onContinue) {
   const modal = document.createElement("div");
   modal.className = "welcome-modal"; // Using a specific class for styling

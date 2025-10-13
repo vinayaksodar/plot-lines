@@ -216,4 +216,3 @@ if (visited) {
   });
   document.body.appendChild(welcomeModal);
 }
-
