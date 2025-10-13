@@ -1,21 +1,67 @@
+/* Light theme variables */
+:root {
+  --sidemenu-bg: #f0f0f0;
+  --sidemenu-border: #ccc;
+  --button-bg: transparent;
+  --button-color: #333;
+  --button-hover-bg: #e0e0e0;
+  --button-selected-bg: #007bff;
+  --button-selected-color: #ffffff;
+}
+
+/* Dark theme variables */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sidemenu-bg: #252525;
+    --sidemenu-border: #444;
+    --button-bg: transparent;
+    --button-color: #eee;
+    --button-hover-bg: #3a3a3a;
+    --button-selected-bg: #007bff;
+    --button-selected-color: #ffffff;
+  }
+}
+
 .side-menu {
   display: flex;
   flex-direction: column;
-  background: #f0f0f0;
+  background: var(--sidemenu-bg);
   padding: 0.5em;
-  border-right: 1px solid #ccc;
+  border-right: 1px solid var(--sidemenu-border);
+  gap: 0.5em;
 }
 
-.side-menu button {
-  background: none;
-  border: 1px solid #ccc;
-  padding: 0.75em;
-  margin-bottom: 0.5em;
+.sidemenu-button {
+  background: var(--button-bg);
+  border: none;
+  color: var(--button-color);
   cursor: pointer;
-  border-radius: 3px;
-  text-align: left;
+  border-radius: 4px; /* Slightly rounded corners, not circular */
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
 }
 
-.side-menu button:hover {
-  background: #e0e0e0;
+.sidemenu-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.sidemenu-button:hover {
+  background: var(--button-hover-bg);
+}
+
+.sidemenu-button.selected {
+  background: var(--button-selected-bg);
+  color: var(--button-selected-color);
+}
+
+.sidemenu-button svg {
+  width: 20px;
+  height: 20px;
 }
