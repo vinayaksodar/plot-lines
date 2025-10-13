@@ -4,6 +4,7 @@
   color: var(--card-foreground);
   height: 100%;
   overflow-y: auto;
+  width: 8.5in;
 }
 
 .statistics-content h2 {
