@@ -4,6 +4,7 @@ import { authService } from "./Auth.js";
 import { LocalPersistence } from "./LocalPersistence.js";
 import { CloudPersistence } from "./CloudPersistence.js";
 import { CollabService } from "./CollabService.js";
+import { createFileManagerModal } from "../components/FileManagerModal/FileManagerModal.js";
 
 export class PersistenceManager {
   constructor(getTitlePageData) {
@@ -81,7 +82,7 @@ export class PersistenceManager {
       let user = authService.getCurrentUser();
       if (!user) {
         try {
-          user = await authService.showLoginModal();
+          user = await authService.reauthenticate();
         } catch (e) {
           console.error("Login failed", e);
           return false;
@@ -124,7 +125,7 @@ export class PersistenceManager {
       let user = authService.getCurrentUser();
       if (!user) {
         try {
-          user = await authService.showLoginModal();
+          user = await authService.reauthenticate();
         } catch (e) {
           console.error("Login failed", e);
           return;
@@ -182,10 +183,6 @@ export class PersistenceManager {
 
   setupCollabService() {
     const collabPlugin = this.getCollabPlugin();
-    console.log(
-      "[PersistenceManager] getCollabPlugin() returned:",
-      collabPlugin,
-    );
     if (!collabPlugin) return;
 
     this.collabService = new CollabService({
@@ -235,6 +232,24 @@ export class PersistenceManager {
         console.error("Rename failed:", e);
         this.showToast("Rename failed", "error");
       }
+    }
+  }
+
+  async delete(fileId) {
+    try {
+      if (fileId.startsWith("cloud-")) {
+        await this.cloudPersistence.delete(fileId.replace("cloud-", ""));
+      } else {
+        await this.localPersistence.delete(fileId);
+      }
+
+      if (this.documentId === fileId) {
+        this.closeEditor();
+      }
+      this.manage();
+    } catch (error) {
+      console.error("Failed to delete file:", error);
+      this.showToast("Failed to delete file", "error");
     }
   }
 
@@ -302,110 +317,37 @@ export class PersistenceManager {
   }
 
   async manage() {
-    this.showFileManager();
-  }
-
-  showFileManager(showCloseButton = true) {
+    const files = await this.list();
     const user = authService.getCurrentUser();
+    const showCloseButton = this.documentId !== null;
 
-    const modal = document.createElement("div");
-    modal.className = "file-manager-modal";
-    modal.innerHTML = `
-      <div class="file-manager-content">
-        <h3>Manage Files</h3>
-        <p class="beta-version-note" style="font-size: 0.7em;">The product is still in beta there may be data loss backup your files. Local documents are saved in your browser history, clearing it will delete them. </p>
-        ${!user ? '<p class="auth-prompt">Log in to create and view cloud documents. ☁️</p>' : ""}
-        <div class="file-list"></div>
-        <div class="file-manager-actions">
-          <button class="btn" data-action="new-local">New Local Document</button>
-          ${
-            user
-              ? '<button class="btn" data-action="new-cloud">New Cloud Document</button>'
-              : '<button class="btn" data-action="login">Login / Signup</button>'
-          }
-          ${showCloseButton ? '<button class="btn" data-action="close">Close</button>' : ""}
-        </div>
-      </div>
-    `;
-
-    const fileList = modal.querySelector(".file-list");
-    this.list().then((savedFiles) => {
-      if (savedFiles.length === 0) {
-        fileList.innerHTML = "<p>No saved files</p>";
-      } else {
-        savedFiles.forEach((fileData) => {
-          const fileItem = document.createElement("div");
-          fileItem.className = "file-item";
-          const isCloud = fileData.id && fileData.id.startsWith("cloud-");
-          const fileName = isCloud ? fileData.name : fileData.fileName;
-          const fileId = fileData.id;
-
-          fileItem.innerHTML = `
-            <span class="file-name">${fileName} ${isCloud ? "☁️" : ""}</span>
-            <span class="file-date">${new Date(
-              fileData.timestamp,
-            ).toLocaleString()}</span>
-            <button class="btn-small" data-action="load" data-filename="${fileId}">Load</button>
-            <button class="btn-small btn-danger" data-action="delete" data-filename="${fileId}">Delete</button>
-            `;
-          fileList.appendChild(fileItem);
-        });
-      }
-    });
-
-    modal.addEventListener("click", async (e) => {
-      const action = e.target.dataset.action;
-      const fileId = e.target.dataset.filename;
-      let shouldClose = false;
-
-      if (action === "close") {
-        shouldClose = true;
-        this.emit("focusEditor");
-      } else if (action === "login") {
-        try {
-          await authService.showLoginModal();
-          shouldClose = true;
-          this.showFileManager();
-        } catch (e) {
-          console.error("Login failed", e);
-        }
-      } else if (action === "new-local") {
-        await this.new(undefined, false);
-        shouldClose = true;
-      } else if (action === "new-cloud") {
-        const result = await this.new(undefined, true);
-        if (result) {
-          shouldClose = true;
-        }
-      } else if (action === "load") {
-        await this.load(fileId);
-        shouldClose = true;
-      } else if (action === "delete") {
-        if (confirm(`Delete file?`)) {
+    const props = {
+      files,
+      user,
+      showCloseButton,
+      callbacks: {
+        onLoad: (id) => this.load(id),
+        onDelete: (id) => this.delete(id),
+        onNewLocal: () => this.new(undefined, false),
+        onNewCloud: () => this.new(undefined, true),
+        onLogin: async () => {
           try {
-            if (fileId.startsWith("cloud-")) {
-              await this.cloudPersistence.delete(fileId.replace("cloud-", ""));
-            } else {
-              await this.localPersistence.delete(fileId);
-            }
-
-            if (this.documentId === fileId) {
-              this.closeEditor();
-            }
-            shouldClose = true;
-            this.showFileManager(this.documentId !== null);
-          } catch (error) {
-            console.error("Failed to delete file:", error);
-            this.showToast("Failed to delete file", "error");
+            await authService.reauthenticate();
+            this.manage();
+          } catch (e) {
+            console.log("Login was cancelled.");
+            this.manage();
           }
-        }
-      }
+        },
+        onLogout: () => {
+          authService.logout();
+          this.manage();
+        },
+        onClose: () => this.emit("focusEditor"),
+      },
+    };
 
-      if (shouldClose) {
-        document.body.removeChild(modal);
-      }
-    });
-
+    const modal = createFileManagerModal(props);
     document.body.appendChild(modal);
   }
 
