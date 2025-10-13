@@ -6,10 +6,10 @@
   --font-script: "Courier New", Courier, monospace;
 
   /* Light Theme (still muted and modern) */
-  --background: #cacaca;
+  --background: #c3c2b7;
   --foreground: #111111;
 
-  --card: #f9f8ee;
+  --card: #f8f6e7;
   --card-foreground: #111111;
 
   --popover: #ffffff;
@@ -19,7 +19,7 @@
   --primary: #ffcc00;
   --primary-foreground: #111111;
 
-  --secondary: #edece8;
+  --secondary: #e3e0d4;
   --secondary-foreground: #111111;
 
   --muted: #f3f4f6;
@@ -45,8 +45,8 @@
 }
 
 :root.dark-theme {
-  /* Monkeytype’s signature dark gray background */
-  --background: #111111;
+  /* Monkeytype’s style dark gray background */
+  --background: #191816;
   --foreground: #e5e5e5;
 
   --card: #262624;
@@ -65,7 +65,7 @@
   --muted: #2a2a2a;
   --muted-foreground: #a1a1a1;
 
-  --accent: #facc15; /* yellow-400 */
+  --accent: #c59f07; /* yellow-400 */
   --accent-foreground: #111111;
 
   --destructive: #b91c1c;

@@ -46,7 +46,7 @@
 
 .iconbtn:hover {
   background: var(--accent);
-  color: var(--accent-foreground);
+  /* color: var(--accent-foreground); */
   transform: translateY(-1px);
 }
 
