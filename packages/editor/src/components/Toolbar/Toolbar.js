@@ -51,38 +51,38 @@ export function createToolbar() {
     </button>
   `;
 
-  const moreButtonContainer = document.createElement("div");
-  moreButtonContainer.className = "iconbar-more-container";
-  toolbar.appendChild(moreButtonContainer);
+  // const moreButtonContainer = document.createElement("div");
+  // moreButtonContainer.className = "iconbar-more-container";
+  // toolbar.appendChild(moreButtonContainer);
 
-  const moreButton = document.createElement("button");
-  moreButton.type = "button";
-  moreButton.className = "iconbtn iconbar-more-button";
-  moreButton.setAttribute("aria-label", "More actions");
-  moreButton.setAttribute("title", "More actions");
-  moreButton.innerHTML = `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="6" cy="12" r="1.5" />
-      <circle cx="18" cy="12" r="1.5" />
-    </svg>
-  `;
-  moreButtonContainer.appendChild(moreButton);
+  // const moreButton = document.createElement("button");
+  // moreButton.type = "button";
+  // moreButton.className = "iconbtn iconbar-more-button";
+  // moreButton.setAttribute("aria-label", "More actions");
+  // moreButton.setAttribute("title", "More actions");
+  // moreButton.innerHTML = `
+  //   <svg viewBox="0 0 24 24" aria-hidden="true">
+  //     <circle cx="12" cy="12" r="1.5" />
+  //     <circle cx="6" cy="12" r="1.5" />
+  //     <circle cx="18" cy="12" r="1.5" />
+  //   </svg>
+  // `;
+  // moreButtonContainer.appendChild(moreButton);
 
-  const dropdown = document.createElement("div");
-  dropdown.className = "iconbar-dropdown";
-  moreButtonContainer.appendChild(dropdown);
+  // const dropdown = document.createElement("div");
+  // dropdown.className = "iconbar-dropdown";
+  // moreButtonContainer.appendChild(dropdown);
 
-  moreButton.addEventListener("click", (e) => {
-    e.stopPropagation();
-    dropdown.classList.toggle("visible");
-  });
+  // moreButton.addEventListener("click", (e) => {
+  //   e.stopPropagation();
+  //   dropdown.classList.toggle("visible");
+  // });
 
-  document.addEventListener("click", (e) => {
-    if (!moreButtonContainer.contains(e.target)) {
-      dropdown.classList.remove("visible");
-    }
-  });
+  // document.addEventListener("click", (e) => {
+  //   if (!moreButtonContainer.contains(e.target)) {
+  //     dropdown.classList.remove("visible");
+  //   }
+  // });
 
   // const handleResize = () => {
   //   const availableWidth = toolbar.clientWidth;

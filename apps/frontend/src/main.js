@@ -154,6 +154,9 @@ const menuConfig = {
         toolbar.classList.toggle("hidden");
       }
     },
+    "Toggle Theme": () => {
+      document.documentElement.classList.toggle("dark-theme");
+    },
   },
   Share: {
     "Manage access": () => {
@@ -198,6 +201,9 @@ contentArea.appendChild(titlePage.element);
 contentArea.appendChild(statisticsView.element);
 app.appendChild(menuBar);
 app.appendChild(mainArea);
+
+// Set dark theme by default
+document.documentElement.classList.add("dark-theme");
 
 // --- Final Setup ---
 controller.initialize(toolbar, hiddenInput, searchWidget);

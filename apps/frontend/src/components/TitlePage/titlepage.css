@@ -1,5 +1,6 @@
 .title-page-container {
-  background: white;
+  background: var(--card);
+  color: var(--card-foreground);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -34,10 +35,11 @@
   top: 1em;
   left: 1em;
   padding: 0.5em 1em;
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  border-radius: 3px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   cursor: pointer;
+  color: var(--secondary-foreground);
 }
 
 .title-main h1 {

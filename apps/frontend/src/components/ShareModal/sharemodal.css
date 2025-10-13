@@ -12,11 +12,13 @@
 }
 
 .share-modal-content {
-  background-color: white;
-  border-radius: 8px;
+  background-color: var(--card);
+  color: var(--card-foreground);
+  border-radius: var(--radius);
   padding: 24px;
   width: 500px;
   max-width: 90%;
+  box-shadow: var(--shadow-lg);
 }
 
 .share-modal-header {
@@ -36,6 +38,7 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
+  color: var(--foreground);
 }
 
 .add-people {
@@ -47,8 +50,10 @@
 .add-people input {
   flex-grow: 1;
   padding: 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--input);
+  color: var(--foreground);
 }
 
 .people-with-access h3 {
@@ -73,15 +78,16 @@
 }
 
 .user-role {
-  color: #666;
+  color: var(--muted-foreground);
   margin-left: 8px;
 }
 
 .btn-remove {
   background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   cursor: pointer;
+  color: var(--foreground);
 }
 
 .share-modal-footer {
@@ -99,14 +105,14 @@
 .general-access p {
   margin: 0;
   font-size: 12px;
-  color: #666;
+  color: var(--muted-foreground);
 }
 
 .btn-done {
-  background-color: #4285f4;
-  color: white;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   border: none;
   cursor: pointer;
 }

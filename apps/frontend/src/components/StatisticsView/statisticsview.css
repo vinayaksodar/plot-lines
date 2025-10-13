@@ -1,6 +1,7 @@
 .statistics-view {
   padding: 2rem;
-  background-color: #f9f9f9;
+  background: var(--card);
+  color: var(--card-foreground);
   height: 100%;
   overflow-y: auto;
 }
@@ -8,7 +9,7 @@
 .statistics-content h2 {
   margin-top: 0;
   font-size: 1.5rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
   margin-bottom: 1rem;
 }
@@ -17,7 +18,7 @@
   font-size: 1.2rem;
   margin-top: 2rem;
   margin-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
 }
 
