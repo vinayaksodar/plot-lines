@@ -16,6 +16,8 @@ import { createSideMenu } from "./components/SideMenu/SideMenu.js";
 import { createMenuBar } from "./components/MenuBar/MenuBar.js";
 import { createStatisticsView } from "./components/StatisticsView/StatisticsView.js";
 import { createShareModal } from "./components/ShareModal/ShareModal.js";
+import { createWelcomeModal } from "./components/WelcomeModal/WelcomeModal.js";
+import "./components/WelcomeModal/welcomemodal.css";
 import { CloudPersistence } from "./services/CloudPersistence.js";
 
 const app = document.querySelector("#app");
@@ -203,5 +205,15 @@ editorArea.addEventListener("click", () => {
   hiddenInput.focus();
 });
 
-// Show file manager on startup
-persistenceManager.manage();
+// Show welcome modal or file manager on startup
+const visited = localStorage.getItem("plotlines_visited");
+if (visited) {
+  persistenceManager.manage();
+} else {
+  const welcomeModal = createWelcomeModal(() => {
+    localStorage.setItem("plotlines_visited", "true");
+    persistenceManager.manage();
+  });
+  document.body.appendChild(welcomeModal);
+}
+
