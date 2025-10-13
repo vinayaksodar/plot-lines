@@ -35,7 +35,7 @@ export function createStatisticsView(editor) {
   }
 
   function update() {
-    const stats = new Statistics(editor.model);
+    const stats = new Statistics(editor.getModel());
     const allStats = stats.getAllStats();
     content.innerHTML = formatStats(allStats);
   }
