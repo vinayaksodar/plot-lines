@@ -10,7 +10,7 @@
 }
 
 /* Dark theme variables */
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
   :root {
     --sidemenu-bg: #252525;
     --sidemenu-border: #444;
@@ -20,7 +20,7 @@
     --button-selected-bg: #007bff;
     --button-selected-color: #ffffff;
   }
-}
+} */
 
 .side-menu {
   display: flex;
@@ -42,7 +42,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .sidemenu-bottom {
