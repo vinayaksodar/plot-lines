@@ -270,7 +270,6 @@ export class EditorView {
       requestAnimationFrame(() => this.render());
     });
   }
-
   getWrappedRows(lineIndex) {
     const lineText = this._getLineText(lineIndex);
     const charsPerRow = this._getCharsPerRow(lineIndex);
@@ -283,16 +282,25 @@ export class EditorView {
 
       if (end < lineText.length) {
         // --- Step 1: If the boundary falls on spaces, consume them all.
-        // This way rows end with "hello " (as typed) and the next row starts at the first non-space.
+        // This preserves your original whitespace behavior exactly.
         while (lineText[end] === " ") {
           end += 1;
         }
 
-        // --- Step 2: If we’re in the middle of a word, backtrack to the last space.
-        // This prevents splitting "hellow" into "hello" + "w".
-        const lastSpace = lineText.lastIndexOf(" ", end);
-        if (lastSpace > start && lastSpace < end) {
-          end = lastSpace + 1;
+        // --- New Step 1b: If the boundary falls on a hyphen, consume exactly one hyphen.
+        // This allows breaking *after* a hyphen but does NOT collapse multiple hyphens.
+        if (lineText[end] === "-") {
+          end += 1; // consume a single hyphen only
+        } else {
+          // --- Step 2: If we’re in the middle of a word, backtrack to the last break.
+          // Treat both spaces and hyphens as valid break points for backtracking.
+          const lastSpace = lineText.lastIndexOf(" ", end);
+          const lastHyphen = lineText.lastIndexOf("-", end);
+          const lastBreak = Math.max(lastSpace, lastHyphen);
+
+          if (lastBreak > start && lastBreak < end) {
+            end = lastBreak + 1;
+          }
         }
       }
 
@@ -330,6 +338,7 @@ export class EditorView {
       colInRow: rows[last].length,
     };
   }
+
   getChFromRowPosition(lineIndex, rowIndex, colInRow) {
     const rows = this.getWrappedRows(lineIndex);
     rowIndex = Math.max(0, Math.min(rowIndex, rows.length - 1));

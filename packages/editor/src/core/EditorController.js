@@ -230,7 +230,7 @@ export class EditorController {
 
   // Public API for local user actions
   executeCommands(commands) {
-    const initialCursor = this.model.cursor;
+    const initialCursor = this.model.getCursorPos();
     for (const command of commands) {
       command.execute(this.model);
       this.undoManager.add(command);
@@ -241,9 +241,9 @@ export class EditorController {
     this.view.render();
   }
 
-  // For applying changes from remote sources
+  // For applying changes from remote sources from undomanager etc, bypass adding to undo
   executeCommandsBypassUndo(commands) {
-    const initialCursor = this.model.cursor;
+    const initialCursor = this.model.getCursorPos();
     for (const command of commands) {
       command.execute(this.model);
     }
