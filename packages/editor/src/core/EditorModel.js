@@ -200,6 +200,35 @@ export class EditorModel {
     return text;
   }
 
+  getRichTextInRange(range) {
+    const { start, end } = this.normalizeRange(range);
+    const richText = [];
+
+    for (let i = start.line; i <= end.line; i++) {
+      const line = this.lines[i];
+      const startCh = i === start.line ? start.ch : 0;
+      const endCh = i === end.line ? end.ch : this.getLineLength(i);
+
+      let chCount = 0;
+      const segments = [];
+      for (const segment of line.segments) {
+        const segStart = chCount;
+        const segEnd = segStart + segment.text.length;
+
+        if (segEnd > startCh && segStart < endCh) {
+          const text = segment.text.slice(
+            Math.max(0, startCh - segStart),
+            Math.min(segment.text.length, endCh - segStart),
+          );
+          segments.push({ ...segment, text });
+        }
+        chCount = segEnd;
+      }
+      richText.push({ ...line, segments });
+    }
+    return richText;
+  }
+
   normalizeSelection(selection) {
     const { start, end } = selection;
     if (
@@ -223,25 +252,30 @@ export class EditorModel {
   }
 
   insertText(text, pos) {
-    const linesToInsert = text.split("\n");
+    this.insertRichText(
+      text.split("\n").map((lineText) => ({
+        type: "action",
+        segments: [
+          { text: lineText, bold: false, italic: false, underline: false },
+        ],
+      })),
+      pos,
+    );
+  }
+
+  insertRichText(richText, pos) {
     const { line, ch } = pos;
 
-    // Create new segments for the inserted text
-    const newSegments = linesToInsert.map((lineText) => ({
-      text: lineText,
-      bold: false,
-      italic: false,
-      underline: false,
-    }));
-
-    if (newSegments.length === 1) {
+    if (richText.length === 1) {
       // Single line insert
       const { segment, offset } = this._findSegmentAt(line, ch);
+      const firstLine = richText[0];
+      const textToInsert = firstLine.segments.map((s) => s.text).join("");
       segment.text =
         segment.text.slice(0, offset) +
-        newSegments[0].text +
+        textToInsert +
         segment.text.slice(offset);
-      this.cursor.ch += newSegments[0].text.length;
+      this.cursor.ch += textToInsert.length;
       this._mergeSegments(line);
     } else {
       // Multi-line insert
@@ -252,7 +286,8 @@ export class EditorModel {
       segment.text = segment.text.slice(0, offset);
 
       // First line of insert
-      lineObj.segments[segmentIndex].text += newSegments[0].text;
+      lineObj.segments.push(...richText[0].segments);
+      this._mergeSegments(line);
 
       // Segments to be moved to the last new line
       const remainingSegments = [
@@ -263,14 +298,20 @@ export class EditorModel {
 
       const newLines = [];
       // Middle lines
-      for (let i = 1; i < newSegments.length - 1; i++) {
-        newLines.push({ type: lineObj.type, segments: [newSegments[i]] });
+      for (let i = 1; i < richText.length - 1; i++) {
+        newLines.push({
+          type: richText[i].type,
+          segments: richText[i].segments,
+        });
       }
 
       // Last line
       const lastNewLine = {
-        type: lineObj.type,
-        segments: [newSegments[newSegments.length - 1], ...remainingSegments],
+        type: richText[richText.length - 1].type,
+        segments: [
+          ...richText[richText.length - 1].segments,
+          ...remainingSegments,
+        ],
       };
       newLines.push(lastNewLine);
 
@@ -283,6 +324,7 @@ export class EditorModel {
 
   deleteText(range) {
     if (!range) return;
+    const deletedRichText = this.getRichTextInRange(range);
     const { start, end } = this.normalizeRange(range);
 
     const {
@@ -334,6 +376,7 @@ export class EditorModel {
     }
 
     this._mergeSegments(start.line);
+    return deletedRichText;
   }
 
   moveCursor(dir) {

@@ -93,13 +93,11 @@ export class DeleteTextCommand {
       console.error("DeleteTextCommand: Trying to delete an empty range");
       return;
     }
-    const range = this.range;
-    this.text = model.getTextInRange(range);
-    model.deleteText(this.range);
+    this.richText = model.deleteText(this.range);
   }
 
   invert() {
-    return new InsertTextCommand(this.text, this.range.start);
+    return new InsertTextCommand(this.richText, this.range.start);
   }
 
   toJSON() {
@@ -111,21 +109,32 @@ export class DeleteTextCommand {
 }
 
 export class InsertTextCommand {
-  constructor(text, pos) {
-    this.text = text;
+  constructor(textOrRichText, pos) {
+    this.isRichText = Array.isArray(textOrRichText);
+    if (this.isRichText) {
+      this.richText = textOrRichText;
+      this.text = null;
+    } else {
+      this.text = textOrRichText;
+      this.richText = null;
+    }
     this.pos = pos;
   }
 
   execute(model) {
-    model.insertText(this.text, this.pos);
+    if (this.isRichText) {
+      model.insertRichText(this.richText, this.pos);
+    } else {
+      model.insertText(this.text, this.pos);
+    }
   }
 
   invert() {
     const endPos = {
-      line: this.pos.line + this.text.split("\n").length - 1,
+      line: this.pos.line + (this.isRichText ? this.richText.length - 1 : this.text.split("\n").length - 1),
       ch:
-        (this.text.split("\n").length > 1 ? 0 : this.pos.ch) +
-        this.text.split("\n").pop().length,
+        (this.isRichText ? this.richText.length > 1 : this.text.split("\n").length > 1 ? 0 : this.pos.ch) +
+        (this.isRichText ? this.richText[this.richText.length - 1].segments.map(s => s.text).join("").length : this.text.split("\n").pop().length),
     };
     const range = { start: this.pos, end: endPos };
     return new DeleteTextCommand(range);
