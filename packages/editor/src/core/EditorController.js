@@ -15,6 +15,7 @@ export class EditorController {
     this.model = model;
     this.view = view;
     this.undoManager = undoManager;
+    this.undoManager.setModel(this.model);
 
     this.hiddenInput = null;
     this.toolbar = null;
@@ -129,7 +130,6 @@ export class EditorController {
       const text = this.model.getTextInRange(range);
       try {
         await navigator.clipboard.writeText(text);
-        this.model.clearSelection();
         this.executeCommands([new DeleteTextCommand(range)]);
       } catch (error) {
         console.error("Cut failed:", error);
@@ -231,13 +231,23 @@ export class EditorController {
   // Public API for local user actions
   executeCommands(commands) {
     const initialCursor = this.model.getCursorPos();
+    let containsDeleteText = false;
+
     for (const command of commands) {
+      if (command.constructor.name === "DeleteTextCommand") {
+        containsDeleteText = true;
+      }
       command.execute(this.model);
       this.undoManager.add(command);
       this.dispatchEventToPlugins("command", command);
     }
     const finalCursor = calculateFinalCursorPosition(initialCursor, commands);
     this.model.updateCursor(finalCursor);
+
+    if (containsDeleteText) {
+      this.model.clearSelection();
+    }
+
     this.view.render();
   }
 
@@ -253,16 +263,49 @@ export class EditorController {
   }
 
   undo() {
-    const commands = this.undoManager.getInvertedCommandsForUndo();
-    if (commands) {
-      this.executeCommandsBypassUndo(commands);
+    const batch = this.undoManager.getCommandsForUndo();
+    if (batch) {
+      const invertedCommands = batch.commands
+        .map((cmd) => cmd.invert())
+        .reverse();
+      for (const command of invertedCommands) {
+        command.execute(this.model);
+      }
+
+      if (batch.preState) {
+        if (batch.preState.selection) {
+          this.model.setSelection(
+            batch.preState.selection.start,
+            batch.preState.selection.end,
+          );
+        } else {
+          this.model.clearSelection();
+        }
+        this.model.updateCursor(batch.preState.cursor);
+      }
+      this.view.render();
     }
   }
 
   redo() {
-    const commands = this.undoManager.getCommandsForRedo();
-    if (commands) {
-      this.executeCommandsBypassUndo(commands);
+    const batch = this.undoManager.getCommandsForRedo();
+    if (batch) {
+      for (const command of batch.commands) {
+        command.execute(this.model);
+      }
+
+      if (batch.postState) {
+        this.model.updateCursor(batch.postState.cursor);
+        if (batch.postState.selection) {
+          this.model.setSelection(
+            batch.postState.selection.start,
+            batch.postState.selection.end,
+          );
+        } else {
+          this.model.clearSelection();
+        }
+      }
+      this.view.render();
     }
   }
 }

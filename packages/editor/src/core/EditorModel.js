@@ -282,19 +282,21 @@ export class EditorModel {
       const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
       const lineObj = this.lines[line];
 
+      // 1. Save the part of the line that will come after the insertion.
       const textAfter = segment.text.slice(offset);
-      segment.text = segment.text.slice(0, offset);
-
-      // First line of insert
-      lineObj.segments.push(...richText[0].segments);
-      this._mergeSegments(line);
-
-      // Segments to be moved to the last new line
+      const followingSegments = lineObj.segments.slice(segmentIndex + 1);
       const remainingSegments = [
         { ...segment, text: textAfter },
-        ...lineObj.segments.slice(segmentIndex + 1),
+        ...followingSegments,
       ];
+
+      // 2. Truncate the original line at the insertion point.
+      segment.text = segment.text.slice(0, offset);
       lineObj.segments.splice(segmentIndex + 1);
+
+      // 3. Now, append the first line of the rich text to the truncated line.
+      lineObj.segments.push(...richText[0].segments);
+      this._mergeSegments(line);
 
       const newLines = [];
       // Middle lines

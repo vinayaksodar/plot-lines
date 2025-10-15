@@ -59,8 +59,8 @@ export class DeleteCharCommand {
   invert() {
     if (this.deletedChar === "\n") {
       return new InsertNewLineCommand({
-        line: this.pos.line,
-        ch: this.pos.ch - 1,
+        line: this.pos.line - 1,
+        ch: this.prevLineLength,
       });
     } else {
       return new InsertCharCommand(

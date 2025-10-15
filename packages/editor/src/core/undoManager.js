@@ -3,21 +3,41 @@ export class UndoManager {
     this.undoStack = [];
     this.redoStack = [];
 
-    this.currentBatch = null; // array of commands in the active batch
+    this.currentBatch = null; // object: { commands, preState, postState }
     this.batchTimer = null; // timer to auto-close batch
     this.batchDelay = 500; // ms: how long between keypresses to merge into one batch
+    this.model = null;
+  }
+
+  setModel(model) {
+    this.model = model;
   }
 
   // Start a new batch explicitly
   beginBatch() {
     if (!this.currentBatch) {
-      this.currentBatch = [];
+      this.currentBatch = {
+        commands: [],
+        preState: this.model
+          ? {
+              cursor: this.model.getCursorPos(),
+              selection: this.model.getSelectionRange(),
+            }
+          : null,
+        postState: null,
+      };
     }
   }
 
   // End the current batch explicitly
   endBatch() {
-    if (this.currentBatch && this.currentBatch.length > 0) {
+    if (this.currentBatch && this.currentBatch.commands.length > 0) {
+      if (this.model) {
+        this.currentBatch.postState = {
+          cursor: this.model.getCursorPos(),
+          selection: this.model.getSelectionRange(),
+        };
+      }
       this.undoStack.push(this.currentBatch);
       this.currentBatch = null;
       this.redoStack = []; // clear redo history
@@ -27,21 +47,38 @@ export class UndoManager {
 
   // Add a command to the history (with batching)
   add(command) {
-    if (this.currentBatch) {
-      this.currentBatch.push(command);
-    } else {
-      // start a new batch automatically
-      this.currentBatch = [command];
-    }
+    const commandType = command.constructor.name;
+    const commandShouldNotBeBatched = commandType === 'DeleteTextCommand' ||
+                                    commandType === 'InsertTextCommand' ||
+                                    commandType === 'ToggleInlineStyleCommand' ||
+                                    commandType === 'SetLineTypeCommand';
 
-    // reset batch timer: if user pauses typing, we finalize the batch
-    this._clearBatchTimer();
-    this.batchTimer = setTimeout(() => {
-      this.endBatch();
-    }, this.batchDelay);
+    if (commandShouldNotBeBatched) {
+      this.endBatch(); // Finalize any ongoing batch first.
+
+      this.beginBatch(); // Start a new, separate batch.
+      if (this.currentBatch) {
+        this.currentBatch.commands.push(command);
+      }
+      this.endBatch(); // Immediately finalize the batch for this command.
+    } else {
+      // Default behavior for commands that can be batched (e.g., InsertCharCommand).
+      if (!this.currentBatch) {
+        this.beginBatch();
+      }
+      if (this.currentBatch) {
+        this.currentBatch.commands.push(command);
+      }
+
+      // Reset batch timer: if user pauses typing, we finalize the batch.
+      this._clearBatchTimer();
+      this.batchTimer = setTimeout(() => {
+        this.endBatch();
+      }, this.batchDelay);
+    }
   }
 
-  getInvertedCommandsForUndo() {
+  getCommandsForUndo() {
     this._clearBatchTimer(); // finalize pending batch
     if (this.currentBatch) this.endBatch();
 
@@ -50,7 +87,7 @@ export class UndoManager {
     const batch = this.undoStack.pop();
     this.redoStack.push(batch);
 
-    return batch.map((cmd) => cmd.invert()).reverse();
+    return batch;
   }
 
   getCommandsForRedo() {

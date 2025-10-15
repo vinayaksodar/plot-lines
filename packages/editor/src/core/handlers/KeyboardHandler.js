@@ -99,7 +99,6 @@ export class KeyboardHandler {
 
     if (e.key === "Backspace" || e.key === "Delete") {
       cmd = new DeleteTextCommand(model.getSelectionRange());
-      model.clearSelection();
     } else if (e.key === "Escape") {
       model.clearSelection();
     } else if (e.key === "ArrowLeft") {
