@@ -267,59 +267,87 @@ export class EditorModel {
 
     if (richText.length === 1) {
       // Single line insert
-      const { segment, offset } = this._findSegmentAt(line, ch);
-      const firstLine = richText[0];
-      const textToInsert = firstLine.segments.map((s) => s.text).join("");
-      segment.text =
-        segment.text.slice(0, offset) +
-        textToInsert +
-        segment.text.slice(offset);
-      this.cursor.ch += textToInsert.length;
+      const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
+      const lineObj = this.lines[line];
+      const incomingSegments = richText[0].segments;
+
+      const textBefore = segment.text.slice(0, offset);
+      const textAfter = segment.text.slice(offset);
+
+      const newSegments = [];
+      // Segments before the insertion point
+      newSegments.push(...lineObj.segments.slice(0, segmentIndex));
+      // Part of the split segment before insertion
+      if (textBefore) {
+        newSegments.push({ ...segment, text: textBefore });
+      }
+      // The new segments being inserted
+      newSegments.push(...incomingSegments);
+      // Part of the split segment after insertion
+      if (textAfter) {
+        newSegments.push({ ...segment, text: textAfter });
+      }
+      // Segments after the insertion point
+      newSegments.push(...lineObj.segments.slice(segmentIndex + 1));
+
+      lineObj.segments = newSegments;
+
+      const insertedTextLength = incomingSegments.reduce(
+        (sum, s) => sum + s.text.length,
+        0,
+      );
+      this.cursor.ch += insertedTextLength;
       this._mergeSegments(line);
     } else {
       // Multi-line insert
       const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
       const lineObj = this.lines[line];
 
-      // 1. Save the part of the line that will come after the insertion.
-      const textAfter = segment.text.slice(offset);
-      const followingSegments = lineObj.segments.slice(segmentIndex + 1);
-      const remainingSegments = [
-        { ...segment, text: textAfter },
-        ...followingSegments,
-      ];
+      // 1. Define what to keep from the original line
+      const textBeforeInsertion = segment.text.slice(0, offset);
+      const textAfterInsertion = segment.text.slice(offset);
 
-      // 2. Truncate the original line at the insertion point.
-      segment.text = segment.text.slice(0, offset);
-      lineObj.segments.splice(segmentIndex + 1);
-
-      // 3. Now, append the first line of the rich text to the truncated line.
-      lineObj.segments.push(...richText[0].segments);
-      this._mergeSegments(line);
-
-      const newLines = [];
-      // Middle lines
-      for (let i = 1; i < richText.length - 1; i++) {
-        newLines.push({
-          type: richText[i].type,
-          segments: richText[i].segments,
-        });
+      const segmentsBefore = lineObj.segments.slice(0, segmentIndex);
+      if (textBeforeInsertion) {
+        segmentsBefore.push({ ...segment, text: textBeforeInsertion });
       }
 
-      // Last line
+      const segmentsAfter = [];
+      if (textAfterInsertion) {
+        segmentsAfter.push({ ...segment, text: textAfterInsertion });
+      }
+      segmentsAfter.push(...lineObj.segments.slice(segmentIndex + 1));
+
+      // 2. The first line of insertion becomes the end of the original line
+      lineObj.segments = [...segmentsBefore, ...richText[0].segments];
+      this._mergeSegments(line);
+
+      // 3. Middle lines are inserted as is
+      const newLines = richText
+        .slice(1, richText.length - 1)
+        .map((lineData) => ({
+          type: lineData.type,
+          segments: lineData.segments,
+        }));
+
+      // 4. The last line of insertion is prepended to the segments that were after the cursor
+      const lastRichTextLine = richText[richText.length - 1];
       const lastNewLine = {
-        type: richText[richText.length - 1].type,
-        segments: [
-          ...richText[richText.length - 1].segments,
-          ...remainingSegments,
-        ],
+        type: lastRichTextLine.type,
+        segments: [...lastRichTextLine.segments, ...segmentsAfter],
       };
       newLines.push(lastNewLine);
 
+      // 5. Insert the new lines
       this.lines.splice(line + 1, 0, ...newLines);
 
       this.cursor.line += newLines.length;
-      this.cursor.ch = this.getLineLength(this.cursor.line) - textAfter.length;
+      const lastLineLength = this.getLineLength(this.cursor.line);
+      const segmentsAfterLength = segmentsAfter.reduce(
+        (l, s) => l + s.text.length,
+        0,
+      );
+      this.cursor.ch = lastLineLength - segmentsAfterLength;
     }
   }
 
