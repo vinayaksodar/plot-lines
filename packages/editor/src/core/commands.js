@@ -131,10 +131,22 @@ export class InsertTextCommand {
 
   invert() {
     const endPos = {
-      line: this.pos.line + (this.isRichText ? this.richText.length - 1 : this.text.split("\n").length - 1),
+      line:
+        this.pos.line +
+        (this.isRichText
+          ? this.richText.length - 1
+          : this.text.split("\n").length - 1),
       ch:
-        (this.isRichText ? this.richText.length > 1 : this.text.split("\n").length > 1 ? 0 : this.pos.ch) +
-        (this.isRichText ? this.richText[this.richText.length - 1].segments.map(s => s.text).join("").length : this.text.split("\n").pop().length),
+        (this.isRichText
+          ? this.richText.length > 1
+          : this.text.split("\n").length > 1
+            ? 0
+            : this.pos.ch) +
+        (this.isRichText
+          ? this.richText[this.richText.length - 1].segments
+              .map((s) => s.text)
+              .join("").length
+          : this.text.split("\n").pop().length),
     };
     const range = { start: this.pos, end: endPos };
     return new DeleteTextCommand(range);
