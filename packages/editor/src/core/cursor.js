@@ -27,17 +27,23 @@ function transformCursorPosition(pos, command) {
     }
   } else if (command instanceof DeleteCharCommand) {
     if (command.deletedChar === "\n") {
-      // Deleting newline merges lines
-      if (pos.line > command.pos.line + 1) {
-        // Lines below deleted newline shift up
+      // This is a line merge (backspace at start of line)
+      if (pos.line < command.pos.line) {
+        // Cursor is before the merge, no change.
+        return pos;
+      } else if (pos.line === command.pos.line) {
+        // Cursor was on the line that was merged away.
+        return { line: command.pos.line - 1, ch: command.prevLineLength + pos.ch };
+      } else { // pos.line > command.pos.line
+        // Cursor was on a line after the merged line. It should shift up by one line.
         return { line: pos.line - 1, ch: pos.ch };
-      } else if (pos.line === command.pos.line + 1) {
-        // Cursor on merged line shifts horizontally
-        return { line: command.pos.line, ch: command.pos.ch + pos.ch };
       }
-    } else if (pos.line === command.pos.line && pos.ch > command.pos.ch) {
-      // Normal char deletion: shift left
-      return { line: pos.line, ch: pos.ch - 1 };
+    } else {
+      // This is a normal character deletion.
+      if (pos.line === command.pos.line && pos.ch >= command.pos.ch) {
+        // Cursor is on the same line, at or after the deletion point.
+        return { line: pos.line, ch: pos.ch - 1 };
+      }
     }
   } else if (command instanceof InsertTextCommand) {
     if (!command.text) return pos;
