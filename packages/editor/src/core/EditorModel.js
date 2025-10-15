@@ -153,7 +153,6 @@ export class EditorModel {
 
   setSelection(start, end) {
     this.selection = { start, end };
-    this.updateCursor(end);
   }
 
   clearSelection() {
