@@ -352,7 +352,11 @@ export class PersistenceManager {
   }
 
   closeEditor() {
-    this.new();
+    this.documentName = "Untitled";
+    this.documentId = null;
+    this.isCloudDocument = false;
+    this.destroyCollabService();
+    this.emit("documentClosed");
   }
 
   showToast(message, type = "success") {

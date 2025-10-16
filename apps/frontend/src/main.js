@@ -123,6 +123,15 @@ persistenceManager.on("documentCreated", (data) => {
 
 persistenceManager.on("focusEditor", () => controller.focusEditor());
 
+persistenceManager.on("documentClosed", () => {
+  controller.destroyPlugin("CollabPlugin");
+  model.setText("");
+  titlePage.model.update({});
+  titlePage.render();
+  view.render();
+  controller.focusEditor();
+});
+
 // --- UI Assembly ---
 
 // 1. Create MenuBar configuration
