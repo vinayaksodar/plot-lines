@@ -61,7 +61,7 @@ export class KeyboardHandler {
       if (!cursorPos) {
         return;
       }
-      model.setSelection(cursorPos, cursorPos);
+      model.setSelectionRange({ start: cursorPos, end: cursorPos });
     }
     const { start, end } = model.getSelectionRange();
     if (
@@ -72,23 +72,23 @@ export class KeyboardHandler {
     ) {
       if (direction == "right" || direction == "down") {
         const newEnd = this.calculateNewPosition(start, direction);
-        model.setSelection(start, newEnd);
+        model.setSelectionRange({ start, end: newEnd });
         model.updateCursor(newEnd);
       }
       if (direction == "left" || direction == "up") {
         const newStart = this.calculateNewPosition(start, direction);
-        model.setSelection(newStart, end);
+        model.setSelectionRange({ start: newStart, end });
         model.updateCursor(newStart);
       }
     }
     if (start.ch == cursorPos.ch && start.line == cursorPos.line) {
       const newStart = this.calculateNewPosition(start, direction);
-      model.setSelection(newStart, end);
+      model.setSelectionRange({ start: newStart, end });
       model.updateCursor(newStart);
     }
     if (end.ch == cursorPos.ch && end.line == cursorPos.line) {
       const newEnd = this.calculateNewPosition(end, direction);
-      model.setSelection(start, newEnd);
+      model.setSelectionRange({ start, end: newEnd });
       model.updateCursor(newEnd);
     }
   }

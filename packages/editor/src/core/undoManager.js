@@ -3,62 +3,42 @@ export class UndoManager {
     this.undoStack = [];
     this.redoStack = [];
 
-    this.currentBatch = null; // object: { commands, preState, postState }
+    this.currentBatch = null; // array of { command, preState, postState }
     this.batchTimer = null; // timer to auto-close batch
     this.batchDelay = 500; // ms: how long between keypresses to merge into one batch
-    this.model = null;
-  }
-
-  setModel(model) {
-    this.model = model;
   }
 
   // Start a new batch explicitly
   beginBatch() {
     if (!this.currentBatch) {
-      this.currentBatch = {
-        commands: [],
-        preState: this.model
-          ? {
-              cursor: this.model.getCursorPos(),
-              selection: this.model.getSelectionRange(),
-            }
-          : null,
-        postState: null,
-      };
+      this.currentBatch = [];
     }
   }
 
   // End the current batch explicitly
   endBatch() {
-    if (this.currentBatch && this.currentBatch.commands.length > 0) {
-      if (this.model) {
-        this.currentBatch.postState = {
-          cursor: this.model.getCursorPos(),
-          selection: this.model.getSelectionRange(),
-        };
-      }
+    if (this.currentBatch && this.currentBatch.length > 0) {
       this.undoStack.push(this.currentBatch);
       this.currentBatch = null;
-      this.redoStack = []; // clear redo history
     }
     this._clearBatchTimer();
   }
 
   // Add a command to the history (with batching)
-  add(command) {
+  add(command, preState, postState) {
     const commandType = command.constructor.name;
-    const commandShouldNotBeBatched = commandType === 'DeleteTextCommand' ||
-                                    commandType === 'InsertTextCommand' ||
-                                    commandType === 'ToggleInlineStyleCommand' ||
-                                    commandType === 'SetLineTypeCommand';
+    const commandShouldNotBeBatched =
+      commandType === "DeleteTextCommand" ||
+      commandType === "InsertTextCommand" ||
+      commandType === "ToggleInlineStyleCommand" ||
+      commandType === "SetLineTypeCommand";
 
     if (commandShouldNotBeBatched) {
       this.endBatch(); // Finalize any ongoing batch first.
 
       this.beginBatch(); // Start a new, separate batch.
       if (this.currentBatch) {
-        this.currentBatch.commands.push(command);
+        this.currentBatch.push({ command, preState, postState });
       }
       this.endBatch(); // Immediately finalize the batch for this command.
     } else {
@@ -67,7 +47,7 @@ export class UndoManager {
         this.beginBatch();
       }
       if (this.currentBatch) {
-        this.currentBatch.commands.push(command);
+        this.currentBatch.push({ command, preState, postState });
       }
 
       // Reset batch timer: if user pauses typing, we finalize the batch.

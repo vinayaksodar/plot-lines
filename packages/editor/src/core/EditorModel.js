@@ -151,8 +151,8 @@ export class EditorModel {
     this.lines.splice(line + 1, 0, newLine);
   }
 
-  setSelection(start, end) {
-    this.selection = { start, end };
+  setSelectionRange(range) {
+    this.selection = range;
   }
 
   clearSelection() {

@@ -115,14 +115,11 @@ export class CollabPlugin extends Plugin {
     this.controller.executeCommandsBypassUndo(rebasedUnconfirmed);
 
     // 4. Rebase undo/redo stacks
-    rebaser.rebaseUndoStack(this.controller.undoManager);
-
-    // 5. Rebase cursor
-    const newCursor = calculateFinalCursorPosition(originalCursor, [
-      ...remoteCommands,
-      ...rebasedUnconfirmed,
-    ]);
-    model.updateCursor(newCursor);
+    rebaser._rebaseUndoStack(
+      this.controller.undoManager,
+      rebaser,
+      remoteCommands,
+    );
 
     this.unconfirmed = rebasedUnconfirmed;
   }
@@ -306,14 +303,48 @@ class Rebaser {
     this.commands = commands || [];
   }
 
-  rebaseCommands(commands) {
-    let rebasedCommands = [...commands];
-    for (const remoteCmd of this.commands) {
-      rebasedCommands = rebasedCommands
-        .map((localCmd) => this.rebase(localCmd, remoteCmd))
-        .filter(Boolean);
+  rebaseCommands(localCommands) {
+    let rebased = [...localCommands];
+    // Sequentially rebase the local commands against each remote command.
+    for (const remote of this.commands) {
+      rebased = this._transformBySingleCommand(rebased, remote);
     }
-    return rebasedCommands;
+    return rebased;
+  }
+
+  _transformBySingleCommand(localCommands, transformBy) {
+    const transformed = [];
+    for (let i = 0; i < localCommands.length; i++) {
+      const local = localCommands[i];
+      const rebasedLocal = this.rebase(local, transformBy);
+
+      if (rebasedLocal) {
+        // The command was not dropped. Add it to the results.
+        transformed.push(rebasedLocal);
+      } else {
+        // The command `local` was dropped by `transformBy`.
+        // The rest of the commands need to be adjusted.
+        const invertedDropped = local.invert();
+        const remaining = localCommands.slice(i + 1);
+
+        // 1. First, transform the remaining commands over the inverse of the one that was just dropped.
+        const adjustedRemaining = this._transformBySingleCommand(
+          remaining,
+          invertedDropped,
+        );
+
+        // 2. Then, transform that result over the original `transformBy` command.
+        const finalRemaining = this._transformBySingleCommand(
+          adjustedRemaining,
+          transformBy,
+        );
+
+        // The final result is the commands that were successful so far, plus the fully transformed remaining commands.
+        return transformed.concat(finalRemaining);
+      }
+    }
+    // If the loop completes without any commands being dropped.
+    return transformed;
   }
 
   rebase(localCmd, remoteCmd) {
@@ -470,13 +501,34 @@ class Rebaser {
     return localCmd; // Default to no-op
   }
 
-  rebaseUndoStack(undoManager) {
+  _rebaseUndoStack(undoManager, rebaser, remoteCommands) {
     const rebaseStack = (stack) => {
-      let newStack = [];
+      const newStack = [];
       for (const batch of stack) {
-        const rebasedBatch = this.rebaseCommands(batch);
-        if (rebasedBatch.length > 0) {
-          newStack.push(rebasedBatch);
+        const newBatch = [];
+        for (const item of batch) {
+          const rebasedCommandArray = rebaser.rebaseCommands([item.command]);
+
+          if (rebasedCommandArray.length > 0) {
+            const rebasedCommand = rebasedCommandArray[0];
+            const newPreState = this._rebaseState(
+              item.preState,
+              remoteCommands,
+            );
+            const newPostState = this._rebaseState(
+              item.postState,
+              remoteCommands,
+            );
+
+            newBatch.push({
+              command: rebasedCommand,
+              preState: newPreState,
+              postState: newPostState,
+            });
+          }
+        }
+        if (newBatch.length > 0) {
+          newStack.push(newBatch);
         }
       }
       return newStack;
@@ -484,5 +536,24 @@ class Rebaser {
 
     undoManager.undoStack = rebaseStack(undoManager.undoStack);
     undoManager.redoStack = rebaseStack(undoManager.redoStack);
+  }
+
+  _rebaseState(state, commands) {
+    if (!state) return null;
+
+    const newCursor = calculateFinalCursorPosition(state.cursor, commands);
+    let newSelection = null;
+    if (state.selection) {
+      const newStart = calculateFinalCursorPosition(
+        state.selection.start,
+        commands,
+      );
+      const newEnd = calculateFinalCursorPosition(
+        state.selection.end,
+        commands,
+      );
+      newSelection = { start: newStart, end: newEnd };
+    }
+    return { cursor: newCursor, selection: newSelection };
   }
 }

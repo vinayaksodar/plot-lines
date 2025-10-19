@@ -1,4 +1,7 @@
-import { calculateFinalCursorPosition } from "./cursor.js";
+import {
+  transformCursorPosition,
+  calculateFinalCursorPosition,
+} from "./cursor.js";
 import {
   DeleteTextCommand,
   InsertTextCommand,
@@ -15,7 +18,6 @@ export class EditorController {
     this.model = model;
     this.view = view;
     this.undoManager = undoManager;
-    this.undoManager.setModel(this.model);
 
     this.hiddenInput = null;
     this.toolbar = null;
@@ -230,28 +232,29 @@ export class EditorController {
 
   // Public API for local user actions
   executeCommands(commands) {
-    const initialCursor = this.model.getCursorPos();
-    let containsDeleteText = false;
-
     for (const command of commands) {
-      if (command.constructor.name === "DeleteTextCommand") {
-        containsDeleteText = true;
-      }
+      const preState = {
+        cursor: this.model.getCursorPos(),
+        selection: this.model.getSelectionRange(),
+      };
+      const initialCursor = this.model.getCursorPos();
       command.execute(this.model);
-      this.undoManager.add(command);
+      const rebasedCursor = transformCursorPosition(initialCursor, command);
+      if (command instanceof DeleteTextCommand) {
+        this.model.clearSelection();
+      }
+      this.model.updateCursor(rebasedCursor);
+      const postState = {
+        cursor: this.model.getCursorPos(),
+        selection: this.model.getSelectionRange(),
+      };
+      this.undoManager.add(command, preState, postState);
       this.dispatchEventToPlugins("command", command);
     }
-    const finalCursor = calculateFinalCursorPosition(initialCursor, commands);
-    this.model.updateCursor(finalCursor);
-
-    if (containsDeleteText) {
-      this.model.clearSelection();
-    }
-
     this.view.render();
   }
 
-  // For applying changes from remote sources from undomanager etc, bypass adding to undo
+  // For applying changes from remote sources, from undomanager etc, bypass adding to undo
   executeCommandsBypassUndo(commands) {
     const initialCursor = this.model.getCursorPos();
     for (const command of commands) {
@@ -265,45 +268,25 @@ export class EditorController {
   undo() {
     const batch = this.undoManager.getCommandsForUndo();
     if (batch) {
-      const invertedCommands = batch.commands
-        .map((cmd) => cmd.invert())
-        .reverse();
-      for (const command of invertedCommands) {
-        command.execute(this.model);
+      for (const item of batch.reverse()) {
+        const invertedCommand = item.command.invert();
+        this.executeCommandsBypassUndo([invertedCommand]);
+        this.dispatchEventToPlugins("command", invertedCommand);
+        this.model.updateCursor(item.preState.cursor);
+        this.model.setSelectionRange(item.preState.selection);
       }
-
-      if (batch.preState) {
-        if (batch.preState.selection) {
-          this.model.setSelection(
-            batch.preState.selection.start,
-            batch.preState.selection.end,
-          );
-        } else {
-          this.model.clearSelection();
-        }
-        this.model.updateCursor(batch.preState.cursor);
-      }
-      this.view.render();
     }
+    this.view.render();
   }
 
   redo() {
     const batch = this.undoManager.getCommandsForRedo();
     if (batch) {
-      for (const command of batch.commands) {
-        command.execute(this.model);
-      }
-
-      if (batch.postState) {
-        this.model.updateCursor(batch.postState.cursor);
-        if (batch.postState.selection) {
-          this.model.setSelection(
-            batch.postState.selection.start,
-            batch.postState.selection.end,
-          );
-        } else {
-          this.model.clearSelection();
-        }
+      for (const item of batch) {
+        this.model.updateCursor(item.preState.cursor);
+        this.model.setSelectionRange(item.preState.selection);
+        this.executeCommandsBypassUndo([item.command]);
+        this.dispatchEventToPlugins("command", item.command);
       }
       this.view.render();
     }

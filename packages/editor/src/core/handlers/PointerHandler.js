@@ -222,7 +222,7 @@ export class PointerHandler {
       const endModelPos = this.controller.view.viewToModelPos(endClientPos);
 
       const model = this.controller.model;
-      model.setSelection(startModelPos, endModelPos);
+      model.setSelectionRange({ start: startModelPos, end: endModelPos });
       model.updateCursor(endModelPos);
       this.controller.view.render();
     });

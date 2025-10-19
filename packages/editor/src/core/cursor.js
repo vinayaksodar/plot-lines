@@ -16,7 +16,7 @@ function cmpPos(a, b) {
   return 0;
 }
 
-function transformCursorPosition(pos, command) {
+export function transformCursorPosition(pos, command) {
   if (!pos) {
     return null;
   }
@@ -33,8 +33,12 @@ function transformCursorPosition(pos, command) {
         return pos;
       } else if (pos.line === command.pos.line) {
         // Cursor was on the line that was merged away.
-        return { line: command.pos.line - 1, ch: command.prevLineLength + pos.ch };
-      } else { // pos.line > command.pos.line
+        return {
+          line: command.pos.line - 1,
+          ch: command.prevLineLength + pos.ch,
+        };
+      } else {
+        // pos.line > command.pos.line
         // Cursor was on a line after the merged line. It should shift up by one line.
         return { line: pos.line - 1, ch: pos.ch };
       }
