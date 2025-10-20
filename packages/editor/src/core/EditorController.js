@@ -268,7 +268,7 @@ export class EditorController {
   undo() {
     const batch = this.undoManager.getCommandsForUndo();
     if (batch) {
-      for (const item of batch.reverse()) {
+      for (const item of [...batch].reverse()) {
         const invertedCommand = item.command.invert();
         this.executeCommandsBypassUndo([invertedCommand]);
         this.dispatchEventToPlugins("command", invertedCommand);
