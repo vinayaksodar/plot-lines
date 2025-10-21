@@ -84,8 +84,8 @@ export class DeleteCharCommand {
 
 export class DeleteTextCommand {
   constructor(range) {
-    this.text = null;
     this.range = range;
+    this.richText = null;
   }
 
   execute(model) {
@@ -110,43 +110,32 @@ export class DeleteTextCommand {
 
 export class InsertTextCommand {
   constructor(textOrRichText, pos) {
-    this.isRichText = Array.isArray(textOrRichText);
-    if (this.isRichText) {
+    if (Array.isArray(textOrRichText)) {
       this.richText = textOrRichText;
-      this.text = null;
     } else {
-      this.text = textOrRichText;
-      this.richText = null;
+      // Convert plain text to rich text structure
+      this.richText = (textOrRichText || "").split("\n").map((lineText) => ({
+        type: "action", // TODO: inherit from context
+        segments: [
+          { text: lineText, bold: false, italic: false, underline: false },
+        ],
+      }));
     }
     this.pos = pos;
   }
 
   execute(model) {
-    if (this.isRichText) {
-      model.insertRichText(this.richText, this.pos);
-    } else {
-      model.insertText(this.text, this.pos);
-    }
+    model.insertRichText(this.richText, this.pos);
   }
 
   invert() {
     const endPos = {
-      line:
-        this.pos.line +
-        (this.isRichText
-          ? this.richText.length - 1
-          : this.text.split("\n").length - 1),
+      line: this.pos.line + this.richText.length - 1,
       ch:
-        (this.isRichText
-          ? this.richText.length > 1
-          : this.text.split("\n").length > 1
-            ? 0
-            : this.pos.ch) +
-        (this.isRichText
-          ? this.richText[this.richText.length - 1].segments
-              .map((s) => s.text)
-              .join("").length
-          : this.text.split("\n").pop().length),
+        (this.richText.length > 1 ? 0 : this.pos.ch) +
+        this.richText[this.richText.length - 1].segments
+          .map((s) => s.text)
+          .join("").length,
     };
     const range = { start: this.pos, end: endPos };
     return new DeleteTextCommand(range);
@@ -155,7 +144,7 @@ export class InsertTextCommand {
   toJSON() {
     return {
       type: "InsertTextCommand",
-      text: this.text,
+      richText: this.richText,
       pos: this.pos,
     };
   }

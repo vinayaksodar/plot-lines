@@ -50,9 +50,12 @@ export function transformCursorPosition(pos, command) {
       }
     }
   } else if (command instanceof InsertTextCommand) {
-    if (!command.text) return pos;
-    const lines = command.text.split("\n");
-    const lineCount = lines.length - 1;
+    if (!command.richText || command.richText.length === 0) return pos;
+
+    const lineCount = command.richText.length - 1;
+    const lastLineLength = command.richText[lineCount].segments
+      .map((s) => s.text)
+      .join("").length;
 
     if (cmpPos(pos, command.pos) >= 0) {
       if (lineCount > 0) {
@@ -61,11 +64,11 @@ export function transformCursorPosition(pos, command) {
           line: pos.line + lineCount,
           ch:
             (pos.line === command.pos.line ? pos.ch - command.pos.ch : pos.ch) +
-            lines[lineCount].length,
+            lastLineLength,
         };
       } else {
         // Single-line insert
-        return { line: pos.line, ch: pos.ch + lines[0].length };
+        return { line: pos.line, ch: pos.ch + lastLineLength };
       }
     }
   } else if (command instanceof DeleteTextCommand) {

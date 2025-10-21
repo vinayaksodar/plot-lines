@@ -157,12 +157,10 @@ export class CollabPlugin extends Plugin {
 
       if (
         currentCommand instanceof InsertCharCommand ||
-        currentCommand instanceof InsertTextCommand
+        (currentCommand instanceof InsertTextCommand &&
+          currentCommand.richText.length === 1)
       ) {
-        let combinedText =
-          currentCommand instanceof InsertCharCommand
-            ? currentCommand.char
-            : currentCommand.text;
+        let combinedText = getCommandText(currentCommand);
         let startPos = currentCommand.pos;
         let lastIndex = i;
 
@@ -171,14 +169,12 @@ export class CollabPlugin extends Plugin {
 
           if (
             (nextCommand instanceof InsertCharCommand ||
-              nextCommand instanceof InsertTextCommand) &&
+              (nextCommand instanceof InsertTextCommand &&
+                nextCommand.richText.length === 1)) &&
             nextCommand.pos.line === startPos.line &&
             nextCommand.pos.ch === startPos.ch + combinedText.length
           ) {
-            const nextText =
-              nextCommand instanceof InsertCharCommand
-                ? nextCommand.char
-                : nextCommand.text;
+            const nextText = getCommandText(nextCommand);
             combinedText += nextText;
             lastIndex = j;
           } else {
@@ -188,7 +184,29 @@ export class CollabPlugin extends Plugin {
 
         if (lastIndex > i) {
           // Combination happened
-          const combinedCommand = new InsertTextCommand(combinedText, startPos);
+          const line = this.controller.model.lines[startPos.line];
+          if (!line) {
+            // This line was deleted by a subsequent command in the unconfirmed batch.
+            // It's too complex to determine the correct line type, so we abort the combination.
+            newUnconfirmed.push(...unconfirmed.slice(i, lastIndex + 1));
+            i = lastIndex + 1;
+            continue;
+          }
+          const lineType = line.type;
+          const richText = [
+            {
+              type: lineType,
+              segments: [
+                {
+                  text: combinedText,
+                  bold: false,
+                  italic: false,
+                  underline: false,
+                },
+              ],
+            },
+          ];
+          const combinedCommand = new InsertTextCommand(richText, startPos);
           newUnconfirmed.push(combinedCommand);
           i = lastIndex + 1;
         } else {
@@ -197,7 +215,7 @@ export class CollabPlugin extends Plugin {
           i++;
         }
       } else {
-        // Not an insert command
+        // Not a combinable insert command
         newUnconfirmed.push(unconfirmed[i]);
         i++;
       }
@@ -287,7 +305,7 @@ function commandFromJSON(json) {
     case "InsertNewLineCommand":
       return new InsertNewLineCommand(json.pos);
     case "InsertTextCommand":
-      return new InsertTextCommand(json.text, json.pos);
+      return new InsertTextCommand(json.richText, json.pos);
     case "SetLineTypeCommand":
       return new SetLineTypeCommand(json.newType, json.pos);
     case "ToggleInlineStyleCommand":
@@ -296,6 +314,18 @@ function commandFromJSON(json) {
       console.error("Unknown step type:", json.type);
       return null;
   }
+}
+
+function getCommandText(cmd) {
+  if (cmd instanceof InsertCharCommand) {
+    return cmd.char;
+  }
+  if (cmd instanceof InsertTextCommand) {
+    return cmd.richText
+      .map((line) => line.segments.map((s) => s.text).join(""))
+      .join("\n");
+  }
+  return "";
 }
 
 class Rebaser {
@@ -307,42 +337,63 @@ class Rebaser {
     let rebased = [...localCommands];
     // Sequentially rebase the local commands against each remote command.
     for (const remote of this.commands) {
-      rebased = this._transformBySingleCommand(rebased, remote);
+      rebased = this._transformByCommands(rebased, remote);
     }
     return rebased;
   }
 
-  _transformBySingleCommand(localCommands, transformBy) {
+  _transformByCommands(localCommands, transformBy) {
+    // If transformBy is an array, apply them sequentially.
+    if (Array.isArray(transformBy)) {
+      let res = [...localCommands];
+      for (const t of transformBy) {
+        res = this._transformByCommands(res, t);
+      }
+      return res;
+    }
+
     const transformed = [];
     for (let i = 0; i < localCommands.length; i++) {
       const local = localCommands[i];
-      const rebasedLocal = this.rebase(local, transformBy);
+      const rebased = this.rebase(local, transformBy);
 
-      if (rebasedLocal) {
-        // The command was not dropped. Add it to the results.
-        transformed.push(rebasedLocal);
-      } else {
-        // The command `local` was dropped by `transformBy`.
-        // The rest of the commands need to be adjusted.
-        const invertedDropped = local.invert();
-        const remaining = localCommands.slice(i + 1);
-
-        // 1. First, transform the remaining commands over the inverse of the one that was just dropped.
-        const adjustedRemaining = this._transformBySingleCommand(
-          remaining,
-          invertedDropped,
-        );
-
-        // 2. Then, transform that result over the original `transformBy` command.
-        const finalRemaining = this._transformBySingleCommand(
-          adjustedRemaining,
-          transformBy,
-        );
-
-        // The final result is the commands that were successful so far, plus the fully transformed remaining commands.
-        return transformed.concat(finalRemaining);
+      if (Array.isArray(rebased)) {
+        transformed.push(...rebased);
+        continue;
+      } else if (rebased) {
+        transformed.push(rebased);
+        continue;
       }
+
+      // The command `local` was dropped by `transformBy` (rebased === null).
+      // The rest of the commands in the sequence need to be adjusted to account for this.
+
+      // Normalize invert() result into an array, as it might return one or many commands.
+      const invertedDroppedRaw = local.invert();
+      const invertedDropped = Array.isArray(invertedDroppedRaw)
+        ? invertedDroppedRaw
+        : [invertedDroppedRaw];
+
+      const remaining = localCommands.slice(i + 1);
+
+      // 1. First, transform the remaining commands over the inverse of the one that was just dropped.
+      // This "undoes" the dropped command's effect on the rest of the sequence.
+      const adjustedRemaining = this._transformByCommands(
+        remaining,
+        invertedDropped,
+      );
+
+      // 2. Then, transform that result over the original `transformBy` command.
+      // This applies the remote command's effect to the adjusted sequence.
+      const finalRemaining = this._transformByCommands(
+        adjustedRemaining,
+        transformBy,
+      );
+
+      // The final result is the commands that were successful so far, plus the fully transformed remaining commands.
+      return transformed.concat(finalRemaining);
     }
+
     // If the loop completes without any commands being dropped.
     return transformed;
   }
@@ -414,7 +465,7 @@ class Rebaser {
         localCmd.pos.line === remoteCmd.pos.line &&
         localCmd.pos.ch >= remoteCmd.pos.ch
       ) {
-        return new InsertTextCommand(localCmd.text, {
+        return new InsertTextCommand(localCmd.richText, {
           line: localCmd.pos.line,
           ch: localCmd.pos.ch + 1,
         });
@@ -427,20 +478,83 @@ class Rebaser {
         localCmd.pos.line === remoteCmd.pos.line &&
         localCmd.pos.ch > remoteCmd.pos.ch
       ) {
-        return new InsertTextCommand(localCmd.text, {
+        return new InsertTextCommand(localCmd.richText, {
           line: localCmd.pos.line,
           ch: localCmd.pos.ch - 1,
         });
       }
     } else if (
+      (localCmd instanceof InsertCharCommand ||
+        localCmd instanceof InsertTextCommand) &&
+      remoteCmd instanceof DeleteTextCommand
+    ) {
+      const { start: remoteStart, end: remoteEnd } = remoteCmd.range;
+      const pos = localCmd.pos;
+      const text = getCommandText(localCmd);
+
+      const textLines = text ? text.split("\n") : [""];
+      const localStart = pos;
+      const localEnd = {
+        line: pos.line + textLines.length - 1,
+        ch:
+          (textLines.length > 1 ? 0 : pos.ch) +
+          textLines[textLines.length - 1].length,
+      };
+
+      const cmp = (p1, p2) => {
+        if (p1.line < p2.line) return -1;
+        if (p1.line > p2.line) return 1;
+        if (p1.ch < p2.ch) return -1;
+        if (p1.ch > p2.ch) return 1;
+        return 0;
+      };
+
+      // If the ranges intersect, drop the local command.
+      if (cmp(localStart, remoteEnd) < 0 && cmp(remoteStart, localEnd) < 0) {
+        return null;
+      }
+
+      // If remote deletion is completely before the local insertion, adjust position.
+      if (cmp(remoteEnd, localStart) <= 0) {
+        const newPos = calculateFinalCursorPosition(pos, [remoteCmd]);
+        if (localCmd instanceof InsertCharCommand) {
+          return new InsertCharCommand(newPos, localCmd.char);
+        } else {
+          return new InsertTextCommand(localCmd.richText, newPos);
+        }
+      }
+
+      return localCmd;
+    } else if (
       localCmd instanceof DeleteTextCommand &&
       remoteCmd instanceof InsertCharCommand
     ) {
       const { start, end } = localCmd.range;
-      if (remoteCmd.pos.line >= start.line && remoteCmd.pos.line <= end.line) {
-        // Complex case: remote change is within the deleted range. For simplicity, we can drop the local command.
-        return null;
+      const pos = remoteCmd.pos;
+
+      const cmp = (p1, p2) => {
+        if (p1.line < p2.line) return -1;
+        if (p1.line > p2.line) return 1;
+        if (p1.ch < p2.ch) return -1;
+        if (p1.ch > p2.ch) return 1;
+        return 0;
+      };
+
+      // Insertion is inside the deleted range, split the deletion
+      if (cmp(pos, start) > 0 && cmp(pos, end) < 0) {
+        const delete1 = new DeleteTextCommand({ start: start, end: pos });
+
+        const newStart2 = calculateFinalCursorPosition(pos, [remoteCmd]);
+        const newEnd2 = calculateFinalCursorPosition(end, [remoteCmd]);
+        const delete2 = new DeleteTextCommand({ start: newStart2, end: newEnd2 });
+
+        return [delete1, delete2];
       }
+
+      // Insertion is not inside, just transform the range
+      const newStart = calculateFinalCursorPosition(start, [remoteCmd]);
+      const newEnd = calculateFinalCursorPosition(end, [remoteCmd]);
+      return new DeleteTextCommand({ start: newStart, end: newEnd });
     } else if (
       localCmd instanceof InsertNewLineCommand &&
       remoteCmd instanceof InsertCharCommand
@@ -461,13 +575,13 @@ class Rebaser {
       localCmd instanceof SetLineTypeCommand &&
       (remoteCmd instanceof InsertNewLineCommand ||
         (remoteCmd instanceof InsertTextCommand &&
-          remoteCmd.text &&
-          remoteCmd.text.includes("\n")))
+          getCommandText(remoteCmd) &&
+          getCommandText(remoteCmd).includes("\n")))
     ) {
       if (localCmd.lineNumber >= remoteCmd.pos.line) {
         const lineCount =
-          remoteCmd instanceof InsertTextCommand && remoteCmd.text
-            ? remoteCmd.text.split("\n").length - 1
+          remoteCmd instanceof InsertTextCommand
+            ? getCommandText(remoteCmd).split("\n").length - 1
             : 1;
         return new SetLineTypeCommand(
           localCmd.newType,
@@ -510,21 +624,20 @@ class Rebaser {
           const rebasedCommandArray = rebaser.rebaseCommands([item.command]);
 
           if (rebasedCommandArray.length > 0) {
-            const rebasedCommand = rebasedCommandArray[0];
-            const newPreState = this._rebaseState(
-              item.preState,
-              remoteCommands,
-            );
-            const newPostState = this._rebaseState(
-              item.postState,
-              remoteCommands,
-            );
+            let lastState = this._rebaseState(item.preState, remoteCommands);
 
-            newBatch.push({
-              command: rebasedCommand,
-              preState: newPreState,
-              postState: newPostState,
-            });
+            for (let i = 0; i < rebasedCommandArray.length; i++) {
+              const command = rebasedCommandArray[i];
+              const isLast = i === rebasedCommandArray.length - 1;
+
+              const preState = lastState;
+              const postState = isLast
+                ? this._rebaseState(item.postState, remoteCommands)
+                : this._rebaseStateOnCommand(preState, command);
+
+              newBatch.push({ command, preState, postState });
+              lastState = postState;
+            }
           }
         }
         if (newBatch.length > 0) {
@@ -536,6 +649,13 @@ class Rebaser {
 
     undoManager.undoStack = rebaseStack(undoManager.undoStack);
     undoManager.redoStack = rebaseStack(undoManager.redoStack);
+  }
+
+  _rebaseStateOnCommand(state, command) {
+    if (!state) return null;
+    const newCursor = calculateFinalCursorPosition(state.cursor, [command]);
+    // Selections are generally not preserved through this kind of complex transform.
+    return { cursor: newCursor, selection: null };
   }
 
   _rebaseState(state, commands) {

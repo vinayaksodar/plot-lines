@@ -129,14 +129,12 @@ export class EditorController {
   async handleCut() {
     if (this.model.hasSelection()) {
       const range = this.model.getSelectionRange();
-      const text = this.model.getTextInRange(range);
+      const richText = this.model.getRichTextInRange(range);
       try {
-        await navigator.clipboard.writeText(text);
+        this._writeToClipboard(richText);
         this.executeCommands([new DeleteTextCommand(range)]);
       } catch (error) {
         console.error("Cut failed:", error);
-        // this.model.clearSelection();
-        // this.editor.executeCommands([new DeleteTextCommand(range)]);
       }
     }
   }
@@ -144,9 +142,9 @@ export class EditorController {
   async handleCopy() {
     if (this.model.hasSelection()) {
       const range = this.model.getSelectionRange();
-      const text = this.model.getTextInRange(range);
+      const richText = this.model.getRichTextInRange(range);
       try {
-        await navigator.clipboard.writeText(text);
+        this._writeToClipboard(richText);
       } catch (error) {
         console.error("Copy failed:", error);
       }
@@ -155,14 +153,39 @@ export class EditorController {
 
   async handlePaste() {
     try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
+      const clipboardItems = await navigator.clipboard.read();
+      let richText = null;
+
+      for (const item of clipboardItems) {
+        if (item.types.includes("text/html")) {
+          const blob = await item.getType("text/html");
+          const html = await blob.text();
+          richText = this._parseHTMLToRichText(html);
+          break;
+        }
+      }
+
+      if (!richText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          const cursorPos = this.model.getCursorPos();
+          const lineType = this.model.lines[cursorPos.line].type;
+          richText = text.split("\n").map((lineText) => ({
+            type: lineType,
+            segments: [
+              { text: lineText, bold: false, italic: false, underline: false },
+            ],
+          }));
+        }
+      }
+
+      if (richText) {
         const tr = [];
         if (this.model.hasSelection()) {
           const range = this.model.getSelectionRange();
           tr.push(new DeleteTextCommand(range));
         }
-        tr.push(new InsertTextCommand(text, this.model.getCursorPos()));
+        tr.push(new InsertTextCommand(richText, this.model.getCursorPos()));
         this.model.clearSelection();
         this.executeCommands(tr);
       }
@@ -188,6 +211,128 @@ export class EditorController {
   focusEditor() {
     this.hiddenInput.focus();
     this.view.render();
+  }
+
+  _writeToClipboard(richText) {
+    const html = this._convertRichTextToHTML(richText);
+    const plainText = this._convertRichTextToPlainText(richText);
+    const clipboardData = [
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([plainText], { type: "text/plain" }),
+      }),
+    ];
+    return navigator.clipboard.write(clipboardData);
+  }
+
+  _convertRichTextToPlainText(richText) {
+    return richText
+      .map((line) =>
+        line.segments.map((segment) => segment.text).join("")
+      )
+      .join("\n");
+  }
+
+  _escapeHtml(text) {
+    return text.replace(/[&<>"']/g, (match) => {
+      switch (match) {
+        case "&":
+          return "&amp;";
+        case "<":
+          return "&lt;";
+        case ">":
+          return "&gt;";
+        case '"':
+          return "&quot;";
+        case "'":
+          return "&#39;";
+      }
+    });
+  }
+
+  _convertRichTextToHTML(richText) {
+    let html = "";
+    for (const line of richText) {
+      let lineHtml = `<div data-line-type="${line.type}">`;
+      if (
+        line.segments.length === 0 ||
+        (line.segments.length === 1 && !line.segments[0].text)
+      ) {
+        lineHtml += `<span>&nbsp;</span>`;
+      } else {
+        for (const segment of line.segments) {
+          let content = this._escapeHtml(segment.text);
+          if (segment.bold) content = `<b>${content}</b>`;
+          if (segment.italic) content = `<i>${content}</i>`;
+          if (segment.underline) content = `<u>${content}</u>`;
+          lineHtml += content;
+        }
+      }
+      lineHtml += `</div>`;
+      html += lineHtml;
+    }
+    return html;
+  }
+
+  _parseHTMLToRichText(html) {
+    const richText = [];
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const lines = doc.body.querySelectorAll("div");
+
+    for (const lineNode of lines) {
+      const line = {
+        type: lineNode.dataset.lineType || "action",
+        segments: [],
+      };
+
+      const processNode = (node, styles = {}) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (node.textContent) {
+            line.segments.push({ text: node.textContent, ...styles });
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const newStyles = { ...styles };
+          const tagName = node.tagName.toLowerCase();
+          if (tagName === "b" || node.style.fontWeight === "bold")
+            newStyles.bold = true;
+          if (tagName === "i" || node.style.fontStyle === "italic")
+            newStyles.italic = true;
+          if (tagName === "u" || node.style.textDecoration === "underline")
+            newStyles.underline = true;
+
+          for (const child of node.childNodes) {
+            processNode(child, newStyles);
+          }
+        }
+      };
+
+      for (const child of lineNode.childNodes) {
+        processNode(child);
+      }
+
+      // Merge segments
+      if (line.segments.length > 1) {
+        const merged = [line.segments[0]];
+        for (let i = 1; i < line.segments.length; i++) {
+          const current = line.segments[i];
+          const previous = merged[merged.length - 1];
+          if (
+            current.bold === previous.bold &&
+            current.italic === previous.italic &&
+            current.underline === previous.underline
+          ) {
+            previous.text += current.text;
+          } else {
+            merged.push(current);
+          }
+        }
+        line.segments = merged;
+      }
+
+      richText.push(line);
+    }
+    return richText;
   }
 
   // ===================================================================

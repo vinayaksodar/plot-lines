@@ -250,78 +250,42 @@ export class EditorModel {
     return { start: { ...end }, end: { ...start } };
   }
 
-  insertText(text, pos) {
-    this.insertRichText(
-      text.split("\n").map((lineText) => ({
-        type: "action",
-        segments: [
-          { text: lineText, bold: false, italic: false, underline: false },
-        ],
-      })),
-      pos,
-    );
-  }
-
   insertRichText(richText, pos) {
+    if (!richText || richText.length === 0) {
+      return;
+    }
+
     const { line, ch } = pos;
+    const lineObj = this.lines[line];
+
+    // 1. Define what to keep from the original line
+    const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
+    const textBeforeInsertion = segment.text.slice(0, offset);
+    const textAfterInsertion = segment.text.slice(offset);
+
+    const segmentsBefore = lineObj.segments.slice(0, segmentIndex);
+    if (textBeforeInsertion) {
+      segmentsBefore.push({ ...segment, text: textBeforeInsertion });
+    }
+
+    const segmentsAfter = [];
+    if (textAfterInsertion) {
+      segmentsAfter.push({ ...segment, text: textAfterInsertion });
+    }
+    segmentsAfter.push(...lineObj.segments.slice(segmentIndex + 1));
+
+    // 2. The first line of insertion becomes the end of the original line
+    //    and adopts the line type of the incoming rich text.
+    lineObj.type = richText[0].type;
+    lineObj.segments = [...segmentsBefore, ...richText[0].segments];
+    this._mergeSegments(line);
 
     if (richText.length === 1) {
-      // Single line insert
-      const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
-      const lineObj = this.lines[line];
-      const incomingSegments = richText[0].segments;
-
-      const textBefore = segment.text.slice(0, offset);
-      const textAfter = segment.text.slice(offset);
-
-      const newSegments = [];
-      // Segments before the insertion point
-      newSegments.push(...lineObj.segments.slice(0, segmentIndex));
-      // Part of the split segment before insertion
-      if (textBefore) {
-        newSegments.push({ ...segment, text: textBefore });
-      }
-      // The new segments being inserted
-      newSegments.push(...incomingSegments);
-      // Part of the split segment after insertion
-      if (textAfter) {
-        newSegments.push({ ...segment, text: textAfter });
-      }
-      // Segments after the insertion point
-      newSegments.push(...lineObj.segments.slice(segmentIndex + 1));
-
-      lineObj.segments = newSegments;
-
-      const insertedTextLength = incomingSegments.reduce(
-        (sum, s) => sum + s.text.length,
-        0,
-      );
-      this.cursor.ch += insertedTextLength;
+      // Single-line insert, append the rest of the original line
+      lineObj.segments.push(...segmentsAfter);
       this._mergeSegments(line);
     } else {
       // Multi-line insert
-      const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
-      const lineObj = this.lines[line];
-
-      // 1. Define what to keep from the original line
-      const textBeforeInsertion = segment.text.slice(0, offset);
-      const textAfterInsertion = segment.text.slice(offset);
-
-      const segmentsBefore = lineObj.segments.slice(0, segmentIndex);
-      if (textBeforeInsertion) {
-        segmentsBefore.push({ ...segment, text: textBeforeInsertion });
-      }
-
-      const segmentsAfter = [];
-      if (textAfterInsertion) {
-        segmentsAfter.push({ ...segment, text: textAfterInsertion });
-      }
-      segmentsAfter.push(...lineObj.segments.slice(segmentIndex + 1));
-
-      // 2. The first line of insertion becomes the end of the original line
-      lineObj.segments = [...segmentsBefore, ...richText[0].segments];
-      this._mergeSegments(line);
-
       // 3. Middle lines are inserted as is
       const newLines = richText
         .slice(1, richText.length - 1)
@@ -330,7 +294,7 @@ export class EditorModel {
           segments: lineData.segments,
         }));
 
-      // 4. The last line of insertion is prepended to the segments that were after the cursor
+      // 4. The last line of insertion is joined with the segments that were after the cursor
       const lastRichTextLine = richText[richText.length - 1];
       const lastNewLine = {
         type: lastRichTextLine.type,
@@ -341,6 +305,7 @@ export class EditorModel {
       // 5. Insert the new lines
       this.lines.splice(line + 1, 0, ...newLines);
 
+      // 6. Update cursor position
       this.cursor.line += newLines.length;
       const lastLineLength = this.getLineLength(this.cursor.line);
       const segmentsAfterLength = segmentsAfter.reduce(
