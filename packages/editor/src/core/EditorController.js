@@ -377,6 +377,7 @@ export class EditorController {
 
   // Public API for local user actions
   executeCommands(commands) {
+    console.log("EditorController: executeCommands called with commands:", commands);
     for (const command of commands) {
       const preState = {
         cursor: this.model.getCursorPos(),
@@ -415,6 +416,7 @@ export class EditorController {
     if (batch) {
       for (const item of [...batch].reverse()) {
         const invertedCommand = item.command.invert();
+        console.log("EditorController: undoing command:", invertedCommand);
         this.executeCommandsBypassUndo([invertedCommand]);
         this.dispatchEventToPlugins("command", invertedCommand);
         this.model.updateCursor(item.preState.cursor);
@@ -428,6 +430,7 @@ export class EditorController {
     const batch = this.undoManager.getCommandsForRedo();
     if (batch) {
       for (const item of batch) {
+        console.log("EditorController: redoing command:", item.command);
         this.model.updateCursor(item.preState.cursor);
         this.model.setSelectionRange(item.preState.selection);
         this.executeCommandsBypassUndo([item.command]);

@@ -1,8 +1,5 @@
 import { Plugin } from "./Plugin.js";
 import {
-  InsertCharCommand,
-  InsertNewLineCommand,
-  DeleteCharCommand,
   DeleteTextCommand,
   InsertTextCommand,
   SetLineTypeCommand,
@@ -141,11 +138,11 @@ export class CollabPlugin extends Plugin {
       return;
     }
 
-    this.unconfirmed = this._combineInsertCharsInUnconfirmed(this.unconfirmed);
-    this.unconfirmed = this._combineDeleteCharsInUnconfirmed(this.unconfirmed);
+    this.unconfirmed = this._combineInsertText(this.unconfirmed);
+    this.unconfirmed = this._combineDeleteText(this.unconfirmed);
   }
 
-  _combineInsertCharsInUnconfirmed(unconfirmed) {
+  _combineInsertText(unconfirmed) {
     if (unconfirmed.length < 2) {
       return unconfirmed;
     }
@@ -155,27 +152,49 @@ export class CollabPlugin extends Plugin {
     while (i < unconfirmed.length) {
       const currentCommand = unconfirmed[i];
 
+      // We only combine single-line, single-segment InsertTextCommands (i.e., from typing)
       if (
-        currentCommand instanceof InsertCharCommand ||
-        (currentCommand instanceof InsertTextCommand &&
-          currentCommand.richText.length === 1)
+        currentCommand instanceof InsertTextCommand &&
+        currentCommand.richText.length === 1 &&
+        currentCommand.richText[0].segments.length === 1
       ) {
-        let combinedText = getCommandText(currentCommand);
+        let combinedRichText = JSON.parse(
+          JSON.stringify(currentCommand.richText),
+        );
         let startPos = currentCommand.pos;
         let lastIndex = i;
 
         for (let j = i + 1; j < unconfirmed.length; j++) {
           const nextCommand = unconfirmed[j];
+          const combinedTextLength = getCommandText({
+            richText: combinedRichText,
+          }).length;
 
           if (
-            (nextCommand instanceof InsertCharCommand ||
-              (nextCommand instanceof InsertTextCommand &&
-                nextCommand.richText.length === 1)) &&
+            nextCommand instanceof InsertTextCommand &&
+            nextCommand.richText.length === 1 &&
+            nextCommand.richText[0].segments.length === 1 &&
             nextCommand.pos.line === startPos.line &&
-            nextCommand.pos.ch === startPos.ch + combinedText.length
+            nextCommand.pos.ch === startPos.ch + combinedTextLength
           ) {
-            const nextText = getCommandText(nextCommand);
-            combinedText += nextText;
+            // Commands are contiguous. Now check styles.
+            const lastSegment =
+              combinedRichText[0].segments[
+                combinedRichText[0].segments.length - 1
+              ];
+            const nextSegment = nextCommand.richText[0].segments[0];
+
+            if (
+              lastSegment.bold === nextSegment.bold &&
+              lastSegment.italic === nextSegment.italic &&
+              lastSegment.underline === nextSegment.underline
+            ) {
+              // Same style, merge text
+              lastSegment.text += nextSegment.text;
+            } else {
+              // Different style, append segment
+              combinedRichText[0].segments.push(nextSegment);
+            }
             lastIndex = j;
           } else {
             break; // Sequence broken
@@ -184,46 +203,27 @@ export class CollabPlugin extends Plugin {
 
         if (lastIndex > i) {
           // Combination happened
-          const line = this.controller.model.lines[startPos.line];
-          if (!line) {
-            // This line was deleted by a subsequent command in the unconfirmed batch.
-            // It's too complex to determine the correct line type, so we abort the combination.
-            newUnconfirmed.push(...unconfirmed.slice(i, lastIndex + 1));
-            i = lastIndex + 1;
-            continue;
-          }
-          const lineType = line.type;
-          const richText = [
-            {
-              type: lineType,
-              segments: [
-                {
-                  text: combinedText,
-                  bold: false,
-                  italic: false,
-                  underline: false,
-                },
-              ],
-            },
-          ];
-          const combinedCommand = new InsertTextCommand(richText, startPos);
+          const combinedCommand = new InsertTextCommand(
+            combinedRichText,
+            startPos,
+          );
           newUnconfirmed.push(combinedCommand);
           i = lastIndex + 1;
         } else {
           // No combination
-          newUnconfirmed.push(unconfirmed[i]);
+          newUnconfirmed.push(currentCommand);
           i++;
         }
       } else {
         // Not a combinable insert command
-        newUnconfirmed.push(unconfirmed[i]);
+        newUnconfirmed.push(currentCommand);
         i++;
       }
     }
     return newUnconfirmed;
   }
 
-  _combineDeleteCharsInUnconfirmed(unconfirmed) {
+  _combineDeleteText(unconfirmed) {
     if (unconfirmed.length < 2) {
       return unconfirmed;
     }
@@ -232,28 +232,31 @@ export class CollabPlugin extends Plugin {
     let i = 0;
     while (i < unconfirmed.length) {
       const currentCommand = unconfirmed[i];
+      const isSingleCharDelete =
+        currentCommand instanceof DeleteTextCommand &&
+        currentCommand.range.start.line === currentCommand.range.end.line &&
+        currentCommand.range.end.ch === currentCommand.range.start.ch + 1;
 
       // Combine backward deletions
-      if (
-        currentCommand instanceof DeleteCharCommand &&
-        currentCommand.pos.ch > 0
-      ) {
-        let rangeStart = {
-          line: currentCommand.pos.line,
-          ch: currentCommand.pos.ch - 1,
-        };
-        let rangeEnd = { ...currentCommand.pos };
+      if (isSingleCharDelete) {
+        let combinedRange = { ...currentCommand.range };
         let lastIndex = i;
 
         for (let j = i + 1; j < unconfirmed.length; j++) {
           const nextCommand = unconfirmed[j];
+          const isNextSingleCharDelete =
+            nextCommand instanceof DeleteTextCommand &&
+            nextCommand.range.start.line === nextCommand.range.end.line &&
+            nextCommand.range.end.ch === nextCommand.range.start.ch + 1;
 
+          // Check if the next deletion is immediately before the current combined range
           if (
-            nextCommand instanceof DeleteCharCommand &&
-            nextCommand.pos.line === rangeStart.line &&
-            nextCommand.pos.ch === rangeStart.ch
+            isNextSingleCharDelete &&
+            nextCommand.range.start.line === combinedRange.start.line &&
+            nextCommand.range.end.ch === combinedRange.start.ch
           ) {
-            rangeStart.ch--;
+            // Prepend the deletion
+            combinedRange.start = nextCommand.range.start;
             lastIndex = j;
           } else {
             break; // Sequence broken
@@ -262,20 +265,15 @@ export class CollabPlugin extends Plugin {
 
         if (lastIndex > i) {
           // Combination happened
-          const combinedCommand = new DeleteTextCommand({
-            start: rangeStart,
-            end: rangeEnd,
-          });
+          const combinedCommand = new DeleteTextCommand(combinedRange);
           newUnconfirmed.push(combinedCommand);
           i = lastIndex + 1;
         } else {
-          // No combination
-          newUnconfirmed.push(unconfirmed[i]);
+          newUnconfirmed.push(currentCommand);
           i++;
         }
       } else {
-        // Not a backward delete command
-        newUnconfirmed.push(unconfirmed[i]);
+        newUnconfirmed.push(currentCommand);
         i++;
       }
     }
@@ -296,14 +294,9 @@ export class CollabPlugin extends Plugin {
 function commandFromJSON(json) {
   if (!json || !json.type) return null;
   switch (json.type) {
-    case "InsertCharCommand":
-      return new InsertCharCommand(json.pos, json.char);
-    case "DeleteCharCommand":
-      return new DeleteCharCommand(json.pos);
     case "DeleteTextCommand":
       return new DeleteTextCommand(json.range);
-    case "InsertNewLineCommand":
-      return new InsertNewLineCommand(json.pos);
+
     case "InsertTextCommand":
       return new InsertTextCommand(json.richText, json.pos);
     case "SetLineTypeCommand":
@@ -317,9 +310,6 @@ function commandFromJSON(json) {
 }
 
 function getCommandText(cmd) {
-  if (cmd instanceof InsertCharCommand) {
-    return cmd.char;
-  }
   if (cmd instanceof InsertTextCommand) {
     return cmd.richText
       .map((line) => line.segments.map((s) => s.text).join(""))
@@ -399,220 +389,104 @@ class Rebaser {
   }
 
   rebase(localCmd, remoteCmd) {
-    // Text vs Text
+    const cmp = (p1, p2) => {
+      if (!p1 || !p2) return 0;
+      if (p1.line < p2.line) return -1;
+      if (p1.line > p2.line) return 1;
+      if (p1.ch < p2.ch) return -1;
+      if (p1.ch > p2.ch) return 1;
+      return 0;
+    };
+
+    // Insert vs Insert
     if (
-      localCmd instanceof InsertCharCommand &&
-      remoteCmd instanceof InsertCharCommand
-    ) {
-      if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch >= remoteCmd.pos.ch
-      ) {
-        return new InsertCharCommand(
-          { line: localCmd.pos.line, ch: localCmd.pos.ch + 1 },
-          localCmd.char,
-        );
-      }
-    } else if (
-      localCmd instanceof InsertCharCommand &&
-      remoteCmd instanceof DeleteCharCommand
-    ) {
-      if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch > remoteCmd.pos.ch
-      ) {
-        return new InsertCharCommand(
-          { line: localCmd.pos.line, ch: localCmd.pos.ch - 1 },
-          localCmd.char,
-        );
-      }
-    } else if (
-      localCmd instanceof DeleteCharCommand &&
-      remoteCmd instanceof InsertCharCommand
-    ) {
-      if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch >= remoteCmd.pos.ch
-      ) {
-        return new DeleteCharCommand({
-          line: localCmd.pos.line,
-          ch: localCmd.pos.ch + 1,
-        });
-      }
-    } else if (
-      localCmd instanceof DeleteCharCommand &&
-      remoteCmd instanceof DeleteCharCommand
-    ) {
-      if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch > remoteCmd.pos.ch
-      ) {
-        return new DeleteCharCommand({
-          line: localCmd.pos.line,
-          ch: localCmd.pos.ch - 1,
-        });
-      } else if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch === remoteCmd.pos.ch
-      ) {
-        return null; // The exact same character was deleted.
-      }
-    } else if (
       localCmd instanceof InsertTextCommand &&
-      remoteCmd instanceof InsertCharCommand
+      remoteCmd instanceof InsertTextCommand
     ) {
-      if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch >= remoteCmd.pos.ch
-      ) {
-        return new InsertTextCommand(localCmd.richText, {
-          line: localCmd.pos.line,
-          ch: localCmd.pos.ch + 1,
-        });
+      const remoteText = getCommandText(remoteCmd);
+      if (cmp(localCmd.pos, remoteCmd.pos) >= 0) {
+        const newPos = calculateFinalCursorPosition(localCmd.pos, [remoteCmd]);
+        return new InsertTextCommand(localCmd.richText, newPos);
       }
-    } else if (
+      return localCmd;
+    }
+
+    // Delete vs Insert
+    if (
+      localCmd instanceof DeleteTextCommand &&
+      remoteCmd instanceof InsertTextCommand
+    ) {
+      const newStart = calculateFinalCursorPosition(localCmd.range.start, [
+        remoteCmd,
+      ]);
+      const newEnd = calculateFinalCursorPosition(localCmd.range.end, [
+        remoteCmd,
+      ]);
+      return new DeleteTextCommand({ start: newStart, end: newEnd });
+    }
+
+    // Insert vs Delete
+    if (
       localCmd instanceof InsertTextCommand &&
-      remoteCmd instanceof DeleteCharCommand
-    ) {
-      if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch > remoteCmd.pos.ch
-      ) {
-        return new InsertTextCommand(localCmd.richText, {
-          line: localCmd.pos.line,
-          ch: localCmd.pos.ch - 1,
-        });
-      }
-    } else if (
-      (localCmd instanceof InsertCharCommand ||
-        localCmd instanceof InsertTextCommand) &&
       remoteCmd instanceof DeleteTextCommand
     ) {
-      const { start: remoteStart, end: remoteEnd } = remoteCmd.range;
-      const pos = localCmd.pos;
-      const text = getCommandText(localCmd);
+      if (cmp(localCmd.pos, remoteCmd.range.start) >= 0) {
+        const newPos = calculateFinalCursorPosition(localCmd.pos, [remoteCmd]);
+        return new InsertTextCommand(localCmd.richText, newPos);
+      }
+      return localCmd;
+    }
 
-      const textLines = text ? text.split("\n") : [""];
-      const localStart = pos;
-      const localEnd = {
-        line: pos.line + textLines.length - 1,
-        ch:
-          (textLines.length > 1 ? 0 : pos.ch) +
-          textLines[textLines.length - 1].length,
-      };
+    // Delete vs Delete
+    if (
+      localCmd instanceof DeleteTextCommand &&
+      remoteCmd instanceof DeleteTextCommand
+    ) {
+      const { start: rStart, end: rEnd } = remoteCmd.range;
+      const { start: lStart, end: lEnd } = localCmd.range;
 
-      const cmp = (p1, p2) => {
-        if (p1.line < p2.line) return -1;
-        if (p1.line > p2.line) return 1;
-        if (p1.ch < p2.ch) return -1;
-        if (p1.ch > p2.ch) return 1;
-        return 0;
-      };
-
-      // If the ranges intersect, drop the local command.
-      if (cmp(localStart, remoteEnd) < 0 && cmp(remoteStart, localEnd) < 0) {
+      // If ranges are identical, drop the local command
+      if (cmp(lStart, rStart) === 0 && cmp(lEnd, rEnd) === 0) {
         return null;
       }
 
-      // If remote deletion is completely before the local insertion, adjust position.
-      if (cmp(remoteEnd, localStart) <= 0) {
-        const newPos = calculateFinalCursorPosition(pos, [remoteCmd]);
-        if (localCmd instanceof InsertCharCommand) {
-          return new InsertCharCommand(newPos, localCmd.char);
-        } else {
-          return new InsertTextCommand(localCmd.richText, newPos);
-        }
+      // If remote range completely contains local range, drop local
+      if (cmp(rStart, lStart) <= 0 && cmp(rEnd, lEnd) >= 0) {
+        return null;
       }
 
-      return localCmd;
-    } else if (
-      localCmd instanceof DeleteTextCommand &&
-      remoteCmd instanceof InsertCharCommand
-    ) {
-      const { start, end } = localCmd.range;
-      const pos = remoteCmd.pos;
+      // For other overlaps, the behavior can be complex. A simple approach is to
+      // adjust the local command. A more robust solution would be needed for
+      // complex partial overlaps, but for now, we adjust based on non-overlapping parts.
+      const newStart = calculateFinalCursorPosition(lStart, [remoteCmd]);
+      const newEnd = calculateFinalCursorPosition(lEnd, [remoteCmd]);
 
-      const cmp = (p1, p2) => {
-        if (p1.line < p2.line) return -1;
-        if (p1.line > p2.line) return 1;
-        if (p1.ch < p2.ch) return -1;
-        if (p1.ch > p2.ch) return 1;
-        return 0;
-      };
-
-      // Insertion is inside the deleted range, split the deletion
-      if (cmp(pos, start) > 0 && cmp(pos, end) < 0) {
-        const delete1 = new DeleteTextCommand({ start: start, end: pos });
-
-        const newStart2 = calculateFinalCursorPosition(pos, [remoteCmd]);
-        const newEnd2 = calculateFinalCursorPosition(end, [remoteCmd]);
-        const delete2 = new DeleteTextCommand({ start: newStart2, end: newEnd2 });
-
-        return [delete1, delete2];
+      if (cmp(newStart, newEnd) >= 0) {
+        return null; // The command has become redundant
       }
 
-      // Insertion is not inside, just transform the range
-      const newStart = calculateFinalCursorPosition(start, [remoteCmd]);
-      const newEnd = calculateFinalCursorPosition(end, [remoteCmd]);
       return new DeleteTextCommand({ start: newStart, end: newEnd });
-    } else if (
-      localCmd instanceof InsertNewLineCommand &&
-      remoteCmd instanceof InsertCharCommand
-    ) {
+    }
+
+    // Fallback for other commands like SetLineType, etc.
+    if (localCmd instanceof SetLineTypeCommand) {
+      let lineCount = 0;
       if (
-        localCmd.pos.line === remoteCmd.pos.line &&
-        localCmd.pos.ch >= remoteCmd.pos.ch
+        remoteCmd instanceof InsertTextCommand &&
+        remoteCmd.richText.length > 1
       ) {
-        return new InsertNewLineCommand({
-          line: localCmd.pos.line,
-          ch: localCmd.pos.ch + 1,
+        lineCount = remoteCmd.richText.length - 1;
+      }
+
+      if (lineCount > 0 && localCmd.pos.line >= remoteCmd.pos.line) {
+        return new SetLineTypeCommand(localCmd.newType, {
+          ...localCmd.pos,
+          line: localCmd.pos.line + lineCount,
         });
       }
     }
 
-    // LineType vs Text
-    if (
-      localCmd instanceof SetLineTypeCommand &&
-      (remoteCmd instanceof InsertNewLineCommand ||
-        (remoteCmd instanceof InsertTextCommand &&
-          getCommandText(remoteCmd) &&
-          getCommandText(remoteCmd).includes("\n")))
-    ) {
-      if (localCmd.lineNumber >= remoteCmd.pos.line) {
-        const lineCount =
-          remoteCmd instanceof InsertTextCommand
-            ? getCommandText(remoteCmd).split("\n").length - 1
-            : 1;
-        return new SetLineTypeCommand(
-          localCmd.newType,
-          localCmd.lineNumber + lineCount,
-        );
-      }
-    } else if (
-      localCmd instanceof SetLineTypeCommand &&
-      remoteCmd instanceof DeleteCharCommand &&
-      remoteCmd.char === "\n"
-    ) {
-      if (localCmd.lineNumber > remoteCmd.pos.line) {
-        return new SetLineTypeCommand(
-          localCmd.newType,
-          localCmd.lineNumber - 1,
-        );
-      } else if (localCmd.lineNumber === remoteCmd.pos.line) {
-        return null; // Line was deleted
-      }
-    }
-
-    // InlineStyle vs Text
-    if (
-      localCmd instanceof ToggleInlineStyleCommand &&
-      remoteCmd instanceof InsertCharCommand
-    ) {
-      // This is complex. For now, we'll just assume the local command is still valid.
-      // A more robust solution would be to adjust the range.
-    }
-
-    return localCmd; // Default to no-op
+    return localCmd; // Default to no-op for unhandled pairs
   }
 
   _rebaseUndoStack(undoManager, rebaser, remoteCommands) {

@@ -1,8 +1,6 @@
 import {
-  DeleteCharCommand,
-  InsertCharCommand,
-  InsertNewLineCommand,
   DeleteTextCommand,
+  InsertTextCommand,
   SetLineTypeCommand,
 } from "../commands.js";
 
@@ -122,18 +120,65 @@ export class KeyboardHandler {
   handleCharacterInput(e) {
     const model = this.controller.model;
     let cmd = null;
+    const pos = model.getCursorPos();
 
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      const pos = model.getCursorPos();
-      cmd = new InsertCharCommand(pos, e.key);
+      const lineType = model.lines[pos.line].type;
+      let style = { bold: false, italic: false, underline: false };
+
+      if (pos.ch > 0) {
+        const richTextSample = model.getRichTextInRange({
+          start: { line: pos.line, ch: pos.ch - 1 },
+          end: pos,
+        });
+        if (richTextSample[0]?.segments[0]) {
+          const { text, ...segmentStyle } = richTextSample[0].segments[0];
+          style = segmentStyle;
+        }
+      }
+
+      const richText = [
+        {
+          type: lineType,
+          segments: [{ text: e.key, ...style }],
+        },
+      ];
+      cmd = new InsertTextCommand(richText, pos);
       this.controller.executeCommands([cmd]);
     } else if (e.key === "Enter") {
-      const pos = model.getCursorPos();
-      cmd = new InsertNewLineCommand(pos);
+      const prevLineType = model.lines[pos.line].type;
+      let newType = {
+        "scene-heading": "action",
+        action: "action",
+        character: "dialogue",
+        parenthetical: "dialogue",
+        dialogue: "action",
+        transition: "scene-heading",
+        shot: "action",
+      }[prevLineType];
+
+      if (!newType) {
+        newType = "action"; // Default fallback
+      }
+
+      const richText = [
+        { type: prevLineType, segments: [] },
+        { type: newType, segments: [] },
+      ];
+      cmd = new InsertTextCommand(richText, pos);
       this.controller.executeCommands([cmd]);
     } else if (e.key === "Backspace") {
-      const pos = model.getCursorPos();
-      cmd = new DeleteCharCommand(pos, e.key);
+      if (pos.line === 0 && pos.ch === 0) return; // Nothing to delete
+      const start = this.calculateNewPosition(pos, "left");
+      cmd = new DeleteTextCommand({ start, end: pos });
+      this.controller.executeCommands([cmd]);
+    } else if (e.key === "Delete") {
+      const lineLen = model.getLineLength(pos.line);
+      if (pos.line === model.lines.length - 1 && pos.ch === lineLen) {
+        return; // Nothing to delete
+      }
+      const end = this.calculateNewPosition(pos, "right");
+      cmd = new DeleteTextCommand({ start: pos, end });
       this.controller.executeCommands([cmd]);
     }
 
@@ -195,25 +240,6 @@ export class KeyboardHandler {
   _handleAutoFormatting(key) {
     const model = this.controller.model;
     const { line } = model.getCursorPos();
-
-    // Auto-switch to Dialogue or Action after Enter
-    if (key === "Enter" && line > 0) {
-      const prevLineType = model.lines[line - 1].type;
-      const newType = {
-        "scene-heading": "action",
-        action: "action",
-        character: "dialogue",
-        parenthetical: "dialogue",
-        dialogue: "action",
-        transition: "scene-heading",
-        shot: "action",
-      }[prevLineType];
-
-      if (newType) {
-        const cmd = new SetLineTypeCommand(newType, model.getCursorPos());
-        this.controller.executeCommands([cmd]);
-      }
-    }
 
     // Set Scene Heading type
     const currentLine = model.lines[line];

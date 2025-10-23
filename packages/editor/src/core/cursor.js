@@ -1,7 +1,4 @@
 import {
-  InsertCharCommand,
-  InsertNewLineCommand,
-  DeleteCharCommand,
   DeleteTextCommand,
   InsertTextCommand,
   ToggleInlineStyleCommand,
@@ -20,36 +17,7 @@ export function transformCursorPosition(pos, command) {
   if (!pos) {
     return null;
   }
-  if (command instanceof InsertCharCommand) {
-    // Shift chars on same line after insertion point
-    if (pos.line === command.pos.line && pos.ch >= command.pos.ch) {
-      return { line: pos.line, ch: pos.ch + 1 };
-    }
-  } else if (command instanceof DeleteCharCommand) {
-    if (command.deletedChar === "\n") {
-      // This is a line merge (backspace at start of line)
-      if (pos.line < command.pos.line) {
-        // Cursor is before the merge, no change.
-        return pos;
-      } else if (pos.line === command.pos.line) {
-        // Cursor was on the line that was merged away.
-        return {
-          line: command.pos.line - 1,
-          ch: command.prevLineLength + pos.ch,
-        };
-      } else {
-        // pos.line > command.pos.line
-        // Cursor was on a line after the merged line. It should shift up by one line.
-        return { line: pos.line - 1, ch: pos.ch };
-      }
-    } else {
-      // This is a normal character deletion.
-      if (pos.line === command.pos.line && pos.ch >= command.pos.ch) {
-        // Cursor is on the same line, at or after the deletion point.
-        return { line: pos.line, ch: pos.ch - 1 };
-      }
-    }
-  } else if (command instanceof InsertTextCommand) {
+  if (command instanceof InsertTextCommand) {
     if (!command.richText || command.richText.length === 0) return pos;
 
     const lineCount = command.richText.length - 1;
@@ -112,13 +80,6 @@ export function transformCursorPosition(pos, command) {
         // inside range
         return { ...start };
       }
-    }
-  } else if (command instanceof InsertNewLineCommand) {
-    // Newline splits line
-    if (pos.line > command.pos.line) {
-      return { line: pos.line + 1, ch: pos.ch };
-    } else if (pos.line === command.pos.line && pos.ch >= command.pos.ch) {
-      return { line: pos.line + 1, ch: pos.ch - command.pos.ch };
     }
   } else if (command instanceof ToggleInlineStyleCommand) {
     // Do notheing

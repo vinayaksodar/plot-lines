@@ -73,83 +73,9 @@ export class EditorModel {
     );
   }
 
-  insertChar(char, pos) {
-    console.log("[EditorModel] insertChar", char, "at", pos);
 
-    const { line, ch } = pos;
 
-    if (line < 0 || line >= this.lines.length) {
-      console.warn(`Attempted to insert character at invalid line: ${line}`);
-      return;
-    }
-    if (this.lines[line].segments.length === 0) {
-      this.lines[line].segments.push({
-        text: "",
-        bold: false,
-        italic: false,
-        underline: false,
-      });
-    }
 
-    const { segment, offset } = this._findSegmentAt(line, ch);
-
-    // Insert character into the segment's text
-    segment.text =
-      segment.text.slice(0, offset) + char + segment.text.slice(offset);
-  }
-
-  deleteChar(pos) {
-    console.log("[EditorModel] deleteChar at", pos);
-    const { line, ch } = pos;
-
-    if (ch === 0 && line > 0) {
-      // Merging with the previous line
-      const prevLineLength = this.getLineLength(line - 1);
-      const currentLine = this.lines[line];
-
-      // Append current line's segments to the previous line
-      this.lines[line - 1].segments.push(...currentLine.segments);
-      this.lines.splice(line, 1); // Remove the current line
-
-      this._mergeSegments(line - 1); // Merge segments after joining lines
-
-      return "\n"; // Return newline to indicate a line merge
-    } else if (ch > 0) {
-      const { segment, offset } = this._findSegmentAt(line, ch);
-      const deletedChar = segment.text[offset - 1];
-      segment.text =
-        segment.text.slice(0, offset - 1) + segment.text.slice(offset);
-      this._mergeSegments(line);
-      return deletedChar;
-    }
-    return null; // Nothing was deleted
-  }
-
-  insertNewLine(pos) {
-    console.log("[EditorModel] insertNewLine at", pos);
-    const { line, ch } = pos;
-    const { segment, segmentIndex, offset } = this._findSegmentAt(line, ch);
-
-    const currentLine = this.lines[line];
-    const textAfter = segment.text.slice(offset);
-    segment.text = segment.text.slice(0, offset);
-
-    // Segments to be moved to the new line
-    const segmentsForNewLine = [
-      { ...segment, text: textAfter }, // The second half of the split segment
-      ...currentLine.segments.slice(segmentIndex + 1),
-    ];
-
-    // Remove the moved segments from the current line
-    currentLine.segments.splice(segmentIndex + 1);
-
-    const newLine = {
-      type: currentLine.type, // Inherit type from the current line
-      segments: segmentsForNewLine,
-    };
-
-    this.lines.splice(line + 1, 0, newLine);
-  }
 
   setSelectionRange(range) {
     this.selection = range;
