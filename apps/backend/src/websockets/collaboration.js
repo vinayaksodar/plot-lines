@@ -17,7 +17,12 @@ function setupCollaboration(wss) {
 
     ws.on("message", (message) => {
       try {
-        const { documentId, ot_version, steps, userID } = JSON.parse(message);
+        const { documentId, ot_version, steps, userID, cursor } = JSON.parse(message);
+
+        if (cursor) {
+          broadcast(wss, documentId, { userID, cursor });
+          return;
+        }
 
         db.serialize(() => {
           db.get(
