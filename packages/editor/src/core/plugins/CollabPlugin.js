@@ -1,10 +1,5 @@
 import { Plugin } from "./Plugin.js";
-import {
-  DeleteTextCommand,
-  InsertTextCommand,
-  SetLineTypeCommand,
-  ToggleInlineStyleCommand,
-} from "../commands.js";
+import { DeleteTextCommand, InsertTextCommand } from "../commands.js";
 import { calculateFinalCursorPosition } from "../cursor.js";
 
 export class CollabPlugin extends Plugin {
@@ -109,6 +104,11 @@ export class CollabPlugin extends Plugin {
     // 3. Rebase and apply unconfirmed commands
     const rebaser = new Rebaser(remoteCommands);
     const rebasedUnconfirmed = rebaser.rebaseCommands(unconfirmedCommands);
+
+    if (rebasedUnconfirmed.length < unconfirmedCommands.length) {
+      this.controller.undoManager.clear();
+    }
+
     this.controller.executeCommandsBypassUndo(rebasedUnconfirmed);
 
     // 4. Rebase undo/redo stacks
@@ -299,10 +299,6 @@ function commandFromJSON(json) {
 
     case "InsertTextCommand":
       return new InsertTextCommand(json.richText, json.pos);
-    case "SetLineTypeCommand":
-      return new SetLineTypeCommand(json.newType, json.pos);
-    case "ToggleInlineStyleCommand":
-      return new ToggleInlineStyleCommand(json.style, json.range);
     default:
       console.error("Unknown step type:", json.type);
       return null;
@@ -403,7 +399,6 @@ class Rebaser {
       localCmd instanceof InsertTextCommand &&
       remoteCmd instanceof InsertTextCommand
     ) {
-      const remoteText = getCommandText(remoteCmd);
       if (cmp(localCmd.pos, remoteCmd.pos) >= 0) {
         const newPos = calculateFinalCursorPosition(localCmd.pos, [remoteCmd]);
         return new InsertTextCommand(localCmd.richText, newPos);
@@ -416,6 +411,20 @@ class Rebaser {
       localCmd instanceof DeleteTextCommand &&
       remoteCmd instanceof InsertTextCommand
     ) {
+      const localDeleteStart = localCmd.range.start;
+      const localDeleteEnd = localCmd.range.end;
+
+      const remoteInsertStart = remoteCmd.pos;
+      const remoteInsertEnd = calculateFinalCursorPosition(remoteInsertStart, [remoteCmd]);
+
+      // Check for overlap between the delete range and the insert range
+      if (
+        cmp(localDeleteStart, remoteInsertEnd) < 0 &&
+        cmp(localDeleteEnd, remoteInsertStart) > 0
+      ) {
+        return null; // Drop the local command if there's any overlap
+      }
+
       const newStart = calculateFinalCursorPosition(localCmd.range.start, [
         remoteCmd,
       ]);
@@ -430,7 +439,22 @@ class Rebaser {
       localCmd instanceof InsertTextCommand &&
       remoteCmd instanceof DeleteTextCommand
     ) {
-      if (cmp(localCmd.pos, remoteCmd.range.start) >= 0) {
+      const localInsertStart = localCmd.pos;
+      const localInsertEnd = calculateFinalCursorPosition(localInsertStart, [localCmd]);
+
+      const remoteDeleteStart = remoteCmd.range.start;
+      const remoteDeleteEnd = remoteCmd.range.end;
+
+      // Check for overlap between the inserted text's range and the deleted text's range
+      if (
+        cmp(localInsertStart, remoteDeleteEnd) < 0 &&
+        cmp(localInsertEnd, remoteDeleteStart) > 0
+      ) {
+        return null; // Drop the local command if there's any overlap
+      }
+
+      // If no overlap, rebase the position
+      if (cmp(localCmd.pos, remoteDeleteStart) >= 0) {
         const newPos = calculateFinalCursorPosition(localCmd.pos, [remoteCmd]);
         return new InsertTextCommand(localCmd.richText, newPos);
       }
@@ -450,8 +474,11 @@ class Rebaser {
         return null;
       }
 
-      // If remote range completely contains local range, drop local
-      if (cmp(rStart, lStart) <= 0 && cmp(rEnd, lEnd) >= 0) {
+      // If there is any overlap, drop the local command
+      if (
+        (cmp(lStart, rEnd) < 0 && cmp(lEnd, rStart) > 0) || // Overlap
+        (cmp(rStart, lEnd) < 0 && cmp(rEnd, lStart) > 0) // Other overlap direction
+      ) {
         return null;
       }
 
@@ -466,24 +493,6 @@ class Rebaser {
       }
 
       return new DeleteTextCommand({ start: newStart, end: newEnd });
-    }
-
-    // Fallback for other commands like SetLineType, etc.
-    if (localCmd instanceof SetLineTypeCommand) {
-      let lineCount = 0;
-      if (
-        remoteCmd instanceof InsertTextCommand &&
-        remoteCmd.richText.length > 1
-      ) {
-        lineCount = remoteCmd.richText.length - 1;
-      }
-
-      if (lineCount > 0 && localCmd.pos.line >= remoteCmd.pos.line) {
-        return new SetLineTypeCommand(localCmd.newType, {
-          ...localCmd.pos,
-          line: localCmd.pos.line + lineCount,
-        });
-      }
     }
 
     return localCmd; // Default to no-op for unhandled pairs
@@ -505,9 +514,10 @@ class Rebaser {
               const isLast = i === rebasedCommandArray.length - 1;
 
               const preState = lastState;
-              const postState = isLast
-                ? this._rebaseState(item.postState, remoteCommands)
-                : this._rebaseStateOnCommand(preState, command);
+              const postState = this._rebaseState(
+                item.postState,
+                remoteCommands,
+              );
 
               newBatch.push({ command, preState, postState });
               lastState = postState;

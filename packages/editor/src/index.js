@@ -2,7 +2,6 @@
 export { EditorController } from "./core/EditorController.js";
 export { EditorModel } from "./core/EditorModel.js";
 export { EditorView } from "./core/EditorView.js";
-export * from "./core/commands.js";
 export { UndoManager } from "./core/undoManager.js";
 export * from "./core/cursor.js";
 

@@ -30,7 +30,7 @@ export class UndoManager {
   }
 
   // Add a command to the history (with batching)
-  add(command, preState, postState) {
+  add(command, preState, postState, forceBatch = false) {
     // Any new edit invalidates redo history this is important don't remove this.
     this.redoStack = [];
 
@@ -40,10 +40,19 @@ export class UndoManager {
       commandType,
       "Current batch size:",
       this.currentBatch ? this.currentBatch.length : 0,
+      "Force batch:",
+      forceBatch,
     );
+
+    if (forceBatch) {
+      if (!this.currentBatch) {
+        this.beginBatch();
+      }
+      this.currentBatch.push({ command, preState, postState });
+      return;
+    }
+
     const commandShouldBeDiscrete =
-      commandType === "ToggleInlineStyleCommand" ||
-      commandType === "SetLineTypeCommand" ||
       (commandType === "InsertTextCommand" &&
         !(
           // Not a single-character insert

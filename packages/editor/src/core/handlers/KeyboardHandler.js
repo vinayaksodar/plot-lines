@@ -1,7 +1,6 @@
 import {
   DeleteTextCommand,
   InsertTextCommand,
-  SetLineTypeCommand,
 } from "../commands.js";
 
 export class KeyboardHandler {
@@ -253,8 +252,7 @@ export class KeyboardHandler {
     }
 
     if (typeToSet && currentLine.type !== typeToSet) {
-      const cmd = new SetLineTypeCommand(typeToSet, model.getCursorPos());
-      this.controller.executeCommands([cmd]);
+      this.controller.handleSetLineType(typeToSet);
     }
   }
 }

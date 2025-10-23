@@ -1,8 +1,4 @@
-import {
-  DeleteTextCommand,
-  InsertTextCommand,
-  ToggleInlineStyleCommand,
-} from "./commands.js";
+import { DeleteTextCommand, InsertTextCommand } from "./commands.js";
 
 function cmpPos(a, b) {
   // Compare positions for convenience
@@ -81,10 +77,7 @@ export function transformCursorPosition(pos, command) {
         return { ...start };
       }
     }
-  } else if (command instanceof ToggleInlineStyleCommand) {
-    // Do notheing
   }
-
   return pos;
 }
 

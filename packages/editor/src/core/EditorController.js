@@ -5,8 +5,6 @@ import {
 import {
   DeleteTextCommand,
   InsertTextCommand,
-  SetLineTypeCommand,
-  ToggleInlineStyleCommand,
 } from "./commands.js";
 import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
 import { PointerHandler } from "./handlers/PointerHandler.js";
@@ -105,10 +103,34 @@ export class EditorController {
     this.hiddenInput.focus();
   }
 
-  handleSetLineType(newtype) {
-    this.executeCommands([
-      new SetLineTypeCommand(newtype, this.model.getCursorPos()),
-    ]);
+  handleSetLineType(newType) {
+    if (this.model.hasSelection()) {
+      return;
+    }
+    const cursorPos = this.model.getCursorPos();
+    const lineIndex = cursorPos.line;
+    const lineContent = this.model.getRichTextInRange({
+      start: { line: lineIndex, ch: 0 },
+      end: { line: lineIndex, ch: this.model.getLineLength(lineIndex) },
+    });
+
+    // Update the type of the line content
+    if (lineContent.length > 0) {
+      lineContent[0].type = newType;
+    }
+
+    const commands = [];
+    // Delete the old line
+    commands.push(
+      new DeleteTextCommand({
+        start: { line: lineIndex, ch: 0 },
+        end: { line: lineIndex, ch: this.model.getLineLength(lineIndex) },
+      }),
+    );
+    // Insert the new line with updated type
+    commands.push(new InsertTextCommand(lineContent, { line: lineIndex, ch: 0 }));
+
+    this.executeBatchedCommands(commands);
   }
 
   handleToggleInlineStyle(style) {
@@ -123,7 +145,39 @@ export class EditorController {
     } else {
       return;
     }
-    this.executeCommands([new ToggleInlineStyleCommand(style, range)]);
+
+    // Check if selection spans multiple lines
+    if (range.start.line !== range.end.line) {
+      this.view.container.dispatchEvent(
+        new CustomEvent("plotlines:toast", {
+          bubbles: true,
+          detail: { message: "Cannot toggle inline style across multiple lines.", type: "error" },
+        }),
+      );
+      return;
+    }
+
+    const lineIndex = range.start.line;
+    const startCh = range.start.ch;
+    const endCh = range.end.ch;
+
+    // Get the rich text of the selected range
+    const richTextToStyle = this.model.getRichTextInRange(range);
+
+    // Apply the style change to the rich text
+    for (const line of richTextToStyle) {
+      for (const segment of line.segments) {
+        segment[style] = !segment[style];
+      }
+    }
+
+    const commands = [];
+    // Delete the old text
+    commands.push(new DeleteTextCommand(range));
+    // Insert the new styled text
+    commands.push(new InsertTextCommand(richTextToStyle, range.start));
+
+    this.executeBatchedCommands(commands);
   }
 
   async handleCut() {
@@ -408,6 +462,32 @@ export class EditorController {
     }
     const finalCursor = calculateFinalCursorPosition(initialCursor, commands);
     this.model.updateCursor(finalCursor);
+    this.view.render();
+  }
+
+  // Public API for local user actions that should be batched as a single undo/redo unit
+  executeBatchedCommands(commands) {
+    this.undoManager.beginBatch();
+    for (const command of commands) {
+      const preState = {
+        cursor: this.model.getCursorPos(),
+        selection: this.model.getSelectionRange(),
+      };
+      const initialCursor = this.model.getCursorPos();
+      command.execute(this.model);
+      const rebasedCursor = transformCursorPosition(initialCursor, command);
+      if (command instanceof DeleteTextCommand) {
+        this.model.clearSelection();
+      }
+      this.model.updateCursor(rebasedCursor);
+      const postState = {
+        cursor: this.model.getCursorPos(),
+        selection: this.model.getSelectionRange(),
+      };
+      this.undoManager.add(command, preState, postState, true); // Force batching
+      this.dispatchEventToPlugins("command", command);
+    }
+    this.undoManager.endBatch();
     this.view.render();
   }
 
