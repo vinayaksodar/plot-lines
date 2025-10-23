@@ -75,10 +75,12 @@ editorArea.addEventListener("plotlines:save-request", handleSave);
 // 2. Connect PersistenceManager events back to the Editor components
 persistenceManager.on("beforeLoad", () => {
   controller.destroyPlugin("CollabPlugin");
+  controller.undoManager.clear();
 });
 
 persistenceManager.on("beforeNewDocument", () => {
   controller.destroyPlugin("CollabPlugin");
+  controller.undoManager.clear();
 });
 
 persistenceManager.on("documentLoaded", (data) => {
@@ -130,6 +132,7 @@ persistenceManager.on("documentClosed", () => {
   titlePage.render();
   view.render();
   controller.focusEditor();
+  controller.undoManager.clear();
 });
 
 // --- UI Assembly ---
