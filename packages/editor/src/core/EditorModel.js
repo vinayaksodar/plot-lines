@@ -73,10 +73,6 @@ export class EditorModel {
     );
   }
 
-
-
-
-
   setSelectionRange(range) {
     this.selection = range;
   }
@@ -371,6 +367,4 @@ export class EditorModel {
   }
 
   // --- New Methods for Screenplay and Rich Text ---
-
-
 }

@@ -2,10 +2,7 @@ import {
   transformCursorPosition,
   calculateFinalCursorPosition,
 } from "./cursor.js";
-import {
-  DeleteTextCommand,
-  InsertTextCommand,
-} from "./commands.js";
+import { DeleteTextCommand, InsertTextCommand } from "./commands.js";
 import { KeyboardHandler } from "./handlers/KeyboardHandler.js";
 import { PointerHandler } from "./handlers/PointerHandler.js";
 import { SearchHandler } from "./handlers/SearchHandler.js";
@@ -128,7 +125,9 @@ export class EditorController {
       }),
     );
     // Insert the new line with updated type
-    commands.push(new InsertTextCommand(lineContent, { line: lineIndex, ch: 0 }));
+    commands.push(
+      new InsertTextCommand(lineContent, { line: lineIndex, ch: 0 }),
+    );
 
     this.executeBatchedCommands(commands);
   }
@@ -151,7 +150,10 @@ export class EditorController {
       this.view.container.dispatchEvent(
         new CustomEvent("plotlines:toast", {
           bubbles: true,
-          detail: { message: "Cannot toggle inline style across multiple lines.", type: "error" },
+          detail: {
+            message: "Cannot toggle inline style across multiple lines.",
+            type: "error",
+          },
         }),
       );
       return;
@@ -281,9 +283,7 @@ export class EditorController {
 
   _convertRichTextToPlainText(richText) {
     return richText
-      .map((line) =>
-        line.segments.map((segment) => segment.text).join("")
-      )
+      .map((line) => line.segments.map((segment) => segment.text).join(""))
       .join("\n");
   }
 
@@ -431,7 +431,10 @@ export class EditorController {
 
   // Public API for local user actions
   executeCommands(commands) {
-    console.log("EditorController: executeCommands called with commands:", commands);
+    console.log(
+      "EditorController: executeCommands called with commands:",
+      commands,
+    );
     for (const command of commands) {
       const preState = {
         cursor: this.model.getCursorPos(),

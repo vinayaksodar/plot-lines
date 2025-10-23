@@ -1,5 +1,3 @@
-
-
 export class DeleteTextCommand {
   constructor(range) {
     this.range = range;
@@ -67,5 +65,3 @@ export class InsertTextCommand {
     };
   }
 }
-
-

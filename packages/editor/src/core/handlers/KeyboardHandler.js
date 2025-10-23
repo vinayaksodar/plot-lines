@@ -1,7 +1,4 @@
-import {
-  DeleteTextCommand,
-  InsertTextCommand,
-} from "../commands.js";
+import { DeleteTextCommand, InsertTextCommand } from "../commands.js";
 
 export class KeyboardHandler {
   constructor(controller, inputElement) {

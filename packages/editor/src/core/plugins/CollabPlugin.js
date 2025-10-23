@@ -415,7 +415,9 @@ class Rebaser {
       const localDeleteEnd = localCmd.range.end;
 
       const remoteInsertStart = remoteCmd.pos;
-      const remoteInsertEnd = calculateFinalCursorPosition(remoteInsertStart, [remoteCmd]);
+      const remoteInsertEnd = calculateFinalCursorPosition(remoteInsertStart, [
+        remoteCmd,
+      ]);
 
       // Check for overlap between the delete range and the insert range
       if (
@@ -440,7 +442,9 @@ class Rebaser {
       remoteCmd instanceof DeleteTextCommand
     ) {
       const localInsertStart = localCmd.pos;
-      const localInsertEnd = calculateFinalCursorPosition(localInsertStart, [localCmd]);
+      const localInsertEnd = calculateFinalCursorPosition(localInsertStart, [
+        localCmd,
+      ]);
 
       const remoteDeleteStart = remoteCmd.range.start;
       const remoteDeleteEnd = remoteCmd.range.end;
