@@ -10,6 +10,7 @@ export class CollabService {
     getSendableCommands,
     getCursorPos,
     getUserID,
+    getUserName,
   }) {
     this.serverUrl = serverUrl;
     this.backendManager = backendManager;
@@ -24,6 +25,7 @@ export class CollabService {
     this.getSendableCommands = getSendableCommands;
     this.getCursorPos = getCursorPos;
     this.getUserID = getUserID;
+    this.getUserName = getUserName;
     console.log("[CollabService] Created for document", documentId);
   }
 
@@ -77,7 +79,7 @@ export class CollabService {
     if (this.socket.readyState === WebSocket.OPEN) {
       const sendable = this.getSendableCommands();
       if (sendable && sendable.steps.length > 0) {
-        console.log("[CollabService] Sending local changes:", sendable);
+        // console.log("[CollabService] Sending local changes:", sendable);
         this.send({
           documentId: this.documentId.replace("cloud-", ""),
           ...sendable,
@@ -88,8 +90,9 @@ export class CollabService {
           ot_version: this.getOtVersion(),
           cursor: this.getCursorPos(),
           userID: this.getUserID(),
+          userName: this.getUserName(),
         };
-        // console.log("[CollabService] Sending poll message:", payload);
+        console.log("[CollabService] Sending poll message:", payload);
         this.send(payload);
       }
     }

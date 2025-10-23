@@ -197,6 +197,7 @@ export class PersistenceManager {
       getSendableCommands: () => collabPlugin.sendableCommands(),
       getCursorPos: () => this.getCursorPos(),
       getUserID: () => collabPlugin.userID,
+      getUserName: () => authService.getCurrentUser()?.email,
     });
     this.collabService.connect();
   }

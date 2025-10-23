@@ -690,6 +690,10 @@ export class EditorView {
   }
 
   _renderRemoteCursors() {
+    console.log(
+      "[EditorView] Rendering remote cursors:",
+      this.remoteCursorData,
+    );
     const oldCursors = new Set(this.remoteCursorElements.keys());
 
     for (const [userID, cursorData] of this.remoteCursorData.entries()) {

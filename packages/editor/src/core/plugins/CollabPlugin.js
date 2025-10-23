@@ -49,6 +49,13 @@ export class CollabPlugin extends Plugin {
   receive(message, ignoreOwnCommands = true) {
     if (this.destroyed) return;
 
+    if (message.type === "userDisconnected") {
+      console.log(`[CollabPlugin] User ${message.userID} disconnected.`);
+      this.remoteCursors.delete(message.userID);
+      this.controller.updateRemoteCursors(this.remoteCursors);
+      return;
+    }
+
     if (message.steps) {
       const userIDs = message.steps.map(() => message.userID);
       this._receiveSteps(message.steps, userIDs, ignoreOwnCommands);
@@ -59,10 +66,18 @@ export class CollabPlugin extends Plugin {
 
     if (message.cursor) {
       if (message.userID !== this.userID) {
+        console.log(
+          `[CollabPlugin] Received remote cursor update for user ${message.userID}:`,
+          message.cursor,
+        );
         this.remoteCursors.set(message.userID, {
           cursor: message.cursor,
-          userName: this.getUserName(message.userID),
+          userName: message.userName,
         });
+        console.log(
+          `[CollabPlugin] remoteCursors map after update:`,
+          this.remoteCursors,
+        );
         this.controller.updateRemoteCursors(this.remoteCursors);
       }
     }

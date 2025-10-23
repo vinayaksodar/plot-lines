@@ -17,10 +17,15 @@ function setupCollaboration(wss) {
 
     ws.on("message", (message) => {
       try {
-        const { documentId, ot_version, steps, userID, cursor } = JSON.parse(message);
+        const { documentId, ot_version, steps, userID, cursor, userName } =
+          JSON.parse(message);
+
+        // Store userID and documentId on the WebSocket connection
+        ws.userID = userID;
+        ws.documentId = documentId;
 
         if (cursor) {
-          broadcast(wss, documentId, { userID, cursor });
+          broadcast(wss, documentId, { userID, cursor, userName });
           return;
         }
 
@@ -90,6 +95,12 @@ function setupCollaboration(wss) {
 
     ws.on("close", () => {
       console.log("Client disconnected");
+      if (ws.userID && ws.documentId) {
+        broadcast(wss, ws.documentId, {
+          type: "userDisconnected",
+          userID: ws.userID,
+        });
+      }
     });
   });
 }

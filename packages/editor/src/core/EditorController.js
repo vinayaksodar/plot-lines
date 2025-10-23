@@ -400,6 +400,7 @@ export class EditorController {
   }
 
   updateRemoteCursors(remoteCursors) {
+    console.log("[EditorController] Updating remote cursors:", remoteCursors);
     this.view.updateRemoteCursors(remoteCursors);
   }
 
