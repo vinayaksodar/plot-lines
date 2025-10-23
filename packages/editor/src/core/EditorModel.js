@@ -226,15 +226,6 @@ export class EditorModel {
 
       // 5. Insert the new lines
       this.lines.splice(line + 1, 0, ...newLines);
-
-      // 6. Update cursor position
-      this.cursor.line += newLines.length;
-      const lastLineLength = this.getLineLength(this.cursor.line);
-      const segmentsAfterLength = segmentsAfter.reduce(
-        (l, s) => l + s.text.length,
-        0,
-      );
-      this.cursor.ch = lastLineLength - segmentsAfterLength;
     }
   }
 
