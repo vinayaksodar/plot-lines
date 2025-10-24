@@ -28,6 +28,8 @@
   --accent: #facc15; /* yellow-400 */
   --accent-foreground: #111111;
 
+  --tertiary: #a4b9d3; /* Muted blue for remote cursors */
+
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
@@ -68,7 +70,9 @@
   --accent: #c59f07; /* yellow-400 */
   --accent-foreground: #111111;
 
-  --destructive: #b91c1c;
+  --tertiary: #24539f; /* Muted blue for remote cursors in dark theme */
+
+  --destructive: #a91b1b;
   --destructive-foreground: #f3f3f3;
 
   --border: #353535;
