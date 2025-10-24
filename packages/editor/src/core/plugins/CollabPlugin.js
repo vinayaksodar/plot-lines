@@ -59,7 +59,8 @@ export class CollabPlugin extends Plugin {
     }
 
     if (message.steps) {
-      const userIDs = message.steps.map(() => message.userID);
+      const userIDs =
+        message.userIDs || message.steps.map(() => message.userID);
       this._receiveSteps(message.steps, userIDs, ignoreOwnCommands);
       if (message.userID !== this.userID) {
         this.controller.view.render();
@@ -101,10 +102,6 @@ export class CollabPlugin extends Plugin {
       commands = ours ? commands.slice(ours) : commands;
     }
 
-    if (!commands.length) {
-      return;
-    }
-
     const remoteCommands = commands.map((command) => commandFromJSON(command));
     const unconfirmedCommands = this.unconfirmed;
 
@@ -120,7 +117,6 @@ export class CollabPlugin extends Plugin {
     // Auto-snapshot logic
     if (
       this.triggerSnapshot &&
-      this.ot_version > 0 && // Ensure at least one operation has occurred
       Math.floor(this.ot_version / this.snapshotInterval) >
         Math.floor(prevOtVersion / this.snapshotInterval)
     ) {
