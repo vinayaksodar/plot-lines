@@ -707,10 +707,24 @@ export class EditorView {
         const nameLabel = document.createElement("div");
         nameLabel.className = "remote-cursor-label";
         nameLabel.textContent = cursorData.userName;
+        nameLabel.style.display = "none"; // Initially hidden
         cursorEl.appendChild(nameLabel);
+
+        cursorEl.addEventListener("mouseenter", () => {
+          nameLabel.style.display = "block";
+        });
+        cursorEl.addEventListener("mouseleave", () => {
+          nameLabel.style.display = "none";
+        });
 
         this.widgetLayer.appendChild(cursorEl);
         this.remoteCursorElements.set(userID, cursorEl);
+      } else {
+        // Update existing nameLabel if userName changes
+        const nameLabel = cursorEl.querySelector(".remote-cursor-label");
+        if (nameLabel) {
+          nameLabel.textContent = cursorData.userName;
+        }
       }
 
       const { line, ch } = cursorData.cursor;
