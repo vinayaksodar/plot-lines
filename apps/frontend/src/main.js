@@ -99,6 +99,7 @@ persistenceManager.on("documentLoaded", (data) => {
       userID: data.user.id,
       userMap: new Map(),
       ot_version: data.ot_version || 0,
+      triggerSnapshot: (lines, ot_version) => persistenceManager.triggerAutoSnapshot(lines, ot_version),
     });
     controller.registerPlugin(collabPlugin);
   }
@@ -116,6 +117,7 @@ persistenceManager.on("documentCreated", (data) => {
       userID: data.user.id,
       userMap: new Map([[data.user.id, data.user.email]]),
       ot_version: 0,
+      triggerSnapshot: (lines, ot_version) => persistenceManager.triggerAutoSnapshot(lines, ot_version),
     });
     controller.registerPlugin(collabPlugin);
   }

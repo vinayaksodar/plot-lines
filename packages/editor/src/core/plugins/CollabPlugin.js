@@ -3,7 +3,7 @@ import { DeleteTextCommand, InsertTextCommand } from "../commands.js";
 import { calculateFinalCursorPosition } from "../cursor.js";
 
 export class CollabPlugin extends Plugin {
-  constructor({ userID, userMap, ot_version }) {
+  constructor({ userID, userMap, ot_version, triggerSnapshot }) {
     super();
     console.log(
       `[CollabPlugin] Constructor called with ot_version: ${ot_version}`,
@@ -18,6 +18,8 @@ export class CollabPlugin extends Plugin {
       `[CollabPlugin] Initialized with ot_version: ${this.ot_version}`,
     );
     this.unconfirmed = [];
+    this.snapshotInterval = 100; // Set default interval internally
+    this.triggerSnapshot = triggerSnapshot; // Callback to trigger snapshot
   }
 
   setReady() {
@@ -87,6 +89,7 @@ export class CollabPlugin extends Plugin {
     console.log(
       `[CollabPlugin] receive: current version: ${this.ot_version}, receiving ${commands.length} commands.`,
     );
+    const prevOtVersion = this.ot_version;
     this.ot_version += commands.length;
     console.log(`[CollabPlugin] receive: new version: ${this.ot_version}`);
 
@@ -102,8 +105,6 @@ export class CollabPlugin extends Plugin {
       return;
     }
 
-    const model = this.model;
-    const originalCursor = model.getCursorPos();
     const remoteCommands = commands.map((command) => commandFromJSON(command));
     const unconfirmedCommands = this.unconfirmed;
 
@@ -115,6 +116,23 @@ export class CollabPlugin extends Plugin {
 
     // 2. Apply remote commands
     this.controller.executeCommandsBypassUndo(remoteCommands);
+
+    // Auto-snapshot logic
+    if (
+      this.triggerSnapshot &&
+      this.ot_version > 0 && // Ensure at least one operation has occurred
+      Math.floor(this.ot_version / this.snapshotInterval) > Math.floor(prevOtVersion / this.snapshotInterval)
+    ) {
+      const lastAcknowledgedUserID = userIDs[userIDs.length - 1];
+      if (lastAcknowledgedUserID === this.userID) {
+        console.log(
+          `[CollabPlugin] Triggering auto-snapshot at OT version ${this.ot_version}`,
+        );
+
+        const snapshotLines = this.controller.model.lines;
+        this.triggerSnapshot(snapshotLines, this.ot_version);
+      }
+    }
 
     // 3. Rebase and apply unconfirmed commands
     const rebaser = new Rebaser(remoteCommands);

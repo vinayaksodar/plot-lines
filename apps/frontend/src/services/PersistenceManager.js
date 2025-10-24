@@ -51,13 +51,7 @@ export class PersistenceManager {
       const titlePage = this.getTitlePageData();
 
       if (this.isCloudDocument) {
-        const ot_version = this.getCollabPlugin()?.getVersion() || 0;
-        const documentId = this.documentId.replace("cloud-", "");
-        await this.cloudPersistence.createSnapshot(
-          documentId,
-          JSON.stringify({ lines: data.lines, titlePage }),
-          ot_version,
-        );
+        this.showToast("Cloud documents are saved automatically.");
       } else {
         await this.localPersistence.save({
           documentId: this.documentId,
@@ -70,6 +64,26 @@ export class PersistenceManager {
     } catch (e) {
       console.error("Save failed:", e);
       this.showToast("Save failed", "error");
+    }
+  }
+
+  async triggerAutoSnapshot(lines, ot_version) {
+    if (this.isCloudDocument) {
+      const documentId = this.documentId.replace("cloud-", "");
+      const content = JSON.stringify({
+        lines: lines,
+        titlePage: this.getTitlePageData(),
+      });
+      try {
+        await this.cloudPersistence.createSnapshot(
+          documentId,
+          content,
+          ot_version,
+        );
+      } catch (e) {
+        console.error("Auto-snapshot failed:", e);
+        this.showToast("Auto-snapshot failed", "error");
+      }
     }
   }
 
