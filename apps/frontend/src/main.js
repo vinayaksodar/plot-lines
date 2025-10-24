@@ -214,8 +214,22 @@ contentArea.appendChild(statisticsView.element);
 app.appendChild(menuBar);
 app.appendChild(mainArea);
 
-// Set dark theme by default
-document.documentElement.classList.add("dark-theme");
+// Theme is now set based on system preference
+
+// Function to apply the system theme
+function applySystemTheme() {
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.classList.add('dark-theme');
+  } else {
+    document.documentElement.classList.remove('dark-theme');
+  }
+}
+
+// Apply theme on load
+applySystemTheme();
+
+// Listen for changes in system theme preference
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
 
 // --- Final Setup ---
 controller.initialize(toolbar, hiddenInput, searchWidget);
