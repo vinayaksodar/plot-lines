@@ -61,21 +61,39 @@ export function createFileManagerModal(props) {
       callbacks.onLogin?.();
       shouldClose = true;
     } else if (action === "new-local") {
-      await callbacks.onNewLocal?.();
-      shouldClose = true;
-    } else if (action === "new-cloud") {
-      const result = await callbacks.onNewCloud?.();
-      if (result) {
+      try {
+        await callbacks.onNewLocal?.();
         shouldClose = true;
+      } catch (error) {
+        console.error("Error creating new local document:", error);
+      }
+    } else if (action === "new-cloud") {
+      try {
+        const result = await callbacks.onNewCloud?.();
+        if (result) {
+          shouldClose = true;
+        }
+      } catch (error) {
+        console.error("Error creating new cloud document:", error);
       }
     } else if (action === "load") {
-      await callbacks.onLoad?.(fileId);
-      shouldClose = true;
+      try {
+        await callbacks.onLoad?.(fileId);
+        shouldClose = true; // Only close if load is successful
+      } catch (error) {
+        console.error("Error loading document:", error);
+        // Optionally, display an error message in the modal
+        // shouldClose remains false, so the modal stays open
+      }
     } else if (action === "delete") {
       if (confirm(`Delete file?`)) {
-        await callbacks.onDelete?.(fileId);
-        // After deletion, the modal is re-rendered by the manager, so we just close this one.
-        shouldClose = true;
+        try {
+          await callbacks.onDelete?.(fileId);
+          // After deletion, the modal is re-rendered by the manager, so we just close this one.
+          shouldClose = true;
+        } catch (error) {
+          console.error("Error deleting document:", error);
+        }
       }
     }
 
