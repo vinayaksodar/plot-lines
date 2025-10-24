@@ -99,7 +99,8 @@ persistenceManager.on("documentLoaded", (data) => {
       userID: data.user.id,
       userMap: new Map(),
       ot_version: data.ot_version || 0,
-      triggerSnapshot: (lines, ot_version) => persistenceManager.triggerAutoSnapshot(lines, ot_version),
+      triggerSnapshot: (lines, ot_version) =>
+        persistenceManager.triggerAutoSnapshot(lines, ot_version),
     });
     controller.registerPlugin(collabPlugin);
   }
@@ -117,7 +118,8 @@ persistenceManager.on("documentCreated", (data) => {
       userID: data.user.id,
       userMap: new Map([[data.user.id, data.user.email]]),
       ot_version: 0,
-      triggerSnapshot: (lines, ot_version) => persistenceManager.triggerAutoSnapshot(lines, ot_version),
+      triggerSnapshot: (lines, ot_version) =>
+        persistenceManager.triggerAutoSnapshot(lines, ot_version),
     });
     controller.registerPlugin(collabPlugin);
   }
@@ -220,10 +222,10 @@ app.appendChild(mainArea);
 
 // Function to apply the system theme
 function applySystemTheme() {
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.classList.add('dark-theme');
+  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    document.documentElement.classList.add("dark-theme");
   } else {
-    document.documentElement.classList.remove('dark-theme');
+    document.documentElement.classList.remove("dark-theme");
   }
 }
 
@@ -231,7 +233,9 @@ function applySystemTheme() {
 applySystemTheme();
 
 // Listen for changes in system theme preference
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
+window
+  .matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", applySystemTheme);
 
 // --- Final Setup ---
 controller.initialize(toolbar, hiddenInput, searchWidget);

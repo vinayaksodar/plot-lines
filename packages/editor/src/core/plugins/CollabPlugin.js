@@ -121,7 +121,8 @@ export class CollabPlugin extends Plugin {
     if (
       this.triggerSnapshot &&
       this.ot_version > 0 && // Ensure at least one operation has occurred
-      Math.floor(this.ot_version / this.snapshotInterval) > Math.floor(prevOtVersion / this.snapshotInterval)
+      Math.floor(this.ot_version / this.snapshotInterval) >
+        Math.floor(prevOtVersion / this.snapshotInterval)
     ) {
       const lastAcknowledgedUserID = userIDs[userIDs.length - 1];
       if (lastAcknowledgedUserID === this.userID) {
