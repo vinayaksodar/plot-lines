@@ -27,8 +27,8 @@ const Document = {
             const snapSql =
               "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, 0, 0)";
             const initialContent = JSON.stringify({
-                  lines: [{ type: "action", segments: [{ text: "" }] }],
-                }); // Title page removed from snapshot content
+              lines: [{ type: "action", segments: [{ text: "" }] }],
+            }); // Title page removed from snapshot content
             db.run(snapSql, [docId, initialContent], (err) => {
               if (err) {
                 db.run("ROLLBACK");
@@ -197,11 +197,16 @@ const Document = {
 
   updateTitlePage: (documentId, titlePageContent) => {
     return new Promise((resolve, reject) => {
-      const sql = "INSERT OR REPLACE INTO title_pages (document_id, content) VALUES (?, ?)";
-      db.run(sql, [documentId, JSON.stringify(titlePageContent)], function (err) {
-        if (err) return reject(err);
-        resolve({ changes: this.changes });
-      });
+      const sql =
+        "INSERT OR REPLACE INTO title_pages (document_id, content) VALUES (?, ?)";
+      db.run(
+        sql,
+        [documentId, JSON.stringify(titlePageContent)],
+        function (err) {
+          if (err) return reject(err);
+          resolve({ changes: this.changes });
+        },
+      );
     });
   },
 

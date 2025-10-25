@@ -26,7 +26,7 @@ export class TitlePageModel {
   off(eventName, callback) {
     if (!this._listeners[eventName]) return;
     this._listeners[eventName] = this._listeners[eventName].filter(
-      (listener) => listener !== callback
+      (listener) => listener !== callback,
     );
   }
 
