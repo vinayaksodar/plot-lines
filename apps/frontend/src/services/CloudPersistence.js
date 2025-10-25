@@ -86,6 +86,13 @@ export class CloudPersistence {
     });
   }
 
+  async updateTitlePage(documentId, titlePageContent) {
+    return this._fetch(`/documents/${documentId}/titlepage`, {
+      method: "PUT",
+      body: JSON.stringify({ content: titlePageContent }),
+    });
+  }
+
   async createSnapshot(documentId, content, ot_version) {
     return this._fetch(`/documents/${documentId}/snapshots`, {
       method: "POST",

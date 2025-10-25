@@ -3,12 +3,13 @@ const {
   getDocument,
   createNewDocument,
   deleteDocument,
+  renameDocument,
+  updateTitlePageHandler, // Add the new handler here
   createSnapshot,
   getSteps,
   addCollaborator,
   removeCollaborator,
   getCollaborators,
-  renameDocument,
 } = require("../controllers/documentController.js");
 const { checkDocumentAccess, checkDocumentOwner } = require("./middleware.js");
 const router = express.Router();
@@ -39,5 +40,7 @@ router.delete(
 );
 
 router.get("/:id/collaborators", checkDocumentAccess, getCollaborators);
+
+router.put("/:id/titlepage", updateTitlePageHandler); // Add the new route here
 
 module.exports = router;

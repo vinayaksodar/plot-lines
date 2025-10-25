@@ -95,6 +95,11 @@ persistenceManager.on("documentLoaded", (data) => {
   }
 
   if (data.isCloud) {
+    // Add listener after document is loaded
+    titlePage.model.on("change", (newTitlePageData) => {
+      persistenceManager.debouncedSaveTitlePage(newTitlePageData);
+    });
+
     const collabPlugin = new CollabPlugin({
       userID: data.user.id,
       userMap: new Map(),
@@ -113,7 +118,13 @@ persistenceManager.on("documentCreated", (data) => {
   model.setText("");
   titlePage.model.update({});
   titlePage.render();
+
   if (data.isCloud) {
+    // Add listener after document is created
+    titlePage.model.on("change", (newTitlePageData) => {
+      persistenceManager.debouncedSaveTitlePage(newTitlePageData);
+    });
+
     const collabPlugin = new CollabPlugin({
       userID: data.user.id,
       userMap: new Map([[data.user.id, data.user.email]]),

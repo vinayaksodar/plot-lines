@@ -26,17 +26,26 @@ const Document = {
 
             const snapSql =
               "INSERT INTO snapshots (document_id, content, snapshot_version, ot_version) VALUES (?, ?, 0, 0)";
-            const initialContent = JSON.stringify([
-              { type: "action", segments: [{ text: "" }] },
-            ]);
+            const initialContent = JSON.stringify({
+                  lines: [{ type: "action", segments: [{ text: "" }] }],
+                }); // Title page removed from snapshot content
             db.run(snapSql, [docId, initialContent], (err) => {
               if (err) {
                 db.run("ROLLBACK");
                 return reject(err);
               }
-              db.run("COMMIT", (err) => {
-                if (err) return reject(err);
-                resolve({ id: docId });
+              // Insert initial empty title page
+              const titlePageSql =
+                "INSERT INTO title_pages (document_id, content) VALUES (?, ?)";
+              db.run(titlePageSql, [docId, JSON.stringify({})], (err) => {
+                if (err) {
+                  db.run("ROLLBACK");
+                  return reject(err);
+                }
+                db.run("COMMIT", (err) => {
+                  if (err) return reject(err);
+                  resolve({ id: docId });
+                });
               });
             });
           });
@@ -68,9 +77,11 @@ const Document = {
           d.name, 
           s.content, 
           s.snapshot_version, 
-          s.ot_version as snapshot_ot_version
+          s.ot_version as snapshot_ot_version,
+          tp.content as title_page_content
         FROM documents d
         LEFT JOIN snapshots s ON d.id = s.document_id
+        LEFT JOIN title_pages tp ON d.id = tp.document_id
         WHERE d.id = ?
         ORDER BY s.snapshot_version DESC
         LIMIT 1;
@@ -79,6 +90,12 @@ const Document = {
         const docRow = await new Promise((res, rej) => {
           db.get(docSql, [id], (err, row) => {
             if (err) return rej(err);
+            if (row && row.title_page_content) {
+              row.titlePage = JSON.parse(row.title_page_content);
+              delete row.title_page_content; // Clean up the raw content
+            } else if (row) {
+              row.titlePage = {}; // Ensure titlePage is always an object
+            }
             res(row);
           });
         });
@@ -138,6 +155,12 @@ const Document = {
             return reject(err);
           }
         });
+        db.run("DELETE FROM title_pages WHERE document_id = ?", id, (err) => {
+          if (err) {
+            db.run("ROLLBACK");
+            return reject(err);
+          }
+        });
         db.run(
           "DELETE FROM document_users WHERE document_id = ?",
           id,
@@ -166,6 +189,16 @@ const Document = {
     return new Promise((resolve, reject) => {
       const sql = "UPDATE documents SET name = ? WHERE id = ?";
       db.run(sql, [name, id], function (err) {
+        if (err) return reject(err);
+        resolve({ changes: this.changes });
+      });
+    });
+  },
+
+  updateTitlePage: (documentId, titlePageContent) => {
+    return new Promise((resolve, reject) => {
+      const sql = "INSERT OR REPLACE INTO title_pages (document_id, content) VALUES (?, ?)";
+      db.run(sql, [documentId, JSON.stringify(titlePageContent)], function (err) {
         if (err) return reject(err);
         resolve({ changes: this.changes });
       });

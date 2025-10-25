@@ -127,25 +127,40 @@ const removeCollaborator = async (req, res) => {
   }
 };
 
-const renameDocument = async (req, res) => {
-  const { name } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: "New name is required." });
-  }
+  const renameDocument = async (req, res) => {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: "New name is required." });
+    }
 
-  try {
-    await Document.rename(req.params.id, name);
-    res.json({ message: "success" });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to rename document." });
-  }
-};
+    try {
+      await Document.rename(req.params.id, name);
+      res.json({ message: "success" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to rename document." });
+    }
+  };
+
+  const updateTitlePageHandler = async (req, res) => {
+    const { content } = req.body;
+    if (content === undefined) {
+      return res.status(400).json({ error: "Title page content is required." });
+    }
+
+    try {
+      await Document.updateTitlePage(req.params.id, content);
+      res.json({ message: "success" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update title page." });
+    }
+  };
 
 module.exports = {
   getDocument,
   createNewDocument,
   deleteDocument,
   renameDocument,
+  updateTitlePageHandler, // Add the new handler here
   createSnapshot,
   getSteps,
   addCollaborator,

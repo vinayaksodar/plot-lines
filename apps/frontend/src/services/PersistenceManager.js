@@ -6,6 +6,16 @@ import { CloudPersistence } from "./CloudPersistence.js";
 import { CollabService } from "./CollabService.js";
 import { createFileManagerModal } from "../components/FileManagerModal/FileManagerModal.js";
 
+// Debounce utility function
+function debounce(func, delay) {
+  let timeout;
+  return function (...args) {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), delay);
+  };
+}
+
 export class PersistenceManager {
   constructor(getTitlePageData) {
     this.getTitlePageData = getTitlePageData;
@@ -21,6 +31,12 @@ export class PersistenceManager {
 
     this.getCollabPlugin = null;
     this.getCursorPos = null;
+
+    // Debounce the actual saveTitlePage logic
+    this.debouncedSaveTitlePage = debounce(
+      this._saveTitlePageInternal.bind(this),
+      1000,
+    );
   }
 
   setEditorAccessors({ getCollabPlugin, getCursorPos }) {
@@ -47,20 +63,20 @@ export class PersistenceManager {
 
   async handleSaveRequest(data) {
     try {
-      const content = JSON.stringify(data.lines);
-      const titlePage = this.getTitlePageData();
-
-      if (this.isCloudDocument) {
-        this.showToast("Cloud documents are saved automatically.");
-      } else {
+      // For cloud documents, saving is handled by auto-snapshot and separate title page save.
+      // This method now only handles local document saves.
+      if (!this.isCloudDocument) {
+        const content = JSON.stringify(data.lines);
         await this.localPersistence.save({
           documentId: this.documentId,
           fileName: this.documentName,
           content,
-          titlePage,
+          titlePage: data.titlePage,
         });
+        this.showToast("Saved successfully");
+      } else {
+        this.showToast("Cloud documents are auto-saved.", "info");
       }
-      this.showToast("Saved successfully");
     } catch (e) {
       console.error("Save failed:", e);
       this.showToast("Save failed", "error");
@@ -72,7 +88,6 @@ export class PersistenceManager {
       const documentId = this.documentId.replace("cloud-", "");
       const content = JSON.stringify({
         lines: lines,
-        titlePage: this.getTitlePageData(),
       });
       try {
         await this.cloudPersistence.createSnapshot(
@@ -83,6 +98,23 @@ export class PersistenceManager {
       } catch (e) {
         console.error("Auto-snapshot failed:", e);
         this.showToast("Auto-snapshot failed", "error");
+      }
+    }
+  }
+
+  async _saveTitlePageInternal(titlePageContent) {
+    // Renamed
+    if (this.isCloudDocument) {
+      const documentId = this.documentId.replace("cloud-", "");
+      try {
+        await this.cloudPersistence.updateTitlePage(
+          documentId,
+          titlePageContent,
+        );
+        // this.showToast("Title page saved");
+      } catch (e) {
+        console.error("Title page save failed:", e);
+        this.showToast("Title page save failed", "error");
       }
     }
   }
@@ -161,6 +193,7 @@ export class PersistenceManager {
         // Emit document loaded with initial snapshot content
         this.emit("documentLoaded", {
           ...payload,
+          titlePage: doc.titlePage, // Include the titlePage
           ot_version: doc.snapshot_ot_version,
           isCloud: true,
           user,

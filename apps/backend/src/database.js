@@ -40,6 +40,12 @@ let db = new sqlite3.Database(DBSOURCE, (err) => {
                 FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE
             )`);
 
+      db.run(`CREATE TABLE IF NOT EXISTS title_pages (
+                document_id INTEGER PRIMARY KEY,
+                content TEXT,
+                FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE
+            )`);
+
       db.run(`CREATE TABLE IF NOT EXISTS ot_steps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id INTEGER NOT NULL,
