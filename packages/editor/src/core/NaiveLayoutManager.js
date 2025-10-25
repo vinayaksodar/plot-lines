@@ -26,6 +26,16 @@ class NaiveLayoutManager {
       page.lines.length >= 2 &&
       this.getLineType(page.lines[page.lines.length - 2].index) === "character"
     ) {
+      const nextIdx = lastIdx + 1;
+      if (nextIdx < this.getNumLines()) {
+        const nextHeight = this.getLineHeight(nextIdx);
+        if (remainingSpace < nextHeight) {
+          return [
+            page.lines[page.lines.length - 2], // character
+            lastLine, // parenthetical
+          ];
+        }
+      }
       const required = this.getLineHeight(lastIdx);
       if (remainingSpace < required) {
         return [
@@ -37,11 +47,6 @@ class NaiveLayoutManager {
 
     // --- Rule B: character rules
     if (lastType === "character") {
-      const required = this.getLineHeight(lastIdx);
-      if (remainingSpace < required) {
-        return [lastLine];
-      }
-
       // Special case: character + dialogue must stay together
       const nextIdx = lastIdx + 1;
       if (
@@ -53,25 +58,22 @@ class NaiveLayoutManager {
           return [lastLine]; // mark character as orphan → move with dialogue next page
         }
       }
+      const required = this.getLineHeight(lastIdx);
+      if (remainingSpace < required) {
+        return [lastLine];
+      }
     }
 
     // --- Rule C: scene-heading rules
     if (lastType === "scene-heading") {
-      const required = 2 * this.getLineHeight(lastIdx);
-      if (remainingSpace < required) {
+      const nextIdx = lastIdx + 1;
+      if (nextIdx < this.getNumLines()) {
         return [lastLine];
       }
 
-      // Hard-coded exception: scene-heading + character
-      const nextIdx = lastIdx + 1;
-      if (
-        nextIdx < this.getNumLines() &&
-        this.getLineType(nextIdx) === "character"
-      ) {
-        const nextHeight = this.getLineHeight(nextIdx);
-        if (remainingSpace < nextHeight) {
-          return [lastLine]; // move heading so it stays with next char
-        }
+      const required = 2 * this.getLineHeight(lastIdx);
+      if (remainingSpace < required) {
+        return [lastLine];
       }
     }
 
