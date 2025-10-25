@@ -3,6 +3,7 @@ export { EditorController } from "./core/EditorController.js";
 export { EditorModel } from "./core/EditorModel.js";
 export { EditorView } from "./core/EditorView.js";
 export { UndoManager } from "./core/undoManager.js";
+export { NaiveLayoutManager } from "./core/NaiveLayoutManager.js";
 export * from "./core/cursor.js";
 
 // Handlers

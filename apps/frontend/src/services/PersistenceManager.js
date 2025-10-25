@@ -1,5 +1,6 @@
 import { CollabPlugin } from "@plot-lines/editor";
 import { FountainParser } from "./FountainParser.js";
+import { PdfExportService } from "./PdfExportService.js";
 import { authService } from "./Auth.js";
 import { LocalPersistence } from "./LocalPersistence.js";
 import { CloudPersistence } from "./CloudPersistence.js";
@@ -39,9 +40,10 @@ export class PersistenceManager {
     );
   }
 
-  setEditorAccessors({ getCollabPlugin, getCursorPos }) {
+  setEditorAccessors({ getCollabPlugin, getCursorPos, getEditorView }) {
     this.getCollabPlugin = getCollabPlugin;
     this.getCursorPos = getCursorPos;
+    this.getEditorView = getEditorView;
   }
 
   on(event, callback) {
@@ -314,6 +316,18 @@ export class PersistenceManager {
       URL.revokeObjectURL(url);
     } else {
       throw new Error(`Export for format ${format} is not supported.`);
+    }
+  }
+
+  async exportPdf() {
+    try {
+      const editorView = this.getEditorView();
+      const pdfExportService = new PdfExportService(editorView);
+      await pdfExportService.exportPdf();
+      this.showToast("PDF exported successfully!", "success");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      this.showToast("Error exporting PDF.", "error");
     }
   }
 

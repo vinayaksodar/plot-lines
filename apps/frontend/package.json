@@ -10,7 +10,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@plot-lines/editor": "*"
+    "@plot-lines/editor": "*",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "vite": "^7.0.4",

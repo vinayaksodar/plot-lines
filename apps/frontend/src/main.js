@@ -52,6 +52,7 @@ persistenceManager.setEditorAccessors({
   getCollabPlugin: () =>
     controller.plugins.find((p) => p.constructor.name === "CollabPlugin"),
   getCursorPos: () => controller.model.getCursorPos(),
+  getEditorView: () => view,
 });
 
 // --- Statistics View ---
@@ -162,6 +163,9 @@ const menuConfig = {
     "Export Fountain": () => {
       const data = { lines: model.lines, titlePage: titlePage.model.getData() };
       persistenceManager.export("fountain", data);
+    },
+    "Export PDF": async () => {
+      await persistenceManager.exportPdf();
     },
     hr2: "hr",
     "Manage Files": () => persistenceManager.manage(),
