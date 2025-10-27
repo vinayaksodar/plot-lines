@@ -6,6 +6,7 @@ import { LocalPersistence } from "./LocalPersistence.js";
 import { CloudPersistence } from "./CloudPersistence.js";
 import { CollabService } from "./CollabService.js";
 import { createFileManagerModal } from "../components/FileManagerModal/FileManagerModal.js";
+import ToastService from "./ToastService.js";
 
 // Debounce utility function
 function debounce(func, delay) {
@@ -75,13 +76,13 @@ export class PersistenceManager {
           content,
           titlePage: data.titlePage,
         });
-        this.showToast("Saved successfully");
+        ToastService.showToast("Saved successfully");
       } else {
-        this.showToast("Cloud documents are auto-saved.", "info");
+        ToastService.showToast("Cloud documents are auto-saved.", "info");
       }
     } catch (e) {
       console.error("Save failed:", e);
-      this.showToast("Save failed", "error");
+      ToastService.showToast("Save failed", "error");
     }
   }
 
@@ -99,7 +100,7 @@ export class PersistenceManager {
         );
       } catch (e) {
         console.error("Auto-snapshot failed:", e);
-        this.showToast("Auto-snapshot failed", "error");
+        ToastService.showToast("Auto-snapshot failed", "error");
       }
     }
   }
@@ -116,7 +117,7 @@ export class PersistenceManager {
         // this.showToast("Title page saved");
       } catch (e) {
         console.error("Title page save failed:", e);
-        this.showToast("Title page save failed", "error");
+        ToastService.showToast("Title page save failed", "error");
       }
     }
   }
@@ -261,7 +262,7 @@ export class PersistenceManager {
   async rename() {
     const oldId = this.documentId;
     if (!oldId) {
-      this.showToast("Cannot rename an unsaved document", "error");
+      ToastService.showToast("Cannot rename an unsaved document", "error");
       return;
     }
 
@@ -277,10 +278,10 @@ export class PersistenceManager {
           await this.localPersistence.rename(oldId, newName);
         }
         this.documentName = newName;
-        this.showToast("Renamed successfully");
+        ToastService.showToast("Renamed successfully");
       } catch (e) {
         console.error("Rename failed:", e);
-        this.showToast("Rename failed", "error");
+        ToastService.showToast("Rename failed", "error");
       }
     }
   }
@@ -299,7 +300,7 @@ export class PersistenceManager {
       this.manage();
     } catch (error) {
       console.error("Failed to delete file:", error);
-      this.showToast("Failed to delete file", "error");
+      ToastService.showToast("Failed to delete file", "error");
     }
   }
 
@@ -324,10 +325,10 @@ export class PersistenceManager {
       const editorView = this.getEditorView();
       const pdfExportService = new PdfExportService(editorView);
       await pdfExportService.exportPdf();
-      this.showToast("PDF exported successfully!", "success");
+      ToastService.showToast("PDF exported successfully!", "success");
     } catch (error) {
       console.error("Error exporting PDF:", error);
-      this.showToast("Error exporting PDF.", "error");
+      ToastService.showToast("Error exporting PDF.", "error");
     }
   }
 
@@ -419,23 +420,5 @@ export class PersistenceManager {
     this.isCloudDocument = false;
     this.destroyCollabService();
     this.emit("documentClosed");
-  }
-
-  showToast(message, type = "success") {
-    const toast = document.createElement("div");
-    toast.className = `toast-notification ${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-      toast.classList.add("show");
-    }, 100);
-
-    setTimeout(() => {
-      toast.classList.remove("show");
-      setTimeout(() => {
-        document.body.removeChild(toast);
-      }, 500);
-    }, 3000);
   }
 }

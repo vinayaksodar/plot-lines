@@ -19,6 +19,7 @@ import { createShareModal } from "./components/ShareModal/ShareModal.js";
 import { createWelcomeModal } from "./components/WelcomeModal/WelcomeModal.js";
 import "./components/WelcomeModal/welcomemodal.css";
 import { CloudPersistence } from "./services/CloudPersistence.js";
+import ToastService from "./services/ToastService.js";
 
 const app = document.querySelector("#app");
 
@@ -202,7 +203,7 @@ const menuConfig = {
         const modal = createShareModal(editorStub, new CloudPersistence());
         document.body.appendChild(modal);
       } else {
-        persistenceManager.showToast(
+        ToastService.showToast(
           "Manage access is only for cloud documents",
           "error",
         );

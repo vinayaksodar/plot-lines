@@ -1,3 +1,5 @@
+import ToastService from "./ToastService.js";
+
 export class CollabService {
   constructor({
     serverUrl,
@@ -18,6 +20,11 @@ export class CollabService {
     this.socket = null;
     this.pollTimeout = null;
     this.destroyed = false;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 1000;
+    this.reconnectTimer = null;
+    this.reconnectToast = null;
     this.onReceive = onReceive;
     this.onUserUpdate = onUserUpdate;
     this.documentId = documentId;
@@ -30,12 +37,22 @@ export class CollabService {
   }
 
   connect() {
+    clearTimeout(this.reconnectTimer); // Clear any pending reconnect timer
     if (this.destroyed) return;
     console.log("[CollabService] Connecting to", this.serverUrl);
     this.socket = new WebSocket(this.serverUrl);
 
     this.socket.onopen = () => {
       console.log("[CollabService] WebSocket connection established");
+      if (this.reconnectToast) {
+        ToastService.hideToast(this.reconnectToast);
+        this.reconnectToast = null;
+      }
+      if (this.reconnectAttempts > 0) {
+        ToastService.showToast("Reconnected successfully!", "success");
+      }
+      this.reconnectAttempts = 0;
+      this.reconnectDelay = 1000; // Reset delay on successful connection
     };
 
     this.socket.onmessage = async (event) => {
@@ -69,33 +86,71 @@ export class CollabService {
 
     this.socket.onclose = (event) => {
       console.log("[CollabService] WebSocket connection closed:", event);
+      if (!this.destroyed) {
+        this.reconnect();
+      }
     };
 
     this.poll();
   }
 
+  reconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      const message = `Connection lost. Reconnecting... (Attempt ${this.reconnectAttempts})`;
+      if (this.reconnectToast) {
+        this.reconnectToast.textContent = message;
+      } else {
+        this.reconnectToast = ToastService.showToast(message, "error", {
+          isPersistent: true,
+        });
+      }
+
+      this.reconnectTimer = setTimeout(() => {
+        this.connect();
+      }, this.reconnectDelay);
+      this.reconnectDelay = Math.min(10000, this.reconnectDelay * 2); // Exponential backoff
+    } else {
+      const message =
+        "Could not reconnect to the server. Please check your connection.";
+      if (this.reconnectToast) {
+        this.reconnectToast.textContent = message;
+      } else {
+        this.reconnectToast = ToastService.showToast(message, "error", {
+          isPersistent: true,
+        });
+      }
+      console.error("[CollabService] Max reconnection attempts reached.");
+    }
+  }
+
   poll() {
     if (this.destroyed) return;
-    if (this.socket.readyState === WebSocket.OPEN) {
-      const sendable = this.getSendableCommands();
-      if (sendable && sendable.steps.length > 0) {
-        // console.log("[CollabService] Sending local changes:", sendable);
-        this.send({
-          documentId: this.documentId.replace("cloud-", ""),
-          ...sendable,
-        });
-      } else {
-        const payload = {
-          documentId: this.documentId.replace("cloud-", ""),
-          ot_version: this.getOtVersion(),
-          cursor: this.getCursorPos(),
-          userID: this.getUserID(),
-          userName: this.getUserName(),
-        };
-        console.log("[CollabService] Sending poll message:", payload);
-        this.send(payload);
-      }
+
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      this.pollTimeout = setTimeout(() => this.poll(), 1000);
+      return;
     }
+
+    const sendable = this.getSendableCommands();
+    if (sendable && sendable.steps.length > 0) {
+      // console.log("[CollabService] Sending local changes:", sendable);
+      this.send({
+        documentId: this.documentId.replace("cloud-", ""),
+        ...sendable,
+      });
+    } else {
+      const payload = {
+        documentId: this.documentId.replace("cloud-", ""),
+        ot_version: this.getOtVersion(),
+        cursor: this.getCursorPos(),
+        userID: this.getUserID(),
+        userName: this.getUserName(),
+      };
+      console.log("[CollabService] Sending poll message:", payload);
+      this.send(payload);
+    }
+
     this.pollTimeout = setTimeout(() => this.poll(), 1000);
   }
 
@@ -109,6 +164,7 @@ export class CollabService {
     console.log("[CollabService] Destroying...");
     this.destroyed = true;
     clearTimeout(this.pollTimeout);
+    clearTimeout(this.reconnectTimer); // Clear the reconnect timer
     if (this.socket) {
       this.socket.close();
     }
