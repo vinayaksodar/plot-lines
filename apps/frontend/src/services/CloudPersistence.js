@@ -2,7 +2,7 @@ import { authService } from "./Auth";
 
 export class CloudPersistence {
   constructor() {
-    this.baseUrl = "http://localhost:3000/api";
+    this.baseUrl = import.meta.env.VITE_API_BASE_URL;
   }
 
   _getHeaders() {
