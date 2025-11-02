@@ -186,11 +186,22 @@ export class KeyboardHandler {
       cmd = new InsertTextCommand(richText, pos);
       this.controller.executeCommands([cmd]);
     } else if (e.key === "Enter") {
-      const prevLineType = model.lines[pos.line].type;
+      let prevLineType = model.lines[pos.line].type;
+      const lineText = model.lines[pos.line].segments
+        .map((s) => s.text)
+        .join("");
+
+      if (
+        prevLineType === "action" &&
+        lineText.toUpperCase() === lineText &&
+        lineText.trim().length > 0 &&
+        !lineText.toUpperCase().endsWith("TO:")
+      ) {
+        this.controller.handleSetLineType("character");
+        prevLineType = "character"; // Manually update it for the next step
+      }
+
       if (prevLineType === "parenthetical") {
-        const lineText = model.lines[pos.line].segments
-          .map((s) => s.text)
-          .join("");
         if (lineText.endsWith(")") && pos.ch === lineText.length - 1) {
           // Cursor is right before the closing parenthesis, move it after
           pos.ch += 1;
@@ -235,6 +246,9 @@ export class KeyboardHandler {
 
     if (cmd) {
       this._handleAutoFormatting(e.key);
+    }
+    if (e.key === "*" || e.key === "_") {
+      this._handleInlineAutoFormatting();
     }
   }
 
@@ -288,6 +302,76 @@ export class KeyboardHandler {
     return { line, ch };
   }
 
+  _handleInlineAutoFormatting() {
+    const model = this.controller.model;
+    const { line } = model.getCursorPos();
+    const currentLine = model.lines[line];
+    if (!currentLine) return;
+
+    const lineText = currentLine.segments.map((s) => s.text).join("");
+
+    // The regexes are ordered from most specific to least specific.
+    const formats = [
+      {
+        marker: "***",
+        style: { bold: true, italic: true },
+        regex: /(\*{3})([^\*]+?)(\*{3})/g,
+      },
+      {
+        marker: "**",
+        style: { bold: true, italic: false },
+        regex: /(\*{2})([^\*]+?)(\*{2})/g,
+      },
+      {
+        marker: "*",
+        style: { bold: false, italic: true },
+        regex: /(\*)([^\*]+?)(\*)/g,
+      },
+      {
+        marker: "_",
+        style: { bold: false, italic: false, underline: true },
+        regex: /(_)([^_]+?)(_)/g,
+      },
+    ];
+
+    for (const format of formats) {
+      const { style, regex } = format;
+      regex.lastIndex = 0;
+      let match;
+      while ((match = regex.exec(lineText)) !== null) {
+        const fullMatch = match[0];
+        const content = match[2];
+        const start = match.index;
+        const end = start + fullMatch.length;
+
+        // Check if the match is surrounded by the same marker, which would indicate a larger format.
+        const charBefore = lineText[start - 1];
+        const charAfter = lineText[end];
+        const markerChar = format.marker[0];
+
+        if (charBefore === markerChar || charAfter === markerChar) {
+          continue;
+        }
+
+        const deleteCmd = new DeleteTextCommand({
+          start: { line, ch: start },
+          end: { line, ch: end },
+        });
+
+        const richText = [
+          {
+            type: currentLine.type,
+            segments: [{ text: content, ...style }],
+          },
+        ];
+        const insertCmd = new InsertTextCommand(richText, { line, ch: start });
+
+        this.controller.executeBatchedCommands([deleteCmd, insertCmd]);
+        return;
+      }
+    }
+  }
+
   _handleAutoFormatting(key) {
     const model = this.controller.model;
     const { line } = model.getCursorPos();
@@ -304,6 +388,8 @@ export class KeyboardHandler {
       lineText.toUpperCase().startsWith("EXT.")
     ) {
       typeToSet = "scene-heading";
+    } else if (lineText.toUpperCase().endsWith("TO:")) {
+      typeToSet = "transition";
     }
 
     if (typeToSet && currentLine.type !== typeToSet) {
