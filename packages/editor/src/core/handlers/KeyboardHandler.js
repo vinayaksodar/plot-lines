@@ -13,7 +13,9 @@ export class KeyboardHandler {
     const model = this.controller.model;
     const isArrowKey = e.key.startsWith("Arrow");
 
-    if (e.shiftKey && isArrowKey) {
+    if (e.key === "Tab") {
+      this.handleTab(e);
+    } else if (e.shiftKey && isArrowKey) {
       this.handleArrowSelection(e);
     } else if (model.hasSelection()) {
       this.handleSelectionKeyDown(e);
@@ -25,6 +27,48 @@ export class KeyboardHandler {
 
     e.preventDefault();
     this.controller.view.render();
+  };
+
+  handleTab = (e) => {
+    const model = this.controller.model;
+    const { line } = model.getCursorPos();
+    const currentLine = model.lines[line];
+    if (!currentLine) return;
+
+    const currentType = currentLine.type;
+    let newType = null;
+
+    if (e.shiftKey) {
+      // Shift + Tab
+      switch (currentType) {
+        case "dialogue":
+          newType = "action";
+          break;
+        case "character":
+          newType = "dialogue";
+          break;
+        case "transition":
+          newType = "character";
+          break;
+      }
+    } else {
+      // Tab
+      switch (currentType) {
+        case "action":
+          newType = "dialogue";
+          break;
+        case "dialogue":
+          newType = "character";
+          break;
+        case "character":
+          newType = "transition";
+          break;
+      }
+    }
+
+    if (newType) {
+      this.controller.handleSetLineType(newType);
+    }
   };
 
   handleCopyPaste(e) {
@@ -143,6 +187,17 @@ export class KeyboardHandler {
       this.controller.executeCommands([cmd]);
     } else if (e.key === "Enter") {
       const prevLineType = model.lines[pos.line].type;
+      if (prevLineType === "parenthetical") {
+        const lineText = model.lines[pos.line].segments
+          .map((s) => s.text)
+          .join("");
+        if (lineText.endsWith(")") && pos.ch === lineText.length - 1) {
+          // Cursor is right before the closing parenthesis, move it after
+          pos.ch += 1;
+          model.updateCursor({ line: pos.line, ch: pos.ch });
+        }
+      }
+
       let newType = {
         "scene-heading": "action",
         action: "action",
@@ -244,12 +299,31 @@ export class KeyboardHandler {
     const lineText = currentLine.segments.map((s) => s.text).join("");
     let typeToSet = null;
 
-    if (lineText.startsWith("INT.") || lineText.startsWith("EXT.")) {
+    if (
+      lineText.toUpperCase().startsWith("INT.") ||
+      lineText.toUpperCase().startsWith("EXT.")
+    ) {
       typeToSet = "scene-heading";
     }
 
     if (typeToSet && currentLine.type !== typeToSet) {
       this.controller.handleSetLineType(typeToSet);
+    }
+
+    // Auto-format Parenthetical
+    if (lineText === "(") {
+      this.controller.handleSetLineType("parenthetical");
+
+      const pos = model.getCursorPos();
+      const richText = [
+        {
+          type: "parenthetical",
+          segments: [{ text: ")" }],
+        },
+      ];
+      const cmd = new InsertTextCommand(richText, pos);
+      this.controller.executeCommands([cmd]);
+      model.updateCursor({ line: pos.line, ch: pos.ch });
     }
   }
 }
