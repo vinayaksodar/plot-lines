@@ -4,6 +4,12 @@ Plot Lines is a modern, web-based editor designed for screenwriters. It provides
 
 This project is a monorepo built with vanilla JavaScript, HTML, and CSS, using Vite for a fast development experience. It's designed to be lightweight, performant, and easily extensible.
 
+## Application Screenshots
+
+![Screenshot 1](docs/images/screenshot-light.png)
+![Screenshot 2](docs/images/screenshot-dark.png)
+![Screenshot 3](docs/images/screenshot-manage-files.png)
+
 ## Features
 
 - **Real-Time Collaboration:** For cloud-based documents, you can write with your team in real-time. Changes are synchronized instantly between all collaborators using an Operational Transformation (OT) engine.
