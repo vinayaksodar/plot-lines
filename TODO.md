@@ -6,3 +6,10 @@ add support for multiple languages
 add support for right to left languages
 add mobile support
 add ai integration similar to claude code will need to create a new plugin that inserts ghost text
+
+immediate fixes
+fix inserting char at start of line moving to end of line.
+fix bold itallic etc continuing even after \*\* closure.
+add favicon
+add svg to toolbar for different element types
+fix hide toolbar
