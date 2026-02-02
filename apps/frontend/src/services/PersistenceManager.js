@@ -236,7 +236,7 @@ export class PersistenceManager {
     if (!collabPlugin) return;
 
     this.collabService = new CollabService({
-      serverUrl: "ws://localhost:3000",
+      serverUrl: import.meta.env.VITE_WS_URL || "ws://localhost:3000",
       backendManager: this.cloudPersistence,
       persistenceManager: this,
       documentId: this.documentId,

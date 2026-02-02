@@ -6,7 +6,7 @@ const app = require("./app");
 const { setupCollaboration } = require("./websockets/collaboration");
 
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, path: "/ws" });
 
 const port = 3000;
 
