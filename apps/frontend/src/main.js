@@ -51,7 +51,7 @@ const persistenceManager = new PersistenceManager(() =>
 
 persistenceManager.setEditorAccessors({
   getCollabPlugin: () =>
-    controller.plugins.find((p) => p.constructor.name === "CollabPlugin"),
+    controller.plugins.find((p) => p instanceof CollabPlugin),
   getCursorPos: () => controller.model.getCursorPos(),
   getEditorView: () => view,
 });
